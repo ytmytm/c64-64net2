@@ -52,6 +52,7 @@ BUGS:
 - opening "$name*" should show all files within current directory with 'name*' globbing
 - WINDOWS target has problems with ufs (names), BLOCKS FREE is unimplemented
 - WINDOWS target needs checking network stuff, WSAStartup needs to be called
+- saving file that ends with "L" will result in an empty REL file
 
 MODULE VERSION ISSUES
 - device and module name is 'fastpc' (ask me why :-), MAJOR number is dynamically
@@ -307,3 +308,49 @@ CHANGES:
 30.7.2000
     * synchronized with sourceforge CVS - license updates (documentation/README and comm-lpt.c)
       and 64netrc cleaned up and commented
+
+;-------------------------------------------------------------------------------
+
+20.09.2001
+
+This is just a little example about writting Internet programs
+with 64net/2. This little program opens SMTP port on host
+running 64net/2 and allows to '1' read a string from port,
+'2' end program, '3' send command (help) to server.
+It is important that data flow direction and data number
+is always correct because current implementation will
+lock if data is not present.
+
+More complete mail agent is in wedge/mailsend.bas
+
+E.g. here the correct way of using this little example is to:
+'1' - read SMTP server status
+'3' - send command (HELP)
+'1' - read server response
+'2' - end (or you can go back to '3')
+
+Server responses are always ended with CR=13 and commands sent
+have LF=10 there. NOTE that print# has semicolon at the end.
+INPUT# could be a faster alternative, but somehow it does not
+read whole line e.g. '214 qmail home page: http://pobox....'
+becomes only '214 qmail home page'. Anyway, it is enough to
+get errorcodes from first three digit charaters.
+
+   10 open15,10,15,"cd3:/server/services/"
+   20 close15
+   30 open1,10,1,"3:smtp,n"
+   40 print"1. string, 2. end, 3. help"
+   45 ifstthenclose1:end
+   50 geta$:ifa$=""then50
+   60 ifa$="1"thengosub100:printa$:goto40
+   70 ifa$="2"thenclose1:end
+   80 ifa$="3"thenprint#1,"help";chr$(10);:goto40
+   98 :
+   99 rem read a string from channel
+  100 a$="":
+  105 ifstthenreturn
+  110 get#1,b$:ifb$=""thenb$=chr$(0)
+  120 ifasc(b$)=10thena$=a$+chr$(13)
+  125 ifasc(b$)=13thenreturn
+  130 a$=a$+b$:goto105
+

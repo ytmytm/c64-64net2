@@ -5,6 +5,9 @@
 	* removed bug that prevented media_NET from displaying directory
 	* media_NET seems to work, disabled O_NONBLOCK setting mode that
 	  caused errors in 64shell, maybe need to reenable it again later
+	* written BASIC example for media_NET - mailsend
+	* media_NET closes file after client disconnect
+	* made system somewhat more quiet
 
 2001-09-19  
 	* after LOAD endadress is reported correctly

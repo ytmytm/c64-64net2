@@ -1,0 +1,114 @@
+
+Maciej <ytm@elysium> Witkowiak
+20.09.2001
+
+This is a simple 64net/2 InterNet subsystem example that is
+able to send a e-mail messages through the network.
+It is incomplete (PETSCII->ASCII conversion would be good),
+but complete enough to compose and send a standard e-mail
+message. As you see it is complete in BASIC 2.0. Suprisingly
+it is FAST :)
+
+Configuration stuff is at start:
+These variables must contain 'server' or IP in form 'a/b/c/d' e.g. '127/0/0/1'
+for localhost
+sm$ == smpt server
+p3$ == pop3 server
+ua$ == from address
+um$ == from name
+dev == 64net/2 devnum
+par == 64net/2 InterNet partition (the one that has @/ in config file)
+
+It lacks these things:
+- errorcodes returned by server are displayed only (no error checking)
+- to ASCII conversion
+- message body can't contain commas and whitespace-only lines
+
+Around line 500 there is a slow subroutine that gets server
+response but input# is way faster. GOSUB500 is not used.
+
+mailsend.bas ==0801==
+    2 sm$="server":p3$="server"
+    4 ua$="ytm@elysium.pl":um$="Maciej Witkowiak"
+    6 dev=10
+    7 par=3
+   90 p$=str$(par)
+   92 pa$=right$(p$,len(p$)-1)
+  100 print"(clr)welcome to ytmail, a first"
+  102 print"email client for c64/128 ever"
+  104 print
+  106 print"powered by 64net/2":print
+  108 print"current settings:
+  110 print"smtp host:";sm$:print"pop3 host:";p3$
+  112 print"name: ";um$:printtab(6)"<";ua$;">":print
+  114 print"select option:"
+  116 print"1. read mail"
+  118 print"2. sent mail"
+  120 print"3. quit"
+  125 geto$:ifo$=""then125
+  130 ifo$="3"thenclose1:end
+  135 ifo$="2"thengosub1000:goto100
+  140 ifo$="1"thengosub2000:goto100
+  499 :
+  500 rem get string from server
+  501 a$=""
+  505 get#1,b$:ifb$=""thenb$=chr$(0)
+  510 ifb$=chr$(13)thenreturn
+  515 ifb$=chr$(10)thenb$=chr$(13)
+  520 a$=a$+b$:goto505
+  999 :
+ 1000 rem sending mail
+ 1002 :
+ 1004 print"(clr)"
+ 1006 print"enter smtp name (empty if default)"
+ 1008 inputs$:ifs$=""thens$=sm$
+ 1010 print"from (empty if default)"
+ 1012 inputf$:iff$=""thenf$=um$+" <"+ua$+">"
+ 1014 print"to:":inputt$
+ 1016 ift$=""then1014
+ 1020 print:print"about to connect to:";s$
+ 1025 print"to sent email to:";t$
+ 1030 print"ok? (y/n/a)"
+ 1035 geto$:ifo$=""then1035
+ 1037 ifo$="y"oro$="Y"then1040
+ 1038 ifo$="a"thenreturn
+ 1039 goto1000
+ 1040 print"connecting..."
+ 1041 cd$="cd"+pa$+":/"+s$+"/services/"
+ 1042 printcd$:open15,dev,15,cd$:close15
+ 1049 cd$=pa$+":smtp,n"
+ 1050 open1,dev,1,cd$
+ 1051 ifstthen1900
+ 1052 a$=""
+ 1055 input#1,a$:printa$:ifstthen1900
+ 1060 print#1,"mail from:";f$;chr$(10);
+ 1065 input#1,a$:printa$
+ 1070 print#1,"rcpt to:";t$;chr$(10);
+ 1075 input#1,a$:printa$
+ 1080 print#1,"data";chr$(10);
+ 1085 input#1,a$:printa$
+ 1090 print#1,"x-user-agent: ytmail 1.0";chr$(13);chr$(10);
+ 1093 print#1,"from: ";f$;chr$(13);chr$(10);
+ 1095 print"subject:":inputa$
+ 1100 print#1,"subject:";a$;chr$(13);chr$(10);chr$(13);chr$(10);
+ 1105 print"now enter body of message."
+ 1110 print"end it with an empty line"
+ 1115 print"data is sent line by line"
+ 1117 a$=""
+ 1120 inputa$:ifa$=""then1200
+ 1125 print#1,a$;chr$(13);chr$(10);
+ 1130 goto1117
+ 1200 print#1,".";chr$(13);chr$(10);
+ 1205 input#1,a$:printa$
+ 1210 print#1,"quit";chr$(10);
+ 1215 input#1,a$:printa$
+ 1900 print"exit to main menu - any key"
+ 1902 geto$:ifo$=""then1902
+ 1905 close1:return
+ 1999 :
+ 2000 rem reading mail
+ 2002 :
+ 2004 print"sorry, uninmplemented yet"
+ 2006 geto$:ifo$=""then2006
+ 2008 return
+

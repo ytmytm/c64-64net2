@@ -269,8 +269,10 @@ int commune (void)
     case UNLISTEN:
     case UNTALK:
 	{
+#ifdef DEBUG
 	    if (a==UNLISTEN) debug_msg ("Unlisten call on channel %i\n",listenlf & 0x0f);
 	    if (a==UNTALK) debug_msg ("Untalk call on channel %i\n",talklf & 0x0f);
+#endif
 	    /* untalk/unlisten system call, lower all talk flags, close files, (send error?) */
 	    /* ATN+0x5f */
 	    lastlf = (a==UNLISTEN) ? listenlf : talklf;

@@ -665,7 +665,9 @@ void do_chkinout(int type) {
 		dev = c64peek(DEVTABLE+i);
 		sa  = c64peek(SATABLE+i);
 		if (dev==devnum) {
+#ifdef DEBUG
 		    debug_msg("chkin/out on 64net/2 device\n");
+#endif
 		    sa  = c64peek(SATABLE+i);
 		    c64poke(0xba, dev);
 		    c64poke(0xb9, sa);

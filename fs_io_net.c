@@ -182,16 +182,17 @@ fs_net_readchar (fs64_file * f, uchar *c)
 		    {
 		      if (net_errno) perror ("64net/2");
 		      debug_msg ("Closing file (%d)\n", net_errno);
-		      closesocket (f->socket);
-		      f->open = 0;
+		      fs_net_closefile(f);
+//		      closesocket (f->socket);
+//		      f->open = 0;
 		      *c = 199;
 		      return (-1);
 		    }
 		}
 	      else
-		{
-		  *c = 0x00;
-		  return (2);
+		{ /* remote end disconnected */
+		  *c = 199;
+		  return (-1);
 		}
 	    }
 	  return (0);
