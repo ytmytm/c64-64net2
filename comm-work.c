@@ -166,8 +166,7 @@ void do_open(int secaddr)
 			       filename, &logical_files[file_unit][sa]))
 	{
 	  /* open failed */
-	  sendchar (0);
-//	  sendchar (4);	/* file not found */
+	  sendchar (4);	/* file not found */
 	}
 	else {
 	  /* release c64 end */

@@ -68,15 +68,19 @@ BUGS:
 + if secondary address is >128 then file isn't really opened, just return w/o error, doing nothing;
   this is handled by Kernal, but worth knowing for wedge
 - why is STATUS ignored in wedge UNLISTEN? File Not Found for OPEN cannot be reported because of that
+    (fix: read above about untalk and status; maybe only untalk should ignore it?)
 - networking: there must be support for blocking/non-blocking sockets (secondary address in OPEN
-  can serve as indicator whether local driver should block or non-block and return status in $90)
-- need to check M-[RW] commands, perhaps setup first 8k with some values, and last 16k with ROM image
+  can serve as indicator whether local driver should block or non-block and return status
+  OK/EAGAIN in $90)
+- need to check M-[RW] commands, perhaps setup first 8k with some values, and last 16k with ROM
+  image
 - networking: adresses should be either in form of: /127/000/000/001/ or
   /{chr$(127)}/{chr$(0)}/{chr$(0)}/{chr$(1)}/ so you always know which one is
   in effect (for each level 3 digits or 1 byte) BUT the 2nd form can contain zeroes!!!
   (should all numbers be increased by '1'?)
 - networking: name resolving: /www.someserver.com/ should be detected
   (>3 bytes for top level and unknown string) and passed to system DNS resolver
+- LNG ls shows some files or none (can't see pattern here)
 
 IDEAS:
     + add time&date low level commands
@@ -87,8 +91,6 @@ IDEAS:
       i/o, needs special treatment for fastblocksend/get
       (or throw it everything out, this is faster anyway)
     * support for gzipped files (.d64.gz, .n64.gz etc.)
-	(use avfs or include it or incorporate or something)
-	(see VICE sources for inspiration)
 	(easy - make a temporary file, decompress data there and pass file handle via fopen wrapper,
 	 with fclose wrapper compression can be done upon closing the file)
     * make log option (redirect stdout to a file) in config file
@@ -114,6 +116,7 @@ IDEAS:
       capabilities as REU, and printer driver
 
 TODO
+    * write docs with all DOS commands
     * make wedge ROMable (it won't change much, all functionality is there)
     + merge wedge and wedge-ser
     + replace ftime call in datestamp.c by gettimeofday - ftime is obsoleted in BSD for some reason
