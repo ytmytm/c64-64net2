@@ -8,15 +8,17 @@
 
 #include "fs.h"
 #include "machdep.h"
+#include "comm-work.h"
+#include "fs_accel.h"
 
 /* simulated RAM expander */
 int georam_size=0;
-uchar *georam;
+unsigned char *georam;
 
 int
-fs_accel (void)
+fs_accel (unsigned char command)
 {
-  int p=0, t, s;
+  int p=0, t, s, i, n;
   unsigned char buff[256];
   unsigned char *page;
   fs64_filesystem filesys;
@@ -24,10 +26,11 @@ fs_accel (void)
 
   last_unit = 0;
 
-  switch (charget ())
-  {
-  case 'I':
-    /* read memory page */
+  switch (command) {
+
+  case FSA_READ_PAGE:
+  case FSA_READ_MEMORY:
+    if (command==FSA_READ_MEMORY) n=charget()+1; else n=256;
     p = charget ();
     p += charget () * 256;
     if (p < georam_size)
@@ -37,10 +40,14 @@ fs_accel (void)
       /* dud page */
       page = &buff[0];
     /* send it! */
-    fishsendblock (256, buff);
+    if (allowFishLoad) fishsendblock (n, buff);
+	else
+	for (i=0;i<n;i++) sendchar(buff[i]);
     return (0);
-  case 'O':
-    /* write memory page */
+
+  case FSA_WRITE_PAGE:
+  case FSA_WRITE_MEMORY:
+    if (command==FSA_WRITE_MEMORY) n=charget()+1; else n=256;
     p = charget ();
     p += charget () * 256;
     if (p < georam_size)
@@ -50,15 +57,17 @@ fs_accel (void)
       /* dud page */
       page = &buff[0];
     /* send it! */
-    fishgetblock (256, buff);
+    if (allowFishSave) fishgetblock (n, buff);
+	else
+	for (i=0;i<n;i++) buff[i]=charget();
     return (0);
-  case 'S':
-    /* size memory */
+
+  case FSA_SIZE_MEMORY:
     sendchar (georam_size & 0xff);
     sendchar (georam_size / 256);
     return (0);
-  case 'R':
-    /* read sector */
+
+  case FSA_READ_SECTOR:
     /* get parameters */
     p = charget ();
     t = charget ();
@@ -107,10 +116,13 @@ fs_accel (void)
     }
     fclose (filesys.fsfile);
     filesys.fsfile = 0;
-    fishsendblock (256, buff);
+    sendchar(0);	/* no error */
+    if (allowFishLoad) fishsendblock (256, buff);
+	else
+	for (i=0;i<256;i++) sendchar(buff[i]);
     return (0);
-  case 'W':
-    /* write sector */
+
+  case FSA_WRITE_SECTOR:
     /* get parameters */
     p = charget ();
     t = charget ();
@@ -148,20 +160,25 @@ fs_accel (void)
       sendchar (74);
       return (-1);
     }
-    fishgetblock (256, buff);
+    sendchar(0);	/* no error so far */
+    if (allowFishSave) fishgetblock (256, buff);
+	else
+	for (i=0;i<256;i++) buff[i]=charget();
     /* write it */
     if (writets (&filesys, t, s, buff))
     {
       /* barf! (write error) */
-      /* BUG: how can GEOS tell??? */
+      sendchar(28);
       fclose (filesys.fsfile);
       filesys.fsfile = 0;
       return (-1);
     }
+    sendchar(0);
     fclose (filesys.fsfile);
     filesys.fsfile = 0;
     return (0);
-  case 'P':
+
+  case FSA_PAR_INFO:
     /* get partition info (ie media type) */
     if (!curr_dir[last_unit][p][0])
     {

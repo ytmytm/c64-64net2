@@ -211,6 +211,8 @@ void do_save(void) {
 	c64print ("\rSAVING ");
 	c64print (filename);
 
+	client_turbo_speed();
+
 	/* search for file */
 	gettimer (&s, &ms);
 	last_unit = 0;
@@ -287,6 +289,9 @@ void do_save(void) {
 	    }
 	  startaddr += bc;
 	}
+
+	client_normal_speed();
+
 	debug_msg ("Closing save file\n");
 	fs64_closefile_g (&savefile);
 
@@ -493,9 +498,7 @@ void do_load(void)
 	printf ("Disconnecting 64\n");
 #endif
 
-/* #ifndef DEBUG  */
 	client_normal_speed ();
-/* #endif */
 	{
 	  int s2, ms2;
 	  gettimer (&s2, &ms2);

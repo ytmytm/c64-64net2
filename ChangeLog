@@ -1,3 +1,7 @@
+2001-04-15  
+
+	* fs_accel fixes and extensions
+
 2001-04-13  
 
 	* fixed save (works), promoted to v0.8, load&save have Action Replay-like

@@ -24,12 +24,13 @@ BUGS:
   (unless some kind of directory emulation on sector level is already implemented), returning
   EOF or error should be enough; for dxx there's fs_dxx_finddirblock
     (almost done, everything is regenerated now)
++ possible bug in fs_accel, read sector - if successful should send 0 (noerror) and then fishsend
+  same for following write sector, if not successful - only send errorcode
+    (fixed)
 ~ new wedge Kernal emulation stuff is broken, luckily open1,1,15,"command" works...
-    (almost fixed)
+    (almost fixed, move almost all into server side)
 - fishsave doesn't work (as it is stated - on Linux), don't know, maybe whole
-  fishsend is broken (original version)
-- possible bug in fs_accel, read sector - if successful should send 0 (noerror) and then fishsend
-  same for following write sector
+  fishsend is broken (original version), fishload seems to be buggy on my c128
 - if secondary address is >128 then file isn't really opened, just return w/o error, doing nothing;
   this is handled by Kernal, but worth knowing for wedge
 - opening "$name*" should show all files within current directory with 'name*' globbing
@@ -40,13 +41,14 @@ BUGS:
   (this should also fix the error above)
 - something connected with two above errors - $90 should be asserted _when_ last byte is sent,
   not with next call IMO, but it is still unclear
-- save has wrong endaddress with Action Replay, don't know why
+- endaddress seems to be wrong when saving from within active Action Replay, don't know why
 
 MODULE VERSION ISSUES
 - device and module name is 'fastpc' (ask me why :-), MAJOR number is dynamically
   allocated, but always shows 254 on my system, and this seems to be constant and good
   value, position of device file is defined at top of machdep-lin.c (in case you'll want
   to create such a device in /dev directory)
+  (nah, don't play with it, register yourself in misc (like cbm driver))
 - losting strobe/flag2 in module version will most probably result in locking
   machine with server (process can't be killed, it is sleeping in kernel space)
   However I experienced this few times today, there are two possible solutions
@@ -76,7 +78,7 @@ IDEAS:
 	(simple hook done in debug.h)
     * replace all printf by macros and separate debug messages from log messages
     * make fishxxxx turned on/off in config file
-    * use dynamically allocated memory for tables to reduce executables size
+    * use dynamically allocated memory for tables
     + move fs stuff into static/shared library (local) and link executabels against it
     + wedge works as device #1, should get it from server upon boot
 	+ update 'B' command for this purpose
@@ -85,10 +87,14 @@ IDEAS:
     * find all places where last_unit / last_device is used and replace by proper function
       or dummy one, take devnum into account
     * move as much functionality as possible from wedge into host (with c64peek/poke)
-	(do it when everything will work)
+	(do it when everything will work), need alternative commands, as those low-level
+	are utilized by LNG 64net/2 driver
+    * C= needs only a small wedge that will send 'B'oot command and receive the correct
+      (whole) wedge e.g. with features or detected architecture
 
 TODO
     * write code for VERIFY
+    * fix fishload/save (load often blocks on my C128)
     * write GEOS wedge (was it disk driver or REU exp. handler replacement?)
 	- REU replacement, i/o whole pages (should work for RAMdisk)
 	- true disk emulation via dhd or alike, with real disk driver code
@@ -106,8 +112,8 @@ TODO
     	    + tested, works
       - try to use native data (w/o recreating) on image filesystems
     + update LOAD and SAVE code in server
-	+ check load (fishload can be broken)
-	- check save
+	+ check load
+	+ check save
     + write new version of wedge (regarding listen/second etc)
 	+ wedge (as now - ROM/RAM switch/vectors in $0340-$03ff, code in upper RAM)
 	- ROM patch (running in EPROM or copy in RAM)
@@ -118,6 +124,7 @@ HOST FUNCTIONS LIST
 > (c64 send), < (c64 receive), | (back to command loop), X (eXit)
 ------------------------------------------------------------------------------------
 KERNAL:
+(lowlevel versions - for use with bigger wedge or LNG)
 listen	'W'	>devnum, X
 second	'A'	>secaddr, X
 ciout	'G'	>data, X
@@ -138,12 +145,14 @@ devcheck'?'	>devnum, <{0,1}, X
 fsaccel	'F'
 opendisable 'K'	X
 
-FS_ACCEL:
+FS_ACCEL: (prefix 'F')
 read	'I'	>pagel, >pageh, <page[256]
+readmem	'H'	>bytes, >pagel, >pageh, <page[256]
 write	'O'	>pagel, >pageh, >page[256]
+writemem'N'	>bytes, >pagel, >pageh, >page[256]
 size	'S'	<sizel, <sizeh
-readsec	'R'	>p, >t, >s, <error || <page[256]
-writesec'W'	>p, >t, >s, <error || >page[256]
+readsec	'R'	>p, >t, >s, <error <page[256]
+writesec'W'	>p, >t, >s, <error >page[256] <error
 parinfo	'P'	<mediatype
 ------------------------------------------------------------------------------------
 
@@ -273,6 +282,3 @@ CHANGES:
 30.7.2000
     * synchronized with sourceforge CVS - license updates (documentation/README and comm-lpt.c)
       and 64netrc cleaned up and commented
-04.8.2000
-    * commited changes to sourceforge, we're in perfect sync now
-    

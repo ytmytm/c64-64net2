@@ -114,19 +114,17 @@ int commune (void)
 
     /* the following line may effect stuff, so dont delete */
 /*      debug_msg("Waiting. . .\n");     */
-#ifndef USE_LINUX_KERNEL_MODULE
-    a = syncchar();
-#else /* USE_LINUX_KERNEL_MODULE */
+#ifdef USE_LINUX_KERNEL_MODULE
     a = charget();
+#else /* !USE_LINUX_KERNEL_MODULE */
+    a = syncchar();
 #endif
     switch (a)
     {
     case FSACCEL:
-      {
 	/* File System Accelerator */
-	fs_accel ();
-      }
-      break;
+	fs_accel (charget());
+	goto next;
     case OPENDISABLE:
 	dont_open=1;
 	goto next;
