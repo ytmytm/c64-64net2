@@ -7,6 +7,7 @@
 
 */
 
+#include "../config.h"
 #include <stdio.h>
 #include <strings.h>
 #include <unistd.h>
@@ -185,6 +186,7 @@ struct instruction instruction_set[]=
 #define T_K_BYTE 104
 #define T_K_WORD 105
 
+char inputfile[8192]="input";
 int linenum=0;
 int linepos=0;
 int linelen=0;
@@ -472,8 +474,26 @@ int parseFile(FILE *f)
 	  token_queued=1;
 	  if(assembleLineDregs(f)) return -1;
 	  break;
+	case T_HASH:
+	  /* C Pre-processor information line.
+	     Record current file name and line number.
+	  */
+	  {
+	    int line;
+	    char file[8192];
+	    getNextToken(f);
+	    if (token_type!=T_NUMERIC)
+	      return syntaxError("Expect line number after #");
+	    line=token_value;
+	    getNextToken(f);
+	    if (token_type!=T_LITERAL)
+	      return syntaxError("Expect filename after '# linenumber '");
+	    strcpy(file,token_body);
+	  }
+	  break;
 	case T_EOF:
 	  return 0;
+	  break;
 	default:
 	  return syntaxError("unexpected token");
 	}
@@ -485,6 +505,7 @@ int parseFile(FILE *f)
 int main(int argc,char **argv)
 {
   FILE *f;
+  char template[1024]="/tmp/build_wedge.XXXXXXXX";
 
   if (argc!=3)
     {
@@ -499,6 +520,35 @@ int main(int argc,char **argv)
 
   f=fopen(argv[1],"r");
   if (!f) return fprintf(stderr,"Failed to open input file '%s'\n",argv[1]);
+  fclose(f);
+
+  /* Pre-process input file */
+  {
+    char cmd[8192];
+    int fd;
+    cmd[8191]=0;
+    fd=mkstemp(template);
+    if (fd==-1) 
+      { 
+	fprintf(stderr,"Could not create temporary file %s\n",template);
+	exit(1);
+      }
+    close(fd);
+    snprintf(cmd,8192,"cpp -D__64net2__=%d.%d -D__64net__=2.0 -C %s > %s",
+	     VER_MAJ,VER_MIN,argv[1],template);
+    if (cmd[8191])
+      {
+	fprintf(stderr,"C Pre-processor command too long.\n");
+	exit(1);
+      }
+    printf("%s\n",cmd);
+    system(cmd);
+
+    f=fopen(template,"r");
+    if (!f) 
+      return fprintf(stderr,"Failed to open pre-processed input file '%s'\n",
+		     template);    
+  }
 
   printf("\nPass 1 - Parse and assemble\n-----------------------\n");
   parseFile(f);
@@ -513,13 +563,16 @@ int main(int argc,char **argv)
 
   writeWedge(argv[2]);
 
+  /* Clean up the temporary file */
+  unlink(template);
+
   return 0;
 }
 
 int syntaxError(char *msg)
 {
   fprintf(stderr,"?SYNTAX  ERROR IN %d\n",linenum);
-  fprintf(stderr,"input:%d.%d: %s\n",linenum,linepos,msg);
+  fprintf(stderr,"%s:%d.%d: %s\n",inputfile,linenum,linepos,msg);
   fprintf(stderr,"last token type=%d\n",token_type);
   if (token_type==T_LITERAL)
     fprintf(stderr,"token_body=[%s]\n",token_body);
