@@ -78,6 +78,7 @@ void
 init_hw (void)
 {
 #ifdef BSD
+ FILE *f;
  if ((f = fopen ("/dev/io", "rw")) == NULL) {
     fatal_error ("Cannot get chip-bash privilege.\
                  \nPlease setgid to kmem (or similar)\n");
