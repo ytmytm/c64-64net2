@@ -4,8 +4,7 @@ FSYS_OBJ=fs_error.o fs_media.o fs_readts.o fs_search.o fs_fileio.o fs_rawdir.o\
 	fs_io_dxx.o fs_io_d64.o fs_io_d71.o fs_io_d81.o fs_io_dhd.o\
 	dosemu.o dos_blockio.o misc_func.o debug.o version.o resman.o datestamp.o
 
-COMM_OBJ=comm-lpt.o comm-work.o machdep.o fs_accel.o\
-	client-comm.o clientdep.o
+COMM_OBJ=comm-lpt.o comm-work.o machdep.o fs_accel.o client-comm.o clientdep.o
 
 OBJECTS	= $(FSYS_OBJ) $(COMM_OBJ)
 
@@ -17,21 +16,19 @@ CC =gcc
 XFLAGS =$(CFLAGS) -L/usr/X11R6/lib -lX11
 LOPT=-L. -l64net2
 COPT=$(CFLAGS) -Wall -pedantic
-#-DUSE_LINUX_KERNEL_MODULE
 
-all:	64net2 64rm 64ls 64list 64cat 64shell x64net
+.PHONY: all clean spotless depend dep
 
-backup:	64net2.tar.gz
-	tar zcvf 64net2.tgz *c *h Makefile devel*
+ifeq (.depend,$(wildcard .depend))
+all : 	64net2 64rm 64ls 64list 64cat 64shell x64net
+include .depend
+else
+all:	depend
+	@$(MAKE) all
+endif
 
-#
-#	Distribution build commands
-#
-
-freebsd-dist: 64net2
-	tar zcvf /tmp/64net2fb.tgz 64net2 64netrc *.development cable.doc
-msdos-dist:
-	tar zcvf /tmp/64net2ms.tgz 64net2.exe 64netrc *.development cable.doc
+backup: spotless
+	tar zcvf ../64net2.tar.gz $(PWD)
 
 lib64net2.a: $(OBJECTS)
 	$(AR) r $@ $(OBJECTS)
@@ -79,10 +76,11 @@ x64net: x/15xx.xpm
 #
 
 clean:
-	rm *.o *.a
+	-rm *.o *.a .depend
 
-spotless:	clean
-	rm 64net2 64shell 64ls 64rm 64list 64cat x64net
+spotless: clean
+	-rm 64net2 64shell 64ls 64rm 64list 64cat x64net
 
-zap:	spotless
-
+depend dep:	$(OBJECTS:.o=.c)
+	@echo "Creating dependency information"
+	$(CC) -MM -MG $^ > .depend
