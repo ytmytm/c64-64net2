@@ -1,6 +1,29 @@
 	; C64 wedge for 64net/2 parallel IEC mode
 
-	.space $c000 $cfff
+
+; -----------------------------------------------------------------------
+; Reclaim some space in the kernel
+; -----------------------------------------------------------------------
+
+	.space $c000 $cfff	
+
+	; was RS232 routines
+;	.space $eebb $ef38
+;	.space $ef4a $f0a3
+
+	; was open RS232
+;	.space $f409 $f49d
+
+	; RS232 NMI
+	; .space $fed6 $ff06
+
+	; Make the space safe to use by nobbling the RS232 device
+	.patch $f388
+	; Device not present
+	jmp $f707
+
+; -----------------------------------------------------------------------
+
 
 	; Value for $01
         value_01 = $05 ; $e7 for ROM, $05 for RAM
@@ -18,8 +41,8 @@
 
 	; Replace basic "READY." message
  	; so we know what is going on
-	.patch $a378
-	.byte '6','4','N','/','2','.'
+	; .patch $a378
+	; .byte '6','4','N','/','2','.'
 
 ; ---------------------------------------------------------------------
 ; Patch kernel ACPTR routine: Read char from serial bus
@@ -91,7 +114,6 @@ myacptr_gotbyte
 ; ---------------------------------------------------------------------
 	clkwait=$edcd
 	.patch $edcd
-	sei
 	jmp myclkwait
 
 	.section
@@ -369,6 +391,7 @@ init_64net
 
 ; ---------------------------------------------------------------------
 ; Patch Kernel LOAD routine to accept no filename if device is 64net
+; so that SHIFT-RUN/STOP can be used to boot C64
 ; ---------------------------------------------------------------------
 	.patch $f4bc
 	jmp name_check
