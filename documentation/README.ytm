@@ -47,11 +47,11 @@ BUGS:
     (fixed - address is checked in do_load_lowlevel)
 + fishload/save sometimes hang on start of block
     (load fixed, save is FOOBAR, never enable)
++ WINDOWS target has problems with ufs (names), BLOCKS FREE is unimplemented
++ WINDOWS target needs checking network stuff, WSAStartup needs to be called
 - if secondary address is >128 then file isn't really opened, just return w/o error, doing nothing;
   this is handled by Kernal, but worth knowing for wedge
 - opening "$name*" should show all files within current directory with 'name*' globbing
-- WINDOWS target has problems with ufs (names), BLOCKS FREE is unimplemented
-- WINDOWS target needs checking network stuff, WSAStartup needs to be called
 - saving file that ends with "L" will result in an empty REL file
 
 MODULE VERSION ISSUES

@@ -37,3 +37,13 @@ void asciitopetscii (uchar *message)
 	if ((message[i]>0x60) && (message[i]<0x7b))
 	    message[i]-=0x20;
 }
+
+/* repair hack for opendir that can open '/windows' but cant '/windows/' */
+#ifdef WINDOWS
+#undef opendir
+DIR* winhack_opendir (uchar *fn) {
+  if ((strlen(fn)>1) && (fn[strlen(fn)-1]='/'))
+     fn[strlen(fn)-1]='\0';
+  return opendir(fn);
+}
+#endif

@@ -6,3 +6,6 @@
 int firsthighbit (uchar foo);
 int fatal_error (char *message);
 void asciitopetscii (uchar *message);
+#ifdef WINDOWS
+DIR *winhack_opendir(uchar *fn);
+#endif

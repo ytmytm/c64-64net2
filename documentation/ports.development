@@ -1,12 +1,11 @@
 
 Default configuration in Makefile and config.h is for Linux.
 
-19.09.2001
+19,21.09.2001
 Windows binary can be built using MINGW (www.ming.org) but its internet subset
-was not tested. It has problems described below in MS-DOS/Win95 target. Windows
-binary needs inpout32.dll that is distributed together with 64net/2. It will
-work only on Win95/98 (hardware port access). You need to edit Makefile and
-config.h.
+was not tested. Windows binary needs inpout32.dll that is distributed together
+with 64net/2. It will work only on Win95/98 (hardware port access). You need
+to edit Makefile and config.h before building.
 
 20.09.2001
 Solaris port is complete. It lacks inb/outb functions (replaced by dummy ones) but

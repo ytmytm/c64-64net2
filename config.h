@@ -116,4 +116,9 @@
 #include "debug.h"
 #ifdef DEBUG_RES
 #include "resman.h"
+#else
+#ifdef WINDOWS
+#undef opendir
+#define opendir winhack_opendir
+#endif
 #endif

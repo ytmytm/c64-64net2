@@ -17,6 +17,7 @@
 
 #ifdef WINDOWS
 #include <sys/stat.h>
+#include "misc_func.h"
 #define EDQUOT 0
 #define ELOOP -1
 #endif

@@ -73,6 +73,10 @@ DIR *
 res_opendir (uchar *fn)
 {
   DIR *df;
+#ifdef WINDOWS
+  if ((strlen(fn)>1) && (fn[strlen(fn)-1]='/'))
+      fn[strlen(fn)-1]='\0';
+#endif
   printf ("`%s' opened::", fn);
   df = opendir (fn);
   if ((int) df)
