@@ -13,3 +13,10 @@ extern int fnlen;
 extern uchar filename[256];
 extern int dont_open;
 extern int allowFishLoad, allowFishSave;
+
+void do_open_small(void);
+void do_close_small(void);
+void do_chkinout(int);
+
+void do_load_lowlevel(fs64_file *loadfile, int startaddr);
+void do_verify_lowlevel(fs64_file *loadfile, int startaddr);

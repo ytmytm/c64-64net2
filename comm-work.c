@@ -315,9 +315,8 @@ void do_save(void) {
 void do_load(void)
 {
 	/* Load a file using highly optimised routines */
-	int startaddr, bc, n, l = 0;
 	int filestart=0;
-	int s, ms, sa, mode;
+	int s, ms, sa, mode, startaddr;
 	uchar c;
 
 	uchar buff[256];
@@ -374,12 +373,15 @@ void do_load(void)
 	}
 
 	/* file found - so load */
-	c64print ((uchar*)"LOADING");
+	if (mode==0) {
+		c64print ((uchar*)"LOADING");
+	} else {
+		c64print ((uchar*)"VERIFYING");
+	}
 
 	gettimer (&s, &ms);
 	client_turbo_speed ();
 #ifdef DEBUG
-	printf ("Done client_turbo_speed\n");
 	printf ("About to run fs64_readchar\n");
 #endif
 
@@ -414,18 +416,99 @@ void do_load(void)
         c64print(buff);
 
 	/* check whether to load or verify */
-	if (mode==1) {
-	    debug_msg ("File verifying isn't supported yet, loading instead");
-	}    
+	if (mode==0) {
+	    do_load_lowlevel(&loadfile, startaddr);
+	} else {
+	    do_verify_lowlevel(&loadfile, startaddr);
+	}
 
-	bc = 0;
+	/* successful load */
+	fs64_closefile_g (&loadfile);
+	c64poke (0x90, 0x40);	/* eof */
+	set_error (0, 0, 0);
+	/* disconnect c64 */
+#ifdef DEBUG
+	printf ("Disconnecting 64\n");
+#endif
+
+	client_normal_speed ();
+	{
+	  int s2, ms2;
+	  gettimer (&s2, &ms2);
+	  if (ms > ms2)
+	  {
+	    ms2 += 1000;
+	    s2--;
+	  }
+	  s = s2 - s;
+	  ms = ms2 - ms;
+	  debug_msg ("Load time: %d.%d\n", s, ms);
+	}
+	c64poke (0xb2, startaddr & 0xff);
+	c64poke (0xb3, startaddr / 256);
+	sendchar (0);
+	sendchar (0);
+	sendchar (254);
+	sendchar (0);
+}
+
+void do_verify_lowlevel(fs64_file *loadfile, int startaddr) {
+
+int n, bc = 0, l = 0;
+int differences = 0;
+uchar c;
+uchar buff[256];
+
+  while (!fs64_readchar (loadfile, &c))	{
+	  l++;
+	  buff[bc++] = c;
+	  if (bc == 254) {
+		sendchar (255);
+		sendchar (2);
+		sendchar (bc + 1);
+		sendchar (startaddr & 0xff);
+		sendchar (startaddr / 256);
+		for (n = 0; n < bc; n++)
+		  if (charget()!=buff[n]) differences++;
+		startaddr += bc;
+		bc = 0;
+	    }
+  }
+    /* final partial block */
+    if (bc) {
+	  /* send block */
+	  sendchar (255);
+	  sendchar (2);
+	  sendchar (bc + 1);
+	  sendchar (startaddr & 0xff);
+	  sendchar (startaddr / 256);
+	  for (n = 0; n < bc; n++)
+	    if (charget()!=buff[n]) differences++;
+	  startaddr += bc;
+	  bc = 0;
+    }
+
+	/* be user friendly on C= side and print addresses */
+        sprintf((char*)buff," $%04x\r",startaddr);
+        c64print(buff);
+
+    if (differences!=0)
+	c64print((uchar*)"?VERIFY ERROR\r");
+
+}
+
+void do_load_lowlevel(fs64_file *loadfile, int startaddr) {
+
+int n, bc = 0, l = 0;
+uchar c;
+uchar buff[256];
 
 #ifdef DEBUG
 	debug_msg("FS: $%04x, SA: $%04x\n, mode:%i",filestart,startaddr,mode);
 	debug_msg ("About to send file\n");
 #endif
 
-	while (!fs64_readchar (&loadfile, &c))
+	while (!fs64_readchar (loadfile, &c))
 	{
 	  l++;
 	  buff[bc++] = c;
@@ -464,9 +547,6 @@ void do_load(void)
 	  }
 	}
 
-	/* BUG!!! this printf here is for small delay before protocol change */
-//	printf ("About to send last partial block\n");
-
 	/* final partial block */
 	if (bc)
 	{
@@ -489,42 +569,16 @@ void do_load(void)
 #ifdef DEBUG
 	printf ("Successful load\n");
 #endif
-
-	/* successful load */
-	fs64_closefile_g (&loadfile);
-	c64poke (0x90, 0x40);	/* eof */
-	set_error (0, 0, 0);
-	/* disconnect c64 */
-#ifdef DEBUG
-	printf ("Disconnecting 64\n");
-#endif
-
-	client_normal_speed ();
-	{
-	  int s2, ms2;
-	  gettimer (&s2, &ms2);
-	  if (ms > ms2)
-	  {
-	    ms2 += 1000;
-	    s2--;
-	  }
-	  s = s2 - s;
-	  ms = ms2 - ms;
-	  debug_msg ("Load time: %d.%d\n", s, ms);
-	}
-	c64poke (0xb2, startaddr & 0xff);
-	c64poke (0xb3, startaddr / 256);
-	sendchar (0);
-	sendchar (0);
-	sendchar (254);
-	sendchar (0);
 }
+
 
 void do_boot(void)
 {
 	/* boot sequence */
 	debug_msg ("\nBoot, starting server on device #%i\n",devnum);
 
+	client_type = charget();
+	debug_msg ("Client machine reported itself as %s\n",clientdep_name[client_type]);
 	sendchar (devnum);
 
 	{
@@ -538,100 +592,120 @@ void do_boot(void)
 
 }
 
+/* to make it more readable */
 
-#ifdef OLD_IEC_STUFF
-void do_open(void)
-{
-	/* open a file */
-	/* receive chars until attn is asserted */
-	fnlen = charget ();
-	for (i = 0; i < fnlen; i++)
-	  filename[i] = charget ();
-	filename[fnlen] = 0;
-	/* get secondary address */
-	secaddr = charget ();
-	/* add trailers as needed for "special" channels */
-	if (secaddr == 0)
-	  strcat (filename, ",R");
-	if (secaddr == 1)
-	  strcat (filename, ",W");
+#define FILETABLE clientdep_tables[client_type][0]
+#define DEVTABLE  clientdep_tables[client_type][1]
+#define SATABLE   clientdep_tables[client_type][2]
 
-	/* open file on C64 end */
-	no = c64peek (0x98);
-	if (no > 9)
-	{
-	  /* too many files */
-	  printf ("Too many files\n");
-	  sendchar (254);
-	  sendchar (1);
+void do_open_small (void) {
+    int i, fn, no;
+    
+    no = c64peek (0x98);
+    /* are there free slots? */
+    if (no > 9)	{
+	  debug_msg("Too many opened files\n");
+	  c64print((uchar*)"?TOO MANY FILES  ERROR\r");
+	  sendchar (254); sendchar (1);
 	  return;
-	}
-	else
-	{
-	  /* check for duplicates */
-	  fn = c64peek (0xb8);
-	  for (i = 0; i < no; i++)
-	    if (c64peek (0x259 + i) == fn)
-	    {
-	      /* file open */
-	      printf ("File open\n");
-	      sendchar (254);
-	      sendchar (2);
+    }
+
+    fn = c64peek (0xb8);
+    for (i = 0; i < no; i++)
+	if (c64peek (FILETABLE + i) == fn) {
+	      /* file already open */
+	      debug_msg ("File %i already open\n",fn);
+	      c64print((uchar*)"?FILE OPEN  ERROR\r");
+	      sendchar (254); sendchar (2);
 	      return;
-	    }
-
-	  /* add entry, ensuring to or with 0x60 !! */
-	  /* this should really be done on the c64 side */
-	  no++;
-	  c64poke (0x258 + no, fn);
-	  c64poke (0x262 + no, c64peek (0xba));
-	  c64poke (0x26c + no, c64peek (0xb9) | 0x60);
-	  c64poke (0x98, no);
 	}
-
-	/* find the unit number */
-	i = 0;			/* unit is always zero on 64net cable */
-	{
-	  /* now *really* open the file */
-	  debug_msg ("Filename: \"%s\"\n", filename);
-	  /* set the old OK message */
-	  if (secaddr < 0x0f)
-	    set_error (0, 0, 0);
-	  /* if the channel is in use, then close it */
-	  debug_msg ("Opening logical file $%02x\n",
-		     c64peek (0xb8));
-	  /* if the channel is in use, then close it */
-	  last_unit = 0;
-	  if (secaddr == 0x0f)
-	  {
-	    /* command channel!
-	       We dont have to explicitly open the command channel,
-	       only yell at it :) */
-	    strcpy (dos_command[last_unit], filename);
-	    dos_comm_len[last_unit] = fnlen;
-	    do_dos_command ();
-	    sendchar (254);
-	    sendchar (0);
-	    return;
-	  }
-	  if (logical_files[i][secaddr].open == 1)
-	    fs64_closefile_g (&logical_files[last_unit][secaddr]);
-	  printf("*** Opening [%s]\n",filename);
-	  if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]],
-			       filename, &logical_files[i][secaddr]))
-	  {
-	    /* open failed */
-	    sendchar (254);
-	    sendchar (4);	/* file not found */
-	    return;
-	  }
-	  lf_flags[i][secaddr] = 2;
-	  sendchar (254);
-	  sendchar (0);
-	  return;
-	}			/* end of valid device */
-	/* release c64 end */
-	sendchar (254);
-	sendchar (0);
+    /* everything seems OK, so add new entry */
+    c64poke (FILETABLE + no, fn);
+    c64poke (DEVTABLE + no, c64peek (0xba));
+    c64poke (SATABLE + no, c64peek (0xb9) | 0x60);
+    no++;
+    c64poke (0x98, no);
+    /* release client, it will send filename and fall into do_open right now */
+    sendchar(254); sendchar(0);
 }
-#endif /* OLD_IEC_STUFF */
+
+void do_close_small(void) {
+    int i, fn, no, dev, sa;
+
+    /* client put number of file to close in $b8, error here means to fall to Kernal close */
+    fn = c64peek (0xb8);
+    no = c64peek (0x98);
+    for (i = 0; i < no; i++)
+	if (c64peek (FILETABLE + i) == fn) {
+		/* i == offset in FILETABLE */
+		debug_msg ("File %i open, will be closed\n", fn);
+		dev = c64peek(DEVTABLE+i);
+		if (dev!=devnum) {
+		    /* this is not our device, Kernal must handle it */
+		    sendchar(254); sendchar(1);
+		    return;
+		}
+		sa = c64peek(SATABLE+i);
+		if (i!=no) {
+		/* need to fix tables - put last in place of closed */
+		    c64poke(FILETABLE+i,c64peek(FILETABLE+no));
+		    c64poke(DEVTABLE+i,c64peek(DEVTABLE+no));
+		    c64poke(SATABLE+i,c64peek(DEVTABLE+no));
+		}
+		c64poke(0x98, no-1);
+		do_close(sa);	/* command loop will ignore 128 from do_close */
+		sendchar(254); sendchar(0);
+		return;
+	}
+    debug_msg("File %i not open!\n", fn);
+    c64print((uchar*)"?FILE NOT OPEN  ERROR\r");
+    sendchar(254); sendchar(1);
+}
+
+void do_chkinout(int type) {
+
+    int i, no, fn, dev, sa;
+
+    /* error code from this routine means to fall to Kernal */
+    no = c64peek (0x98);
+    fn = c64peek (0xb8);
+    for (i = 0; i < no; i++)
+	if (c64peek (FILETABLE + i) == fn) {
+		dev = c64peek(DEVTABLE+i);
+		sa  = c64peek(SATABLE+i);
+		if (dev==devnum) {
+		    debug_msg("chkin/out on 64net/2 device\n");
+		    sa  = c64peek(SATABLE+i);
+		    c64poke(0xba, dev);
+		    c64poke(0xb9, sa);
+		    if (type==0) {
+		    /* chkin */
+			c64poke(0x99, dev);
+			talklf = sa;
+		    } else {
+		    /* chkout */
+			c64poke(0x9a, dev);
+			listenlf = sa;
+			    /* this is from comm-lpt */
+			switch (listenlf & 0xf0) {
+	    		    case 0xf0:	/* name incoming */
+			        fnlen = 0;
+				filename[fnlen]=0;
+				break;
+			    case 0xe0:	/* close a file */
+			    case 0x60:	/* get some data - open a file */
+				break;
+			}
+		    }
+		    /* release client */
+		    sendchar(254); sendchar(0);
+		    return;
+		} else {
+		    debug_msg("not our device\n");
+		    sendchar(254); sendchar(1);
+		    return;
+		}
+	}
+    debug_msg("file not open for chkin/out\n");
+    sendchar(254); sendchar(1);
+}

@@ -34,7 +34,7 @@
 #define DEF_OUTPORT	0x3bc
 
 #define VER_MAJ 0
-#define VER_MIN 8
+#define VER_MIN 9
 #define VERSIONSTRING "V%02d.%02d ALPHA"
 
 #ifdef LINUX

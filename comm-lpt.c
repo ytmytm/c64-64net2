@@ -68,6 +68,9 @@ fs64_file logical_files[MAX_NET_DEVS][16];
 /* Device number as given in config file and passed to client upon boot */
 int devnum=1;
 
+/* client system type */
+int client_type=0;
+
 /* Last accessed drive, for the purposes of error channels etc */
 int last_drive=-1; /* none */
 int last_unit=-1; /* none */
@@ -154,6 +157,18 @@ int commune (void)
 	talklf = -1;
       }
       goto next;
+    case OPEN:
+       do_open_small();
+       goto next;
+    case CLOSE:
+       do_close_small();
+       goto next;
+    case CHKIN:
+	do_chkinout(0);
+	goto next;
+    case CHKOUT:
+	do_chkinout(1);
+	goto next;
     case SECOND:
 	{
 	    /* second system call, get secondary address after LISTEN, that is

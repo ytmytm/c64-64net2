@@ -38,15 +38,14 @@ BUGS:
 - if secondary address is >128 then file isn't really opened, just return w/o error, doing nothing;
   this is handled by Kernal, but worth knowing for wedge
 - opening "$name*" should show all files within current directory with 'name*' globbing
-- files created by LUnix CP are 1 byte larger than original - EOF should be asserted when reading
-  last byte
-- something connected with two above errors - $90 should be asserted _when_ last byte is sent,
-  not with next call IMO, but it is still unclear
+- files created by LUnix CP are 1 byte larger than original - EOF ($40 in $90) should be
+  asserted when reading last byte
 - EOF state in $90 is $40, not $80 - fix both 64net/2 and LNG
 - seems that untalk shouldn't send $90 or remember last one as it overwrites EOF from acptr
-- endaddress is wrong when saving from within active Action Replay, don't know why
+- endaddress is wrong when saving from under AR, don't know why (dump 0-page in load and find addy)
 - WINDOWS target has problems with ufs (names), BLOCKS FREE is unimplemented
 - WINDOWS target needs checking network stuff, WSAStartup needs to be called
+- fishsave/load don't change memory config, will die on $dxxx (currently checked in do_load_lowlevel)
 
 MODULE VERSION ISSUES
 - device and module name is 'fastpc' (ask me why :-), MAJOR number is dynamically
@@ -54,7 +53,7 @@ MODULE VERSION ISSUES
   value, position of device file is defined at top of machdep-lin.c (in case you'll want
   to create such a device in /dev directory)
   (nah, don't play with it, register yourself in misc (like cbm driver))
-- losting strobe/flag2 in module version will most probably result in locking
+- losing strobe/flag2 in module version will most probably result in locking
   machine with server (process can't be killed, it is sleeping in kernel space)
   However I experienced this few times today, there are two possible solutions
   - check if extending a bit delay between direction change r<->w and few cycles
@@ -82,7 +81,7 @@ IDEAS:
 	 with fclose wrapper compression can be done upon closing the file)
     * make log option (redirect stdout to a file) in config file
 	(simple hook done in debug.h)
-    * replace all printf by macros and separate debug messages from log messages
+    ~ replace all printf by macros and separate debug messages from log messages
     * make fishxxxx turned on/off in config file (on runtime)
     * use dynamically allocated memory for tables
     + move fs stuff into static/shared library (local) and link executabels against it
@@ -92,16 +91,18 @@ IDEAS:
 	(not much of them, 2 or 3 only in comm-xxx.c)
     * find all places where last_unit / last_device is used and replace by proper function
       or dummy one, take devnum into account
-    * move as much functionality as possible from wedge into host (with c64peek/poke)
+    + move as much functionality as possible from wedge into host (with c64peek/poke)
 	(do it when everything will work), need alternative commands, as those low-level
 	are utilized by LNG 64net/2 driver
     * C= needs only a small wedge that will send 'B'oot command and receive the correct
       (whole) wedge e.g. with features or detected architecture
-    * server must remember client architecture type - sent only once, when registering in
+    + server must remember client architecture type - sent only once, when registering in
 
 TODO
-    * move wedge functionality into server side with peeks and pokes
-    * write code for VERIFY
+    + move wedge functionality into server side with peeks and pokes
+	+ remember about machine issues when writing wedge for C128 (FILETABLE,SATABLE...)
+	- update clientdep_tables for C65 native
+    + write code for VERIFY
     * fix fishload/save (load often locks on my C128)
     * write GEOS wedge (was it disk driver or REU exp. handler replacement?)
 	- time&date settings (add lowlevel command for this purpose)
@@ -114,7 +115,8 @@ TODO
 	- use of images
 	- device H: emulation (remote r/w via 2 byte sequences)
     * find out what EOF is ($90) - LUnix sez it's $80 while 64net/2 thinks $40 (that's
-      devnotpresent by LUnix), CBM Kernal seems to recognize only 0 and !=0
+      devnotpresent by LUnix)
+      This is always $40, fix LUnix for that
     + strip some protocols from unneeded bytes (boot,jsr,peek,0xf6,0xf9)
     + fix "$" file handling - in fs_fileio.c in fs64_{dirtail,dirheader,direntry2block}
       + if channel (pass it, or make global, talklf only, ensure for LOAD) ==0 translate into BASIC
@@ -145,7 +147,7 @@ untalk	'J'	<status, X
 
 CUSTOM:
 boot	'B'	>fnlen, >fname[], >secaddr (all dropped), |	OLD
-boot	'B'	<devnum, |					NEW
+boot	'B'	>os_type, <devnum, |				NEW
 load	'L'	>fnlen, >fname[], >secaddr, |			OLD
 load	'L'	>secaddr, |					NEW
 save	'S'	>fnlen, >fname[], >secaddr, |			OLD
@@ -153,6 +155,12 @@ save	'S'	|						NEW
 devcheck'?'	>devnum, <{0,1}, X
 fsaccel	'F'
 opendisable 'K'	X
+
+KERNAL WEDGE: (error means to fall to ROM routine)
+open	'O'	|
+close	'C'	|
+chkin	'P'	|
+chkout	'Q'	|
 
 FS_ACCEL: (prefix 'F')
 read	'I'	>pagel, >pageh, <page[256]

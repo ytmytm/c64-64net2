@@ -17,6 +17,9 @@
 //#define SAVE		'S'
 //#define DEVCHECK	'?'
 
+/*ABCDEFGHIJKLMNOPQRSTUVWXYZ*/
+/*xxxx xxxxxxx  xxxxx   x   */
+
 /* new, sane command enumeration, only few make sense, though */
 #define BOOT		'B'
 #define LOAD		'L'
@@ -34,6 +37,12 @@
 /* `File System Accelerator' commands */
 #define FSACCEL		'F'
 
+/* Kernal wedge */
+#define OPEN		'O'
+#define CLOSE		'C'
+#define CHKIN		'P'
+#define CHKOUT		'Q'
+
 /* port addresses */
 extern int portout,portin;
 
@@ -48,4 +57,5 @@ int c64jsr(int addr,int a,int x, int y);
 int set_drive_status (uchar *string, int len);
 int which_unit (int);
 
-extern int talklf, lastlf, devnum;
+extern int listenlf, talklf, lastlf, devnum;
+extern int client_type;

@@ -6,6 +6,8 @@
 int client_turbo_speed(void);
 int client_normal_speed(void);
 
-#define	MACH_C64	64
-#define	MACH_C65	65
-#define	MACH_C128	128
+/* number of supported client OSes */
+#define NUM_OSES	5
+
+extern const char *clientdep_name[NUM_OSES];
+extern const int clientdep_tables[NUM_OSES][3];

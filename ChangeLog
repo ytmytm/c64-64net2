@@ -1,5 +1,8 @@
 2001-09-18  
-	* cleaned up resman.c, some update notes
+	* cleaned up resman.c, some update notes, various client machines support
+	* moved open/close/chkin/out to server side
+	* modified BOOT function
+	* added VERIFY code
 
 2001-09-16  
 	* cleanups in target-depended stuff

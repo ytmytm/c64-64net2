@@ -10,20 +10,20 @@
 ; - fishload seems to be broken (hardware problems again)
 ; - fishsave _is_ broken
 ; - check AR behavior (@command etc.), seems to lock now, $ locks
-; - check how to determine the correct one un{listen,talk} in close
 
-; - clrchn is unneeded and/or broken
-; - strange things happen with BASIC after opening a file (probably redirection issues)
+; 18.9.2001
+; - moved open,close,chkin,chkout to server side (now only kernal jumptable matters)
 
 !cpu 6502
 !to "wedge.out"
 
 ; configuration
 machine = 64				; 64 or 128 (or 65?)
+machinetype = 0				; reported to server
 
 ; own definitions
-devnum  = $a7				; place where device number is kept
-tmp01	= $a8				; temporary memory config storage for C64
+devnum  = $ff				; place where device number is kept
+tmp01	= $fe				; temporary memory config storage for C64
 
 ; Kernal definitions
 status	= $90
@@ -33,11 +33,6 @@ untalk			= $ffab
 unlisten		= $ffae
 
 !if machine=64 {
-; tables
-filetable		= $0259
-devtable		= $0263
-satable			= $026d
-
 ; kernal table
 open			= $f34a
 close			= $f291
@@ -50,18 +45,8 @@ getin			= $f13e
 load			= $f4a5
 save			= $f5ed
 
-;non kernal table
-K_isfileopen		= $f30f			; see start of close
-K_isfileopen2		= $f314
-K_getfileparams		= $f31f
-
 } else {
 !if machine=128 {
-; tables
-filetable		= $0362
-devtable		= $036c
-satable			= $0376
-
 ; kernal table
 open			= $efbd
 close			= $f188
@@ -73,10 +58,6 @@ chrout			= $ef79
 getin			= $eeeb
 load			= $f26c
 save			= $f54e
-
-K_isfileopen		= $f202
-K_isfileopen2		= $f207
-K_getfileparams		= $f212
 
 }}
 
@@ -113,6 +94,8 @@ K_getfileparams		= $f212
 		!zone LowestLevel_Functions
 boot_up
 		lda #"B"
+		jsr send_byte
+		lda #machinetype
 		jsr send_byte
 		jsr get_byte
 		sta devnum			; get one (later all) 64net devices numbers
@@ -195,81 +178,40 @@ getaddress	jsr get_byte
 
 own_open	jsr check_devnum
 		bne .oldopen
-		ldx $b8
-		beq .oldopen		; file # must be !=0
-		jsr K_isfileopen
-		beq .oldopen		; already opened
-		ldx $98
-		cpx #10			; too many opened files?
-		bcc .opencont
-.oldopen 	jmp open
-.opencont	inc $98
-		lda $b8
-		sta filetable,x
-		lda $b9
-		ora #$60
-		sta $b9
-		sta satable,x
-		lda $ba
-		sta devtable,x
+		lda #"O"
+		jsr send_byte
+		jsr command_loop
+		bcs .open_error
 		jmp sendname		; C will be set by check after unlisten
+.open_error	rts
+.oldopen 	jmp open
 
-own_close	jsr K_isfileopen2
-		bne .closefin
-		tay
-		lda devtable,x
-		jsr check_devnum2
-		bne .oldclose
-		jsr K_getfileparams
-		dec $98
-		cpx $98
-		beq .closefin
-		ldy $98
-		lda filetable,y
-		sta filetable,x
-		lda devtable,y
-		sta devtable,x
-		lda satable,y
-		sta satable,x
-		; is it really needed?
-.closefin	jsr _64net2_unlisten
-		;jsr _64net2_untalk	; disabled for now, should work
-		lda $ba
-		jsr _64net2_listen
-		lda $b9
-		and #$ef
-		ora #$e0
-		jsr _64net2_second
-		jmp _64net2_unlisten	; it will set C flag
-
-.oldclose	tya
+own_close	sta $b8
+		lda #"C"
+		jsr send_byte
+		jsr command_loop
+		bcs .oldclose
+		rts
+.oldclose	lda $b8
 		jmp close
 
-own_chkin	jsr K_isfileopen
-		bne .oldchkin
-		jsr K_getfileparams
-		jsr check_devnum
-		beq .chkincont
-.oldchkin	jmp chkin
+own_chkin	stx $b8
+		lda #"P"
+		jsr send_byte
+		jsr command_loop
+		bcs .oldchkin
+		rts
+.oldchkin	ldx $b8
+		jmp chkin
 
-.chkincont	lda $ba
-		sta $99
-		jsr _64net2_talk
-		lda $b9
-		jmp _64net2_tksa		; sendbyte will clear C flag
-
-own_chkout	jsr K_isfileopen
-		bne .oldchkout
-		jsr K_getfileparams
-		jsr check_devnum
-		beq .chkoutcont
-.oldchkout	jmp chkout
-
-.chkoutcont	lda $ba
-		sta $9a
-		jsr _64net2_listen
-		lda $b9
-		jmp _64net2_second		; sendbyte will clear C flag
+own_chkout	stx $b8
+		lda #"Q"
+		jsr send_byte
+		jsr command_loop
+		bcs .oldchkout
+		rts
+.oldchkout	ldx $b8
+		jmp chkout
 
 own_clrchn
 		ldx #3
@@ -356,8 +298,7 @@ do_error	jsr get_byte
 		sec
 .no_error	rts
 
-do_ostype	;lda #machine
-		lda #0
+do_ostype	lda #machinetype
 command_exe	jsr send_byte
 command_loop	jsr get_byte
 		cmp #$f4
@@ -410,7 +351,7 @@ poke_loop	iny
 		dec $01
 } else {
 !if machine=128 {
-		;!!!to be written
+		;!!!to be written - something with memconfig
 }}
 		sta ($9e),y
 !if machine=64 {
