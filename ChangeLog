@@ -1,3 +1,7 @@
+2001-02-01  
+
+	* fixed configuration parser bug (empty lines were not allowed)
+
 2000-07-25  
 
 	* more wedge fixes, open/close is fixed, fishload works

@@ -311,7 +311,7 @@ read_config (char *file)
   while (!feof (cf))
   {
     fgets (temp, 256, cf);
-    if ((temp[0] == '#') || (temp[0] == 0))
+    if ((temp[0] == '#') || (temp[0] == 0) || (temp[0] == '\n') || (temp[0] == '\r'))
     {
       /* its a comment or blank line */
     }
