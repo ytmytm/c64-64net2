@@ -54,17 +54,23 @@ BUGS:
 + fishload/save sometimes hang on start of block
     (load fixed, save is FOOBAR, never enable)
 + WINDOWS target has problems with ufs (names), BLOCKS FREE is unimplemented
+    (fixed)
 + WINDOWS target needs checking network stuff, WSAStartup needs to be called
+    (fixed)
 + saving file that ends with "L" will result in an empty REL file
+    (fixed)
 + when listing UFS, .N64 filename appears twice
+    (fixed)
++ opening "$name*" should show all files within current directory with 'name*' globbing
+    (it does it: $*TE works, also e.g. $2:RO*,UFS)
++ serial driver drops bytes during doing c64print, avoid scrolling screens!
+    (this is warning, not a bug)
+- why is STATUS ignored in wedge UNLISTEN? File Not Found for OPEN cannot be reported because of that
 - if secondary address is >128 then file isn't really opened, just return w/o error, doing nothing;
   this is handled by Kernal, but worth knowing for wedge
-- opening "$name*" should show all files within current directory with 'name*' globbing
 - networking: there must be support for blocking/non-blocking sockets (secondary address in OPEN
   can serve as indicator whether local driver should block or non-block and return status in $90)
-- need to check M-[RW] commands (replace for loop by memcpy there),
-  perhaps setup first 8k with some values, and last 16k with ROM image
-- serial driver drops bytes during doing c64print, avoid scrolling screens!
+- need to check M-[RW] commands, perhaps setup first 8k with some values, and last 16k with ROM image
 - networking: adresses should be either in form of: /127/000/000/001/ or
   /{chr$(127)}/{chr$(0)}/{chr$(0)}/{chr$(1)}/ so you always know which one is
   in effect (for each level 3 digits or 1 byte) BUT the 2nd form can contain zeroes!!!
@@ -72,29 +78,7 @@ BUGS:
 - networking: name resolving: /www.someserver.com/ should be detected
   (>3 bytes for top level and unknown string) and passed to system DNS resolver
 
-MODULE VERSION ISSUES
-- device and module name is 'fastpc' (ask me why :-), MAJOR number is dynamically
-  allocated, but always shows 254 on my system, and this seems to be constant and good
-  value, position of device file is defined at top of machdep-lin.c (in case you'll want
-  to create such a device in /dev directory)
-  (nah, don't play with it, register yourself in misc (like cbm driver))
-- losing strobe/flag2 in module version will most probably result in locking
-  machine with server (process can't be killed, it is sleeping in kernel space)
-  However I experienced this few times today, there are two possible solutions
-  - check if extending a bit delay between direction change r<->w and few cycles
-    inside r/w functions will make it more reliable
-  - find a way to free resources, close device and unload module (possibly
-    PA2 could have its usage here)
-  - (24.4) - in case of lock - CTRL+C and on C= read $dd01 and $dd0d in loop    
-  - (30.5) - debug has shown that lock happens only when C= is reading
-  [ check everything against a _working_ CIA as my C128 is slightly broken: CIA or connections ]
-- device has to be opened twice for r/w, really don't know why...
-- nothing is sure as C128 CIA was unsure...
-  ... and C64 CIA too when day was too hot :-( I don't know what's going on...
-  (15.6) - sync_char() was broken, timings are adjustable in machdep.h
-
 IDEAS:
-    * use cbm.o Linux kernel module as low-level driver for serial cable
     + add time&date low level commands
     * add DOS level time&date commands (need to compatible with something: CMD or 64HDD)
     * fs_xxx stuff should be implemented like in Linux kernel - as pointers to structures
@@ -111,7 +95,6 @@ IDEAS:
 	(simple hook done in debug.h)
     ~ replace all printf by macros and separate debug messages from log messages
     + make fishxxxx turned on/off in config file (on runtime)
-    * use dynamically allocated memory for tables
     + move fs stuff into static/shared library (local) and link executabels against it
     + wedge works as device #1, should get it from server upon boot
 	+ update 'B' command for this purpose
@@ -129,8 +112,6 @@ IDEAS:
     * printer spooler? driver for GEOS is easy, what about Centronics emulation?
     * exclusive GEOS kernel that will use 64net/2 as bootdrive, its memory expansion
       capabilities as REU, and printer driver
-    * integration with cbm4linux module for IEC bus emulation via X1541 cable
-      (exclusive or supplement for parallel cable)
 
 TODO
     * make wedge ROMable (it won't change much, all functionality is there)
