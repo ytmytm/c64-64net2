@@ -14,9 +14,6 @@
 #include "dosemu.h"
 #include "comm-work.h"
 
-/* 
-   XXX - Linux doesnt seem to like fish save (fishload is fine)
-*/
 #ifdef USE_SERIAL_DRIVER
 int allowFishLoad=0;
 int allowFishSave=0;
@@ -147,7 +144,6 @@ void do_open(int secaddr)
 {
     int sa;
 
-
 	/* don't open file before loading (only get name) */
 	if (dont_open==1) return;
 
@@ -170,8 +166,7 @@ void do_open(int secaddr)
 			       filename, &logical_files[file_unit][sa]))
 	{
 	  /* open failed */
-//	  sendchar (4);	/* file not found */
-	  sendchar (0);
+	  sendchar (4);	/* file not found */
 	}
 	else {
 	  /* release c64 end */
@@ -619,7 +614,6 @@ void do_open_small (void) {
     no++;
     c64poke (0x98, no);
     /* release client, it will send filename and fall into do_open right now */
-//    sendchar(0xfc);
     sendchar(254); sendchar(0);
 }
 

@@ -245,7 +245,6 @@ int commune (void)
 		/* listening without a listener */
 		/* this one's for the bit bucket */
 		debug_msg ("Listen without listener: %i\n",charget());
-		/* charget (); */
 	    } else {
 		switch (listenlf & 0xf0) {
 		    case 0xf0:		/* fill in name buffer */
