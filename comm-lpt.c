@@ -104,7 +104,7 @@ int commune (void)
   init_hw ();
 
   /* Announce registration details */
-  printf ("64NET/2 is covered by GPL\n");
+  printf ("64NET/2 is covered by the 64net/2 BSD license\n");
 
   starthw();
 
@@ -291,7 +291,7 @@ int commune (void)
 int 
 read_config (char *file)
 {
-  /* Read in the 64net.ini file */
+  /* Read in the 64netrc file */
 
   FILE *cf = 0;
   unsigned char temp[256];

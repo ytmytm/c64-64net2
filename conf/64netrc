@@ -1,27 +1,40 @@
-#port /dev/tty00
-port 3bc
-#ledfile /home/64net/.64net2.leds
+# The LPT port address to communicate on
+port 278
+
+# The CBM device number to primarily masquerade as
+devnum 9 
+
+# Uncomment the next line if you plan to use 64net/2 in combination with
+# the X11 display application
+#ledfile /tmp/.64net2.leds
+
+# Uncomment the next line to display debugging messages
 debug mode
+
+# Create a 256 page GeoRAM emulation bank
 ram 256
+
+# Define a drive number to be served with 
+#  3 partitions.
+#  Partition 1 = TESTDIR/
+#  Partition 2 = NAME.D64
+#  Partition 3 = root directory of internet device.  See manual for more info
+#  Note that partitions must be specified using their C64 paths, which usually
+#   means using /'s and case inversion.
 device
 number 9
 #partition 1,TESTDIR/
-partition 1,/
-#partition 1, xTerm:Storage/64/
-#partition 1,/HOME/64NET/TESTDIR/HD*/FL*/
-#partition 2,/HOME/64NET/TESTDIR/
-partition 3,/PUB/C64/
-partition 4,/PUB/C64/GAMES/
-#partition 6,/HOME/64NET/TESTDIR/ADINFIN.D64
-#partition 8,@/
+partition 1,/TMP/C64/NAME.D64
+partition 2,/HOME/MACIEK/
+partition 3,@/
 end
+
+# Add partition 2 of each device to the auto-search path for LOAD commands.
 path 2
+
+# Uncomment the following to add another device number
 #device
 #number 10
 #partition 1,/pub/pictures/
 #end
-#device 
-#number 15
-#partition 1,/pub/c64/
-#partition 2,/pub/
-#end
+
