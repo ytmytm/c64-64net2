@@ -15,13 +15,13 @@ AR =ar
 CC =gcc
 XFLAGS =$(CFLAGS) -L/usr/X11R6/lib -lX11 -I/usr/X11R6/include
 # This is for Linux and BeOS
-#LOPT=-L. -l64net2
+LOPT=-L. -l64net2
 # This is for Windows
 #LOPT=-L. -l64net2 -lwsock32
 # This is for Solaris
 #LOPT=-L. -l64net2 -lsocket -lnsl
 # This is for FreeBSD
-LOPT=-L. -l64net2 -lcompat
+#LOPT=-L. -l64net2 -lcompat
 COPT=-O $(CFLAGS) -Wall 
 
 .PHONY: all clean spotless depend dep
