@@ -24,13 +24,63 @@
 	; Device not present
 	jmp $f707
 
+
 ; -----------------------------------------------------------------------
+; Pre-relocation routine: copy ROM to RAM
+; -----------------------------------------------------------------------
+	.prerelocate
+
+	; "Clear ,$nnnn from basic input"
+	ldx #$06 
+pr1	jsr $0073
+	dex
+	bne pr1
+
+	; Bank ROM in
+	lda #$e7
+	sta $01
+	; Copy ROM to RAM
+	ldy #$00
+rc1	lda $a000,y
+	sta $a000,y
+	iny
+	bne rc1
+	inc rc1+2
+	inc rc1+5
+	lda rc1+2
+	cmp #$c0
+	beq rc3	
+	cmp #$00 
+	beq rc2
+	bne rc1
+rc3	lda #$e0
+	sta rc1+2
+	sta rc1+5
+	jmp rc1
+rc2	nop
+
+; -----------------------------------------------------------------------
+; Post-relocation routine: copy ROM to RAM
+; -----------------------------------------------------------------------
+	.postrelocate
+
+#ifdef RAMDRIVE
+	; Copy ROMs to RAMDrive pages
 
 
-;	; Value for $01
-;        value_01 = $05 ; $e7 for ROM, $05 for RAM
-;        .patch $fdd6
-;        .byte value_01
+	; Toggle BBG indicator
+#else
+	; Not for RAMDrive, so just bank to RAM for kernel, and set 64net
+	; device
+	lda #117
+	sta $01
+	lda #$08
+	sta drive_64net
+	lda #$04
+	jsr $ffd2
+#endif
+
+; -----------------------------------------------------------------------
 
 	; byte indicates the default drive for 64net
 	drive_64net = $a7
@@ -39,7 +89,7 @@
         ; bug in build wedge breaks this if LDX drive_64net is 
 	; used, as it tries to make it absolute instead of ZP addressed.
 	.patch $e1d9
-	.byte $a6, drive_64net ; LDX $A7 zero page mode
+	ldx drive_64net 
 
 	; Replace basic "READY." message
  	; so we know what is going on
@@ -149,7 +199,7 @@ myclkwait_entry
 ;mychkinwait
 ;	bit $a7
 ;	bpl mychkin_normal
-;	; for us - so don't wait - but need to drop ATN! Tobias
+;	; for us - so dont wait - but need to drop ATN! Tobias
 ;	jsr $edbe
 ;	rts
 ;mychkin_normal
@@ -190,8 +240,8 @@ myserout_entry
 	sta $dd01
 	
 	; Tell 64net/2 it is there
-	; WHAAAAA!!! If we don't read $dd0d we hang in here soemtimes on the
-	; first serout! Very nasty! It's not the fault of the 64net/2, seems
+	; WHAAAAA!!! If we dont read $dd0d we hang in here soemtimes on the
+	; first serout! Very nasty! It is not the fault of the 64net/2, seems
 	; to urge from setting PB0-7 to output or such! If i clear bits here
 	; all is fine, if i do it before sta $dd03 then bits might be set
 	; again! Grrr. Tobias
@@ -205,7 +255,7 @@ myserout_entry
 myserout_loop
 	bit $dd0d
 	beq myserout_loop
-	; Just to be sure we don't kill our CIA, might be unecessary though
+	; Just to be sure we dont kill our CIA, might be unecessary though
 	lda #$00
 	sta $dd03
 	cli
@@ -283,7 +333,7 @@ myserout_alternate
 ;	bmi whichbus_loop
 ;whichbus_gotresult
 ;	lda $a7
-;	ora #$80 ; was and #$80 but then you won't get through all bmi checks! Tobias
+;	ora #$80 ; was and #$80 but then you wont get through all bmi checks! Tobias
 ;	sta $a7
 ;	jmp serout-1
 
@@ -326,7 +376,7 @@ myserout_alternate
 ;	rts
 
 ; ------------------------------------------------------------
-; Kernel Start up & Hot-key hooks
+; Kernel Start up & control-code hooks
 ; ------------------------------------------------------------
 
 	.patch $e7ce
@@ -437,3 +487,86 @@ boot_file
 boot_file_end
 	.byte $00
 
+
+; ---------------------------------------------------------------------
+; BASIC interprettor hooks for @, $ etc
+; ---------------------------------------------------------------------
+	
+	.patch $e44f
+	.byte <basic_decode,>basic_decode
+
+	.section
+
+disable_decode
+	; Remove BASIC wedge, so that ROM can be switched
+	lda #$e4
+	sta $0308
+	lda #$a7
+	sta $0309
+	rts
+
+basic_decode
+	jsr $0073
+	cmp #'@'
+	beq found_at
+	cmp #'$'
+	beq found_dollar
+	cmp #'!'
+	beq found_bang
+	jmp $a7e7 ; let C64 basic handle it
+
+found_at
+	; open command channel
+	lda drive_64net
+	sta $fa
+	lda #15
+	sta $b8
+	sta $ba
+	lda #0
+	sta $71
+	sta $b7
+	lda #4
+	sta $72
+	jsr $ffc0 ; open
+	ldx #15
+	jsr $ffc9 ; CHKOUT
+	; write command (skip quotes if necessary)
+	jsr $0073
+	cmp #'Q' ;quit basic wedge
+	beq disable_decode
+	cmp #$22 ; quote 
+	bne fat1
+	; skip double quote '"'
+	jsr $0073
+fat1	cmp #$00
+	beq fat2
+	cmp #$3a
+	beq fat2
+	cmp #$22
+	beq fat2
+	jsr $ffd2
+	inc $71
+	bne fat3
+fat3	inc $72
+	ldy #$00
+	lda ($71),y
+	bne fat1
+fat2    ;sent command
+	jsr $ffcc ; stop talking
+	ldx #15
+	jsr $ffb1 ; start listening
+fat4 	jsr $ffe4
+	cmp #$0d
+	beq fat5
+	jsr $ffd2
+	jmp fat4
+fat5	jsr $ffd2
+	lda #15
+	jsr $ffc3 ; close
+	rts
+
+found_dollar
+	rts
+
+found_bang
+	rts
