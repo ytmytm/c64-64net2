@@ -261,6 +261,8 @@ int commune (void)
     case UNLISTEN:
     case UNTALK:
 	{
+	    if (a==UNLISTEN) debug_msg ("Unlisten call on channel %i\n",listenlf & 0x0f);
+	    if (a==UNTALK) debug_msg ("Untalk call on channel %i\n",talklf & 0x0f);
 	    /* untalk/unlisten system call, lower all talk flags, close files, (send error?) */
 	    /* ATN+0x5f */
 	    lastlf = (a==UNLISTEN) ? listenlf : talklf;
@@ -268,10 +270,11 @@ int commune (void)
 	/* do_dos_command if after listen and channel 15 */
 	    if (a==UNLISTEN) listenlf = -1; else talklf = -1;
 
-	    if ((a==UNLISTEN) && ((lastlf & 0x0f)==15) && (dos_comm_len[last_unit]!=0)) {
+//^	    if ((a==UNLISTEN) && ((lastlf & 0x0f)==15) && (dos_comm_len[last_unit]!=0)) {
+	    if ((a==UNLISTEN) && ((lastlf & 0x0f)==15)) {
     		debug_msg ("Processing dos command\n");
-		do_command();
-		sendchar (0);	/* UN{TALK,LISTEN} always return status code OK, read status for more */
+		if (dos_comm_len[last_unit]!=0) do_command();
+		sendchar (0);	/* UN{TALK,LISTEN} always return status code OK, read dos_status for more */
 	    } else {
 		switch(lastlf & 0xf0) {
 		    case 0xf0:	/* got full name - open it */

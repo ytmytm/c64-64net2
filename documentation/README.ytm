@@ -71,6 +71,7 @@ IDEAS:
       i/o, needs special treatment for fastblocksend/get
       (or throw it everything out, this is faster anyway)
     * support for gzipped files (.d64.gz, .n64.gz etc.)
+	(use avfs or include it or incorporate or something)
 	(see VICE sources for inspiration)
 	(easy - make a temporary file, decompress data there and pass file handle via fopen wrapper,
 	 with fclose wrapper compression can be done upon closing the file)
