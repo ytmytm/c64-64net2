@@ -229,8 +229,8 @@ int free_space_count=0;
 
 /* Has a "hanging label" been declared, but not
    yet associated with a line of code? */
-int pending_label=0;
-char *pending_label_name;
+int pending_labels=0;
+char *pending_label_name[16];
 
 int assembleLabel(FILE *f);
 int assembleInstruction(FILE *f);
@@ -472,7 +472,7 @@ int parseFile(FILE *f)
 	  break;
 	case T_K_PATCH:
 	  /* Start a patch here, i.e. a section at a set location */
-	  if (pending_label)
+	  if (pending_labels)
 	    return syntaxError("Cannot label a PATCH directive");
 	  current_section=NULL;
 	  current_byte=NULL;
@@ -486,14 +486,14 @@ int parseFile(FILE *f)
 	    return syntaxError("Patch address outside of address space");
 	  break;
 	case T_K_SECTION:
-	  if (pending_label)
+	  if (pending_labels)
 	    return syntaxError("Cannot label a SECTION directive");
 	  current_section=sections[section_count];
 	  current_byte=NULL;
 	  special_section=NULL;
 	  break;
 	case T_K_PRERELOCATE:
-	  if (pending_label)
+	  if (pending_labels)
 	    return syntaxError("Cannot label an PRERELOCATE directive");
 	  if (pre_relocate)
 	    return syntaxError("Cannot have multiple PRERELOCATE directives");
@@ -502,7 +502,7 @@ int parseFile(FILE *f)
 	  special_section=T_K_PRERELOCATE;
 	  break;
 	case T_K_POSTRELOCATE:
-	  if (pending_label)
+	  if (pending_labels)
 	    return syntaxError("Cannot label an POSTRELOCATE directive");
 	  if (post_relocate)
 	    return syntaxError("Cannot have multiple POSTRELOCATE directives");
@@ -700,8 +700,15 @@ int assembleLabel(FILE *f)
   printf("label [%s]\n",token_body);
 
   /* Record label */
-  pending_label_name=strdup(token_body);
-  pending_label=1;
+  if (pending_labels<16)
+    {
+      pending_label_name[pending_labels]=strdup(token_body);
+      pending_labels++;
+    }
+  else
+    {
+      syntaxError("Too many consecutive labels");
+    }
 
   /* Check out next token */
   getNextToken(f);
@@ -715,10 +722,14 @@ int assembleLabel(FILE *f)
       getNextToken(f);
       if (token_type!=T_NUMERIC) 
 	return syntaxError("Expected dec, hex or binary value after =");
-      if (!newLabel(pending_label_name,1,1,0,1,token_value,
-		    current_section,current_byte,NULL))
-	return -1;
-      pending_label=0;
+      while(pending_labels>0)
+	{
+	  pending_labels--;
+	  if (!newLabel(pending_label_name[pending_labels],1,1,0,1,token_value,
+			current_section,current_byte,NULL))
+	    return -1;
+	}
+      pending_labels=0;
       return assembleLineDregs(f);
     case T_SEMICOLON:
       /* label followed by a comment */
@@ -781,7 +792,7 @@ struct assembled_byte *parseValueOperand(FILE *f)
 		    NULL,NULL,NULL);	    
 	  }
 	
-	ab=malloc(sizeof(struct assembled_byte));
+	ab=calloc(1,sizeof(struct assembled_byte));
 	if (!ab) 
 	  {
 	    syntaxError("malloc() failure in assembleInstruction()");
@@ -796,7 +807,7 @@ struct assembled_byte *parseValueOperand(FILE *f)
       }
       break;
     case T_NUMERIC:
-      ab=malloc(sizeof(struct assembled_byte));
+      ab=calloc(1,sizeof(struct assembled_byte));
       if (!ab) 
 	{
 	  syntaxError("malloc() failure in assembleInstruction()");
@@ -873,13 +884,17 @@ int commitByte(struct assembled_byte *ab)
       if ((ab->bytes==3)&&(!ab->relativeP))
 	section_lengths[section_count-1]++;
       
-      if (pending_label)
+      if (pending_labels)
 	{
 	  /* Declare the pending label as being here */
-	  pending_label=0;
-	  if (!newLabel(pending_label_name,0,1,0,1,token_value,
-			current_section,current_byte,NULL))
-	    return -1;
+	  while(pending_labels>0)
+	    {
+	      pending_labels--;
+	      if (!newLabel(pending_label_name[pending_labels],
+			    0,1,0,1,token_value,
+			    current_section,current_byte,NULL))
+		return -1;
+	    }
 	}
       break;
     case T_K_PRERELOCATE:
@@ -889,11 +904,11 @@ int commitByte(struct assembled_byte *ab)
 	{ current_byte->next=ab; current_byte=ab; }
       pre_relocate_length++;
       if ((ab->bytes==3)&&(!ab->relativeP)) pre_relocate_length++;
-      if (pending_label)
+      while (pending_labels)
 	{
 	  /* Declare the pending label as being here */
-	  pending_label=0;
-	  if (!newLabel(pending_label_name,0,1,0,1,token_value,
+	  pending_labels--;
+	  if (!newLabel(pending_label_name[pending_labels],0,1,0,1,token_value,
 			current_section,current_byte,NULL))
 	    return -1;
 	}
@@ -905,11 +920,11 @@ int commitByte(struct assembled_byte *ab)
 	{ current_byte->next=ab; current_byte=ab; }
       post_relocate_length++;      
       if ((ab->bytes==3)&&(!ab->relativeP)) post_relocate_length++;
-      if (pending_label)
+      while (pending_labels)
 	{
 	  /* Declare the pending label as being here */
-	  pending_label=0;
-	  if (!newLabel(pending_label_name,0,1,0,1,token_value,
+	  pending_labels--;
+	  if (!newLabel(pending_label_name[pending_labels],0,1,0,1,token_value,
 			current_section,current_byte,NULL))
 	    return -1;
 	} 
@@ -939,7 +954,7 @@ int commitOpcode(char *inst,int mode)
     }
 
   /* Create byte structure and add to list */
-  ab=(struct assembled_byte*)malloc(sizeof(struct assembled_byte));
+  ab=(struct assembled_byte*)calloc(1,sizeof(struct assembled_byte));
   if (!ab) return syntaxError("malloc() failed in commitOpcode()");
 
   ab->valueP=1;
@@ -1271,10 +1286,10 @@ int resolveLabels()
 	    }
 	  l->value=section_address+section_offset;
 	  l->resolvedP=1;
-	  c+=strlen(l->name)+7;
-	  if (c>79) { printf("\n"); c=strlen(l->name)+7; }
-	  printf("%s = $%04x, ",l->name,l->value);
 	}
+      c+=strlen(l->name)+10;
+      if (c>79) { printf("\n"); c=strlen(l->name)+7; }
+      printf("%s = $%04x, ",l->name,l->value);
       if (l->zpP&&(l->value>255))
 	{
 	  fprintf(stderr,"WARNING: Label %s > 255, but used as ZP operand\n",l->name);
@@ -1300,6 +1315,9 @@ int resolveSectionValues(struct assembled_byte *b,
 		      b->label->name);
 	      return -1;
 	    }
+	  else
+	    printf("[%s] is resolved as $%04x\n",
+		   b->label->name,b->label->value);
 	  b->value=b->label->value+b->label_offset;
 	  if (b->relativeP)
 	    {
@@ -1314,7 +1332,17 @@ int resolveSectionValues(struct assembled_byte *b,
 	      b->relativeP=0;
 	    }
 	}
-      
+      else
+	{
+	  if (b->label)
+	    {
+	      printf("Ignored [%s] is %sresolved as $%04x\n",
+		     b->label->name,
+		     b->label->resolvedP ? "":"not ",
+		     b->label->value);
+
+	    }
+	}
       section_offset++;
       if ((b->bytes==3)&&(!b->relativeP)) section_offset++;
       
