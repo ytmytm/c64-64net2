@@ -8,7 +8,9 @@
 ;	.space $c000 $cfff	
 
 	; was RS232 routines
-	.space $eebb $ef38
+	.space $eebb $ef02
+	; Dodge $EF03 which CMD RamDrive seems to refuse to override
+	.space $ef04 $ef38
 	.space $ef4a $f0a3
 
 	; was open RS232
@@ -334,7 +336,9 @@ myserout_alternate
 
 hotkeys cmp #$04   ; CTRL-D = drive select
         bne hk1
-	jmp hotkey_d
+	jsr hotkey_d
+	jmp $ec44
+
 hk1	; Splice back into kernel function
 	jsr $e8cb
 	jmp $e7d1
@@ -368,7 +372,8 @@ hke3	; display drive number and new line
 	pla
 	tay
 	lda #$04
-	jmp $ec44
+	; jmp $ec44
+	rts
 
 	.section
 
@@ -385,6 +390,12 @@ msg_64net_is
 init_64net
 	; Set device # by calling CTRL-D hotkey function.
 	; This will also display the "64NET is device x" message
+	lda #$0d
+	jsr $ffd2
+	lda #$05
+	jsr $ffd2
+	lda #$08
+	sta drive_64net
 	jsr hotkey_d
 	; Start up basic
 	jmp $a644
@@ -425,3 +436,4 @@ boot_file
 	.byte '1',':','B','O','O','T','.','6','4'
 boot_file_end
 	.byte $00
+

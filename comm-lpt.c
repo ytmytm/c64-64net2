@@ -178,7 +178,10 @@ int parallel_iec_commune(int unused)
 
   set_datalines_input();
   set_lpt_control(0); // drop strobe
-  request=(get_status()&REQUEST_IN);
+
+  /* Allow answering of queued request */
+  request=(get_status()&REQUEST_IN)^REQUEST_IN;
+
   while(start_server()==-1);
 
   return 0;
@@ -186,6 +189,7 @@ int parallel_iec_commune(int unused)
 
 int start_server() 
 {
+  int i;
 #ifdef DEBUG_PIEC
   int a;
 #endif
@@ -221,11 +225,30 @@ int start_server()
       printf("\n");
 #endif
       
-      if(SA==IEC_SAVE) {
+      if((SA&0xf)==1) {
 	//received data will be saved to disk
-	//save_to_disk(input_buffer);
+#ifdef DEBUG_PIEC
+	printf("I think I am saving\n");
+#endif
+	// Write data which has been received
+	for(i=0;i<inputlen;i++)
+	  fs64_writechar (&logical_files[file_unit][SA&0xf], input_buffer[i]);
+	printf("Wrote %d bytes to file.\n",i);
+
 	if(inputlen>0) free(input_buffer);
+	inputlen=0;
       }
+      if ((SA&0xf)==0xf)
+	{
+	  /* DOS command - so write it out */
+	  last_unit=file_unit;
+	  input_buffer[inputlen]=0;
+	  strncpy(dos_command[last_unit],input_buffer,255);
+	  dos_command[last_unit][255]=0;
+	  dos_comm_len[last_unit]=(inputlen<256) ? inputlen : 255;
+	  do_dos_command();
+	}
+
       break;
       
     case IEC_TALK:
@@ -248,9 +271,21 @@ int start_server()
 
 	output_buffer=malloc(1048576);
 	outputlen=0;
-	while(!fs64_readchar(&logical_files[file_unit][talklf], 
-			     &output_buffer[outputlen]))
-	  outputlen++;
+	
+	if (talklf!=0xf)
+	  {
+	    while(!fs64_readchar(&logical_files[file_unit][talklf], 
+				 &output_buffer[outputlen]))
+	      outputlen++;
+	  }
+	else
+	  {
+	    /* Read DOS status */
+	    last_unit=file_unit;
+	    bcopy(dos_status[last_unit],output_buffer,dos_stat_len[last_unit]);
+	    outputlen=dos_stat_len[last_unit];
+	    set_error(0,0,0);
+	  }
       }
       else {
 	//output_buffer=execute_command(input_buffer);
@@ -325,7 +360,7 @@ unsigned int iec_listen() {
       }
   }
   /* We have received all data - so crop array to correct size and return */
-  input_buffer=realloc(input_buffer,inputlen+1);
+  input_buffer=realloc(input_buffer,inputlen+1+2 /* for ,R or ,W */);
   input_buffer[inputlen]=0;
 
   /* Having received data, decide what to do with it */
@@ -333,6 +368,11 @@ unsigned int iec_listen() {
     {
     case 0xf0: /* OPEN */
       /* Data received was a filename to open */
+      
+      /* Add ,W to logical file 1 (save) and ,R to logical file 0 (load) */
+      if ((SA&0xf)==1) strcat(input_buffer,",W");
+      if ((SA&0xf)==0) strcat(input_buffer,",R");
+
 #ifdef DEBUG_PIEC
       printf("Received filename \"%s\" for logical file %d\n",
 	     input_buffer,listenlf);
@@ -344,25 +384,40 @@ unsigned int iec_listen() {
       if (logical_files[file_unit][listenlf].open == 1)
 	fs64_closefile_g (&logical_files[last_unit][listenlf]);
       debug_msg ("*** Opening [%s] on channel $%02x\n",input_buffer, listenlf);
-      if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]],
-			   input_buffer, &logical_files[file_unit][listenlf]))
+
+      if (listenlf==15)
 	{
-	  /* open failed
-	     XXX - What do we do here to signal file not found?
-	     How about send an EOI? */
-	  send_eoi();
+	  /* filename is DOS command */
+	  last_unit=file_unit;
+	  input_buffer[inputlen]=0;
+	  strncpy(dos_command[last_unit],input_buffer,255);
+	  dos_command[last_unit][255]=0;
+	  dos_comm_len[last_unit]=(inputlen<256) ? inputlen : 255;
+	  do_dos_command();
 	}
-      else 
-	{
-	  /* open succeeded.
-	     XXX - What do we do here? nothing I suppose */
-	}
+      else
+	if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]],
+			     input_buffer, &logical_files[file_unit][listenlf]))
+	  {
+	    /* open failed
+	       XXX - What do we do here to signal file not found?
+	       How about send an EOI? */
+	    send_eoi();
+	  }
+	else 
+	  {
+	    /* open succeeded.
+	       XXX - What do we do here? nothing I suppose */
+	  }
+      free(input_buffer); inputlen=0;
       break;
     case 0xe0: /* CLOSE */
       /* Close file from SA */
 #ifdef DEBUG_PIEC
       printf("Closing logical file %d\n",listenlf);
 #endif
+      fs64_closefile_g (&logical_files[last_unit][listenlf]);
+
       break;
     case 0x60: /* Unknown, seems to get called when opening files. */
       break;
@@ -375,7 +430,7 @@ unsigned int talk() {
   unsigned int temp=0;
   outputpos=0;
 #ifdef DEBUG_PIEC
-  printf("Serving requested data...\n");
+  printf("Serving %d bytes of requested data...\n",outputlen);
 #endif
 
   /* Special case for if we are asked to send 0 bytes. */
@@ -400,6 +455,11 @@ unsigned int talk() {
       break;							
     }
     outputpos++;
+
+#ifdef DEBUG_PIEC
+  printf("  sent %d bytes\n",outputpos);
+#endif
+
   }
   return temp;
 }

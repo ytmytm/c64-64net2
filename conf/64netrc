@@ -21,13 +21,14 @@ debug mode
 device
 number 9
 #partition 1,TESTDIR/
-partition 1,/TMP
-partition 2,/HOME/GARDNERS/
-partition 3,@/
+partition 1,/HOME/GARDNERS/C64
+partition 2,/HOME/GARDNERS/C64/PROGUTS2.D64
+partition 200,/TMP
+partition 254,@/
 end
 
-# Add partition 2 of each device to the auto-search path for LOAD commands.
-path 2
+# Add partition 1 of each device to the auto-search path for LOAD commands.
+path 1
 
 # Uncomment the following to add another device number
 #device

@@ -605,6 +605,7 @@ fs64_writeblock (fs64_file * f)
   if (f->mode != mode_WRITE)
   {
     /* ignore stupid/impossible accesses */
+    debug_msg("Trying to write to read only file\n");
     return (-1);
   }
 

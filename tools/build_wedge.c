@@ -671,7 +671,7 @@ struct assembled_byte *parseValueOperand(FILE *f)
 	    /* un-defined label.
 	       Create as undefined */
 	    printf("Creating undefined label [%s]\n",token_body);
-	    l=newLabel(token_body,1,0,0,1,0,
+	    l=newLabel(token_body,0,0,0,1,0,
 		    NULL,NULL,NULL);	    
 	  }
 	
@@ -860,6 +860,17 @@ int assembleInstruction(FILE *f)
       if (ab->bytes!=3)	absP=0;
       if (ab->valueP&&(ab->value<256)) 
 	{ absP=0; ab->bytes=1; }
+      if (ab->label!=NULL)
+	{
+	  if (ab->label->resolvedP==1)
+	    {
+	      printf("Label '%s' claims to be resolved\n",
+		     ab->label->name);
+	      if (((ab->label->value+ab->label_offset)>=0)
+		  &&((ab->label->value+ab->label_offset)<256))
+		{ absP=0; ab->bytes=1; }
+	    }
+	}
       if (absP)
 	{
 	  mode=IM_ABS;
