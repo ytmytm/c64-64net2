@@ -12,6 +12,7 @@ config.h.
 Solaris port is complete. It lacks inb/outb functions (replaced by dummy ones) but
 everything else is just perfect. Remember to use GNU make, that is gmake to build
 the binaries, but edit Makefile before (there is LOPT line for SunOS) and config.h
+You might need also to change definition of AR in Makefile from 'ar' to 'gar'.
 
 20.09.2001
 FreeBSD port is complete. I don't have any machine with BSD and root access and I am
