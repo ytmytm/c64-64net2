@@ -78,6 +78,11 @@ rc2	nop
 	sta drive_64net
 	lda #$04
 	jsr $ffd2
+	; Hook into BASIC decode for @, $ and ! meta-commands
+	lda #<basic_decode
+	sta $0308
+	lda #>basic_decode
+	sta $0309
 #endif
 
 ; -----------------------------------------------------------------------
@@ -497,76 +502,150 @@ boot_file_end
 
 	.section
 
+basic_decode
+	jsr $0073
+	cmp #'@'
+	bne bd1
+	jmp found_at
+bd1	cmp #'$'
+	bne bd2
+	jmp found_dollar
+bd2	cmp #'!'
+	bne bd3
+	jmp found_bang
+bd3	jmp $a7e7 ; let C64 basic handle it
+
+	.section
+
 disable_decode
 	; Remove BASIC wedge, so that ROM can be switched
 	lda #$e4
 	sta $0308
 	lda #$a7
 	sta $0309
-	rts
-
-basic_decode
-	jsr $0073
-	cmp #'@'
-	beq found_at
-	cmp #'$'
-	beq found_dollar
-	cmp #'!'
-	beq found_bang
-	jmp $a7e7 ; let C64 basic handle it
+	jmp $a7e7
 
 found_at
-	; open command channel
-	lda drive_64net
-	sta $fa
-	lda #15
-	sta $b8
-	sta $ba
-	lda #0
-	sta $71
-	sta $b7
-	lda #4
-	sta $72
-	jsr $ffc0 ; open
-	ldx #15
-	jsr $ffc9 ; CHKOUT
-	; write command (skip quotes if necessary)
+	; Somewhat derived from p32 of "Anatomy of a C64"
+
+	; write command to channel
 	jsr $0073
 	cmp #'Q' ;quit basic wedge
 	beq disable_decode
-	cmp #$22 ; quote 
-	bne fat1
-	; skip double quote '"'
+at2	lda drive_64net
+	sta $ba
+	jsr $ffb1 ; LISTEN
+	lda #$6f
+	sta $b9
+	jsr $ff93 ; LISTEN SA
+	jsr $0079
+at3	cmp #$00
+	beq at4
+	jsr $ffa8
 	jsr $0073
-fat1	cmp #$00
-	beq fat2
-	cmp #$3a
-	beq fat2
-	cmp #$22
-	beq fat2
+	jmp at3
+at4	
+
+	; open command channel for reading
+	lda drive_64net
+	sta $ba
+	jsr $ffb4 ; TALK
+	lda #$6f  ; command channel
+	sta $b9
+	jsr $ff96 ; TKSA
+at1	jsr $ffa5
 	jsr $ffd2
-	inc $71
-	bne fat3
-fat3	inc $72
-	ldy #$00
-	lda ($71),y
-	bne fat1
-fat2    ;sent command
-	jsr $ffcc ; stop talking
-	ldx #15
-	jsr $ffb1 ; start listening
-fat4 	jsr $ffe4
 	cmp #$0d
-	beq fat5
-	jsr $ffd2
-	jmp fat4
-fat5	jsr $ffd2
-	lda #15
-	jsr $ffc3 ; close
-	rts
+	bne at1	
+	jsr $ffab ; UNTLK
+
+	; back to basic
+	jsr $0079
+	sta $0400
+	jmp $a7e7
+	
+	.section
 
 found_dollar
-	rts
+	; Somewhat derived from p33 of "Anatomy of a C64"
+
+	; Show directory
+
+	; Get directory file name
+	lda #$3c
+	sta $bb
+	lda #$03
+	sta $bc
+	ldy #$00
+	lda #'$'
+	sta ($bb),y
+	iny
+fd1	jsr $0073
+	; turn tokens back to characters where necessary
+	; this is to allow wild cards in directory spec
+	; XXX - Incomplete - ? is not allowed yet	
+	cmp #$ac ; *
+	bne fd0
+	lda #'*'
+fd0	cmp #$99
+	bne fd01
+	lda #'?'
+fd01	sta ($bb),y
+	iny
+	cmp #$00
+	bne fd1
+	dey
+	sty $b7
+
+	; Open directory for reading
+	lda drive_64net
+	sta $ba
+	lda #$60
+	sta $b9
+	jsr $f3d5 ; open file with name
+	lda $ba
+	jsr $ffb4 ; TALK
+	lda $b9
+	jsr $ff96 ; TKSA
+	lda #0
+	sta $90
+	ldy #3
+dl1	sty $fb
+	jsr $ffa5 ; ACPTR
+	sta $fc
+	ldy $90
+	bne dl4
+	jsr $ffa5
+	ldy $90
+	bne dl4
+	ldy $fb
+	dey
+	bne dl1
+	ldx $fc
+	jsr $bdcd
+	lda #$20
+	jsr $ffd2
+dl3	jsr $ffa5
+	ldx $90
+	bne dl4
+	tax
+	beq dl2
+	jsr $ffd2
+	jmp dl3
+dl2	lda #$0d
+	jsr $ffd2
+	ldy #$02
+	bne dl1
+dl4	jsr $f642
+
+	; back to basic
+	jmp $a7ae	
+
+	.section
 
 found_bang
-	rts
+fb1	jsr $0073
+	cmp #$00
+	bne fb1
+	jmp $a7ae	
+
