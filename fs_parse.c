@@ -324,16 +324,20 @@ fs64_parse_filespec (uchar *filespec2, uchar *path,
   uchar *filespec = filespec_snoz;
 
   /* dont modify original */
+  memset (filespec, 0, 1024);
   strcpy (filespec, filespec2);
 
   /* strip linefeeds left by lazy routines */
-  if (filespec[strlen (filespec) - 1] == 0x0a)
+  if ((filespec[strlen (filespec) - 1] == 0x0a) || (filespec[strlen (filespec) - 1] == 0x0d))
     filespec[strlen (filespec) - 1] = 0;
 
-  /* some programs send unit no. with $ e.g. '0:$' which confuses parser; as that '0:' does
-     not belong to filespec it is stripped */
-  if (isdigit(filespec[0]) && (filespec[1]==':') && (filespec[2]=='$'))
-	filespec = &filespec[2];
+  /* strip '0:' off the filespec completely as it confuses the filesearch */
+
+  uchar *tmp;
+  tmp = strstr(filespec,"0:");
+  if (tmp!=NULL) {
+    strcpy (tmp, &tmp[2]);
+  }
 
   /* moreover, due to 1541 compatibility: $0: and $0 are also legal and mean current directory */
   if ((filespec[0]=='$') && filespec[1]=='0' && ((filespec[2]=='\0') || (filespec[2]==':'))) {

@@ -107,6 +107,18 @@ do_dos_command (void)
     /* null command needs null action */
     return (0);
 
+    /* strip "0:" off the DOS command, leave only ':' */
+
+//  for (j=0;j<=dos_comm_len[i];j++) {
+//    if ((dos_command[i][j]=='0')&&(dos_command[i][j+1]==':')) {
+//	for (k=j+1;k<=dos_comm_len[i];k++)
+//	    dos_command[i][k-1]=dos_command[i][k];
+//	dos_comm_len[i] = dos_comm_len[i]-1;
+//    }
+//  }
+// debug_msg ("DOS Command: [%s]\n", dos_command[i]);
+
+
   /* parse out */
   switch (dos_command[i][0])
   {
