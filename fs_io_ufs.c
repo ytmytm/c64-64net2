@@ -429,9 +429,8 @@ fs_ufs_getinfo (fs64_direntry * de)
   else
   {
     /* read in first 1024 bytes to try to find the file's type */
+    memset(tarr,0,1024);
     fread(tarr,1024,1,temp);
-    /* for (i = 0; i < 1024; i++)
-       tarr[i] = fgetc (temp); */
 
     /* now try to find the file's type */
     de->filesys.arctype = arc_UFS;	/* default */
