@@ -1,0 +1,8 @@
+
+This is an universal driver for accessing I/O ports on x86 BeOS.
+It is somewhat stripped version of C++ library that can be found at:
+
+http://www.infernal.currantbun.com/
+
+Maciej 'YTM/Elysium' Witkowiak <ytm@elysium>
+22.12.2001

@@ -55,7 +55,18 @@
 #ifdef UNIX
 #define net_errno errno
 #define closesocket close
+#ifdef BEOS
+#include <NetKit.h>
+/* dummy ones */
+void setservent (int a) { }
+void endservent (void) { }
+void *getprotobyname (const char *a) { return NULL; }
+/* !!! FIXME this is UGLY!!! */
+#define getservbyport
+//struct servent *getservbyport (int a, const char* b) { return NULL; }
+#else
 #include <arpa/inet.h>
+#endif
 void clear_net_errno(void) { net_errno = 0; }
 #endif
 
@@ -601,11 +612,21 @@ fs_net_findnext (fs64_direntry * de)
       {
 	  struct servent *se;
 	  struct protoent *pn = getprotobyname ("tcp");
+#ifdef BEOS
+/* !!! FIXME !!! */
+	  se = NULL;
+#else
 	  se = getservbyport (htons (de->intcount), pn->p_name);
+#endif
 	  while ((!se) && (de->intcount < 1023))
 	  {
 	      de->intcount++;
+#ifdef BEOS
+/* !!! FIXME !!! */
+	      se = NULL;
+#else
 	      se = getservbyport (htons (de->intcount), pn->p_name);
+#endif
 	  }
 	  if (se)
 	  {

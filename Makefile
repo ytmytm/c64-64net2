@@ -14,7 +14,7 @@ XPROGS	= x/x64net.o
 AR =ar
 CC =gcc
 XFLAGS =$(CFLAGS) -L/usr/X11R6/lib -lX11
-# This is for Linux
+# This is for Linux and BeOS
 LOPT=-L. -l64net2
 # This is for Windows
 #LOPT=-L. -l64net2 -lwsock32

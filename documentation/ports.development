@@ -20,4 +20,13 @@ code that was before or i386_get_ioperm like it is now. If anyone is able to tes
 please contact me. Remember to use GNU make, that is gmake to build the binaries,
 but edit Makefile before (there is LOPT line for FreeBSD) and config.h.
 
+21.12.2001
+BeOS port was not tested, but should work.
+BeOS port is complete. To build BeOS port first go to 64net2/ioport directory
+and do 'make' and then 'make install' to install a driver for accessing I/O
+ports, it will be /dev/misc/ioport device. Then go to 64net2/ directory and
+edit Makefile (uncomment LOPT for Linux) and config.h, then you can do 'make'.
+You need only BeOS DevTools from Be.
+This was tested only on BeOS 5 Personal Edition.
+
 Maciej 'YTM/Elysium' Witkowiak (ytm@elysium.pl)

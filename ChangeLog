@@ -1,3 +1,6 @@
+2001-12-21   
+	* BeOS port (with I/O, but not tested)
+
 2001-09-21  
 	* Win32 port is fully working (opendir needs to have '/' stripped from the end)
 

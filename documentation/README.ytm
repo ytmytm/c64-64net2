@@ -2,8 +2,12 @@
 Maciej 'YTM/Elysium' Witkowiak
 <ytm@elysium.pl>
 
-Win32 can be built with MINGW (www.mingw.org), copy inpout32.dll from inpout32/ to directory
+Win32 target can be built with MINGW (www.mingw.org), copy inpout32.dll from inpout32/ to directory
 with executables.
+
+BeOS target can be built with BeOS DevTools supplied by Be. Simply go to the
+directory and do 'make'. Before running go to 64net2/ioport and do make,
+make install.
 
 BUGS:
 + executables are too big (200K now), a lot of empty space is inside

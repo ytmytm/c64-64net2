@@ -39,6 +39,35 @@ int outb(int p,int v) { return 0; }
 int inb(int p) { return 255; }
 #endif /* SOLARIS */
 
+#ifdef BEOS
+#define DRV_READ_IO_8 'r'
+#define DRV_WRITE_IO_8 'w'
+#define DRV_READ_IO_16 'r16'
+#define DRV_WRITE_IO_16 'w16'
+int parport_fd;
+typedef struct IO_Tuple {
+        unsigned long Port;
+        unsigned char  Data;
+        unsigned short Data16;
+} IO_Tuple;
+
+int inb (int port) {
+  IO_Tuple temp;
+
+  temp.Port = port;
+  ioctl(parport_fd, DRV_READ_IO_8, &temp, 0);
+  return (temp.Data);
+}
+
+void outb(int port, int value) {
+  IO_Tuple temp;
+
+  temp.Port = port;
+  temp.Data = value;
+  ioctl(parport_fd, DRV_WRITE_IO_8, &temp, 0);
+}
+#endif /* BEOS */
+
 /* Low-level functions definitions for each architecture */
 
 #ifdef AMIGA
@@ -103,6 +132,16 @@ init_hw (void)
 
  fflush(stdout);
 #endif /* BSD */
+
+#ifdef BEOS
+  debug_msg("Opening ioport device to access parallel ports.\n");
+  parport_fd = open("/dev/misc/ioport", O_RDWR | O_NONBLOCK);
+  if (parport_fd < 0) {
+	fatal_error ("Cannot open /dev/misc/ioport, install ioport driver first.\n");
+	exit(1);
+  }
+  fflush(stdout);
+#endif /* BEOS */
 
 #ifdef LINUX
  int a;

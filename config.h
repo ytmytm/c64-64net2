@@ -6,13 +6,13 @@
 
 
 /* target architecture */
+
 #define LINUX
-/*
-#define BSD
-#define SOLARIS
-#define WINDOWS
-#define AMIGA
-*/
+//#define BSD
+//#define SOLARIS
+//#define BEOS
+//#define WINDOWS
+//#define AMIGA
 
 /* do not define this - debug stuff is buggy (it's not a joke) */
 /* #define DEBUG */
@@ -45,6 +45,9 @@
 #define UNIX
 #endif
 #ifdef SOLARIS
+#define UNIX
+#endif
+#ifdef BEOS
 #define UNIX
 #endif
 
@@ -82,6 +85,13 @@
 
 #ifdef SOLARIS
 #define statfs statvfs
+#endif
+
+#ifdef BEOS
+#include <OS.h>
+#define statfs statvfs
+#define socklen_t int
+#define usleep(x) snooze(x)
 #endif
 
 #ifdef WINDOWS
@@ -122,3 +132,4 @@
 #define opendir winhack_opendir
 #endif
 #endif
+
