@@ -13,26 +13,30 @@ LOAD/SAVE code - just the normal IEC serial bus commands.  There
 should be little or no loss of LOAD/SAVE speed as 64NET/2 would become 
 a talker/listener and stream data over the parallel port.
 
-The 64NET/2 ATN cable uses 12 pin-to-pin connections as follows:
+The 64NET/2 ATN cable uses 13 pin-to-pin connections as follows:
 
 Printer Port	User Port
 1		B
 2		C
 3		D
 4		E
-5		F,6
+5		F
 6		H
 7		J
 8		K
 9		L
-10		9   <--- This is the single difference
+10		9   <--- This is different to original 64net/2 cable
 11		M
+14		6   <--- This is different to original 64net/2 cable
 18		N
 
 Refer to PCcable.txt for further information on generally building the 
 cable.
 
 User port pin 9 is electrically connected to the IEC serial ATN line.
+
+User port pin 6 is electrically connected to the CIA cnt2 pin.  Toggling this
+line eight times can be used to trigger an interrupt on the CIA.
 
 Each of the IEC serial transfer mode equivalents are described below:
 
@@ -42,7 +46,7 @@ C64 originated ATN:
 This allows the C64 to call for attention on both busses
 simultaneously by:
 
-1. Set user port to output, command and write device number to $DD01
+1. Set user port to output, write command and device number to $DD01
 2. Assert ATN
    Simultaneously bring userport pin M (PC BUSY) low
    and perform normal serial ATN sequence.
@@ -78,21 +82,11 @@ It could be possible to infer this state, just by having 64net/2 not
 respond to the next character request - but that is slow and ugly, and 
 breaks the nice asynchronous nature of 64NET/2 data communications.
 
-This could be resolved by tying the CNT2 pin (user port pin 6) to an
-output on the server end.  At the end of a transfer pulse it 8 times,
+This is resolved by tying the CNT2 pin (user port pin 6) to an
+output on the server end (LPT port pin 14 - auto line feed indicate). 
+At the end of a transfer, we pulse it 8 times,
 and it will generate an interrupt on the C64 (set bit 3 of $DD0D).
 (Must clear bit 6 of $DD0E for this mode of operation).
-
-If CNT2 (user port 6) is tied to PB3 (user port pin F) then no
-additional wire is required.
-
-The only requirement is that when the C64 performs a CHKIN the
-serial port be set to output and then input again to clear the partial 
-byte it thinks it has received.  
-
-This need not be performed once per character, since the PC will not 
-
-This is the method which 
 
 64NET/2 stops talking
 ---------------------
