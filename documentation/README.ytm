@@ -40,6 +40,7 @@ BUGS:
   (this should also fix the error above)
 - something connected with two above errors - $90 should be asserted _when_ last byte is sent,
   not with next call IMO, but it is still unclear
+- save has wrong endaddress with Action Replay, don't know why
 
 MODULE VERSION ISSUES
 - device and module name is 'fastpc' (ask me why :-), MAJOR number is dynamically

@@ -619,6 +619,8 @@ c64print (char *text)
 #else
   int i;
 
+  asciitopetscii(text);
+
   sendchar (0xfd);
   for (i = 0; i < strlen (text); i++)
     sendchar (text[i]);

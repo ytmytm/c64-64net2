@@ -28,3 +28,12 @@ fatal_error (unsigned char *message)
 #endif /* AMIGA */
   exit (2);
 }
+
+void asciitopetscii (unsigned char *message)
+{
+    int i;
+    
+    for (i=0;message[i];i++)
+	if ((message[i]>0x60) && (message[i]<0x7b))
+	    message[i]-=0x20;
+}

@@ -14,12 +14,10 @@
 #include "dosemu.h"
 #include "comm-work.h"
 
-//#define DEBUG
-
 /* 
-   XXX - Linux doesnt seem to like fish save (tho fishload is fine)
+   XXX - Linux doesnt seem to like fish save (fishload is fine)
 */
-int allowFishLoad=1;	/* 1 = on */
+int allowFishLoad=0;	/* 1 = on */
 int allowFishSave=0;
 
 
@@ -203,24 +201,11 @@ void do_save(void) {
 	char buff[256];
 	fs64_file savefile;
 
-	debug_msg ("Save\n");
-
-	/* read filename */
-/*
-	fnlen = charget ();
-	for (i = 0; i < fnlen; i++)
-	  fname[i] = charget ();
-	fname[fnlen] = 0;
-*/
-
 	/* we already have filename */
-	debug_msg ("Filename is: %s\n",filename);
+	debug_msg ("Saving file: %s\n",filename);
 
 	/* clear this flag */
 	dont_open=0;
-
-	/* read secondary address */
-//	sa = charget ();
 
 	/* print SAVING message */
 	c64print ("\rSAVING ");
@@ -249,14 +234,21 @@ void do_save(void) {
 	{
 	  /* file exists */
 	  set_error (63, 0, 0);
+	  sprintf(buff,"\r%s",dos_status[last_unit]);
+	  c64print(buff);
+
 	  sendchar (254);
-	  sendchar (0);
+	  sendchar (128);
 	  return;
 	}
 
 	/* file is open, proceed to get address range */
 	startaddr = c64peek (0xc1) + 256 * c64peek (0xc2);
 	endaddr = c64peek (0xae) + 256 * c64peek (0xaf);
+
+	/* be user friendly on C= side and print addresses */
+        sprintf(buff," $%04x $%04x",startaddr,endaddr);
+        c64print(buff);
 
 	/* write address link */
 	fs64_writechar (&savefile, (startaddr & 255));
@@ -269,7 +261,6 @@ void do_save(void) {
 	  if (bc > 254)
 	    bc = 254;
 
-
 	  if ((startaddr < 0xcf00) && (bc == 254) && allowFishSave)
 	    /* fish save the block */
 	    fastgetblock (startaddr, 254, buff);
@@ -281,7 +272,6 @@ void do_save(void) {
 	    sendchar (bc + 1);
 	    sendchar (startaddr & 0xff);
 	    sendchar (startaddr / 256);
-	    sendchar (0);
 	    for (i = 0; i < bc; i++)
 	      buff[i] = charget ();
 	  }
@@ -327,23 +317,15 @@ void do_load(void)
 	char buff[256];
 	fs64_file loadfile;
 
-	debug_msg ("Load\n");
-
-/*
-	fnlen = charget ();
-	for (i = 0; i < fnlen; i++)
-	  fname[i] = charget ();
-	fname[fnlen] = 0;
-*/
 	/* sec addr */
 	mode = charget ();
 	sa = lastlf & 0x0f;
-	
+
 	/* for correct directory handling */
 	talklf = lastlf;
 
 	/* we already have filename */
-	debug_msg ("Filename is: %s, sa=%i\n",filename,sa);
+	debug_msg ("Loading file: %s, sa=%i\n",filename,sa);
 
 	/* clear this flag */
 	dont_open=0;
@@ -387,6 +369,7 @@ void do_load(void)
 
 	/* file found - so load */
 	c64print ("LOADING");
+
 	gettimer (&s, &ms);
 	client_turbo_speed ();
 #ifdef DEBUG
@@ -420,6 +403,9 @@ void do_load(void)
 	    /* or that one from file */
 	    startaddr = filestart;
 
+	/* be user friendly on C= side and print addresses */
+        sprintf(buff," $%04x",startaddr);
+        c64print(buff);
 
 	/* check whether to load or verify */
 	if (mode==1) {
@@ -490,6 +476,10 @@ void do_load(void)
 	  startaddr += bc;
 	  bc = 0;
 	}
+	/* be user friendly on C= side and print addresses */
+        sprintf(buff," $%04x",startaddr);
+        c64print(buff);
+
 #ifdef DEBUG
 	printf ("Successful load\n");
 #endif
@@ -529,7 +519,7 @@ void do_load(void)
 void do_boot(void)
 {
 	/* boot sequence */
-	debug_msg ("\nBoot\n");
+	debug_msg ("\nBoot, starting server on device #%i\n",devnum);
 
 	sendchar (devnum);
 
@@ -541,138 +531,11 @@ void do_boot(void)
 	c64print ("\r");
 	sendchar (254);
 	sendchar (0);
-	
+
 }
 
 
 #ifdef OLD_IEC_STUFF
-void do_talk(void)
-{
-	/* we are being asked to send a character */
-	if (talklf < 0)
-	{
-	  /* talking without a talker */
-	  /* send reply */
-	  sendchar (128);
-	  sendchar (199);
-	  /* and set error */
-	  set_error (70, 0, 0);
-	}
-	else
-	  /* something to read from */
-	{
-	  /* we have a real talk device */
-	  /* always unit 0 on normal 64net cable */
-	  last_unit = 0;
-	  /* which logical file (ie sec_addr) */
-	  if (talklf == 0x0f)
-	  {
-	    /* command channel */
-	    if (dos_stat_len[last_unit] < 1)
-	      set_error (0, 0, 0);	/* default to OK message */
-
-	    /* send char */
-	    sendchar (0);
-	    sendchar (dos_status[last_unit][0]);
-
-	    /* update dos status */
-	    for (j = 0; j <= dos_stat_len[last_unit]; j++)
-	      dos_status[last_unit][j] = dos_status[last_unit][j + 1];
-
-	    /* reduce length remainin */
-	    dos_stat_len[last_unit]--;
-	  }			/* end of command channel read */
-	  /* non command channel read */
-	  else
-	  {
-	    int r;
-	    r = fs64_readchar (&logical_files[i][talklf], &c);
-	    if (r == -1)
-	    {
-	      /* couldnt read a char */
-/*                      debug_msg("EOF on lf#%d\n",talklf); */
-	      /* since this is normal 64net where FILE NOT FOUND can
-	         be explicitly indicated, we know its EOF */
-	      sendchar (128);
-	      sendchar (199);
-	    }			/* end of failed to read from channel */
-	    else
-	    {
-	      /* file read succeeded */
-	      sendchar (r);
-	      sendchar (c);
-	    }			/* end of successful read from file */
-	  }
-	}			/* end of valid talklf */
-}
-
-void do_listen(void)
-{
-	/* we are being asked to receive a character */
-	if (listenlf < 0)
-	{
-	  /* listening without a listener */
-	  /* this one's for the bit bucket */
-	  charget ();
-	}
-	else
-	  /* something to write to */
-	{
-	  /* we have a real listen device */
-	  /* always unit 0 on normal 64net cable */
-	  last_unit = 0;
-	  /* which logical file (ie sec_addr) */
-	  if (listenlf == 0x0f)
-	  {
-	    /* command channel */
-	    dos_command[last_unit][dos_comm_len[last_unit]] = charget ();
-	    ++dos_comm_len[last_unit];
-	    if (dos_command[last_unit][dos_comm_len[last_unit] - 1] == 0xd)
-	    {
-	      /* carriage return */
-	      debug_msg ("Processing dos command\n");
-	      /* if line doesnt start with M-R or M-W, then submit
-	         the command */
-	      if ((dos_command[last_unit][0] == 'M') &&
-		  (dos_command[last_unit][1] == '-'))
-	      {
-		switch (dos_command[last_unit][2])
-		{
-		case 'W':
-		  /* memory write - variable length
-		     (6+ # bytes to write) */
-		  if (dos_comm_len[last_unit] > 6)
-		  {
-		    if (dos_comm_len[last_unit] ==
-			(6 + dos_command[last_unit][5]))
-		      do_dos_command ();
-		  }
-		case 'R':
-		  /* memory read - fixed length */
-		  if (dos_comm_len[last_unit] == 6)
-		    do_dos_command ();
-		  break;
-		default:
-		  /* unknown command, so just do it (and thus
-		     spit out an error */
-		  do_dos_command ();
-		}
-	      }
-	      else
-	      {
-		do_dos_command ();
-	      }
-	    }
-	  }			/* end of command channel write */
-	  /* non command channel write */
-	  else
-	  {
-	    c = charget ();
-	    fs64_writechar (&logical_files[i][listenlf], c);
-	  }
-	}			/* end of valid listenlf */
-}
-
 void do_open(void)
 {
 	/* open a file */
@@ -767,47 +630,4 @@ void do_open(void)
 	sendchar (254);
 	sendchar (0);
 }
-
-void do_close(void)
-{
-    int i,j,secaddr;
-	/* close a file */
-	debug_msg ("Close\n");
-	i = 0;			/* unit is always 0 */
-	secaddr = charget () & 0x0f;
-	  debug_msg ("Closing logical file $%02x\n",
-		     secaddr);
-	  fs64_closefile_g (&logical_files[i][secaddr]);
-	  if (secaddr == 0xf)
-	  {
-	    /* Closing command channel forces all files shut on the
-	       drive */
-	    for (j = 0; j < 15; j++)
-	      fs64_closefile_g (&logical_files[i][j]);
-	  }
-	  debug_msg ("Done close\n");
-}
-
-void do_boot(void)
-{
-    int i;
-	/* boot sequence */
-	debug_msg ("Boot\n");
-	/* skip filename etal character */
-	fnlen = charget ();
-	printf ("fnlen = %02x\n", fnlen);
-	for (i = 0; i < fnlen; i++)
-	  charget ();
-	/* skip sec addr */
-	printf ("Sec addr= %02x\n", charget ());
-	{
-	  char temp[80];
-	  sprintf (temp, "\r 64NET/2 SERVER %s", server_version ());
-	  c64print (temp);
-	}
-	c64print ("\r");
-	sendchar (254);
-	sendchar (0);
-}
-
 #endif /* OLD_IEC_STUFF */

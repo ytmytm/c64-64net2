@@ -1,3 +1,8 @@
+2001-04-13  
+
+	* fixed save (works), promoted to v0.8, load&save have Action Replay-like
+	  messages
+
 2001-02-01  
 
 	* fixed configuration parser bug (empty lines were not allowed)

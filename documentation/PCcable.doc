@@ -47,3 +47,6 @@ drastically limit current) which kills the connections.  Be aware that
 the 64NET/2 cable can be strobing signals at upto 33Mhz, so reasonable
 soldering is necessary. 
 
+Be warned that you need a LPT interface with bidirectional transfer
+ablility. You can't set LPT mode to SPP/ECP/EPP - the cable won't work
+with these settings.
