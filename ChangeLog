@@ -1,3 +1,14 @@
+2003-07-21  
+	* replaced obsolete ftime function by gettimeofday
+
+2003-07-20  
+	* fixed bug that caused *L files be saved as REL
+	* do_open returns status 0 or 4 (if File!Found), ignored on wedge side
+
+2003-03-08  
+	* steps toward IEC ATN discovery on server side
+	* fixes in t64 and ufs stuff
+
 2001-12-25  
 	* merged wedges
 	* added lowlevel time and date functions
