@@ -118,6 +118,9 @@ int commune (void)
 #else
     a = syncchar();
 #endif
+    if (a&0x100)
+      printf("Char under attention\n");
+
     switch (a)
     {
     case FSACCEL:
@@ -227,8 +230,8 @@ int commune (void)
     case TALK:
 	{
 	    int i;
-	    /* listen/talk system call, get device number and merely ignore it (AFAIK 64net/2 has
-	       only one device but more units) */
+	    /* listen/talk system call, get device number and merely ignore it
+	       (multi-device mode not yet supported) */
 	    i = charget();
 	    if (a==LISTEN) debug_msg ("Listen call on device %i\n",i);
 	    if (a==TALK) debug_msg ("Talk call on device %i\n",i);
