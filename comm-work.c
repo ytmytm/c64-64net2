@@ -17,9 +17,13 @@
 /* 
    XXX - Linux doesnt seem to like fish save (fishload is fine)
 */
+#ifdef USE_SERIAL_DRIVER
+int allowFishLoad=0;
+int allowFishSave=0;
+#else
 int allowFishLoad=FISHLOAD;	/* 1 = on */
 int allowFishSave=FISHSAVE;
-
+#endif
 
 /* Temporary variables used to store filenames and things for
    fs_openfile_g etc 

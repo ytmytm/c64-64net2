@@ -6,7 +6,11 @@
 #ifdef USE_LINUX_KERNEL_MODULE
 #include "machdep-lin.c"
 #else
+#ifdef USE_SERIAL_DRIVER
+#include "machdep-ser.c"
+#else
 #include "machdep-old.c"
+#endif
 #endif
 
 int

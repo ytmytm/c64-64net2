@@ -1,0 +1,514 @@
+
+; 64net/2 wedge by Maciej Witkowiak, 2000
+; based on original 64net/2 by Paul G-S
+
+; this source code is written for ACME crossassembler
+; should be compilable on all supported CBM platforms with correct 'machine' definition
+
+; 23-26.7.2000
+; - when it will be known how to emulate CBM kernal move whole stuff into host machine
+; - fishload seems to be broken (hardware problems again)
+; - fishsave _is_ broken
+; - check AR behavior (@command etc.), seems to lock now, $ locks
+
+; 18.9.2001
+; - moved open,close,chkin,chkout to server side (now only kernal jumptable matters)
+
+; 28.9.2001, 23.12.2001
+; - serial version retuned, 9600B seems to be the best
+
+!cpu 6502
+
+; configuration
+machine = 64				; 64 or 128 (or 65?)
+
+!if (machine=64) {
+    machinetype=0			; reported to server
+    !to "wedge.64"
+} else {
+!if (machine=128) {
+    machinetype=2
+    !to "wedge.128"
+}}
+
+; own definitions
+devnum  = $a7				; place where device number is kept
+tmp01	= $fe				; temporary memory config storage for C64
+
+; Kernal definitions
+status	= $90
+
+; common Kernal table (for clrchn)
+untalk			= $ffab
+unlisten		= $ffae
+
+!if machine=64 {
+; kernal table
+open			= $f34a
+close			= $f291
+chkin			= $f20e
+chkout			= $f250
+clrchn			= $f333			; kernal not used
+chrin			= $f157
+chrout			= $f1ca
+getin			= $f13e
+load			= $f4a5
+save			= $f5ed
+
+} else {
+!if machine=128 {
+; extended kernal routines
+indfet			= $ff74
+; kernal table
+open			= $efbd
+close			= $f188
+chkin			= $f106
+chkout			= $f14c
+clrchn			= $f226
+chrin			= $ef06
+chrout			= $ef79
+getin			= $eeeb
+load			= $f26c
+save			= $f54e
+
+}}
+
+
+!if machine=64 {
+		    *=$c000
+;		    * =$0801
+		!word $080b, 2000
+		!byte $9e
+		!text "2061"
+		!byte 0,0,0
+} else {
+!if machine=128 {
+		    * =$1300
+;		    * =$1c01
+}}
+
+		!zone Wedge_Installer
+		
+		
+;		ldx #0
+;.a		lda chunk1,x
+;		sta wedge_addr,x
+;		inx
+;		bne .a
+		; do it as it should be
+
+		lda $dd0d			; clear interrupt flags
+
+		; do booting procedure
+
+		jsr init_vectors
+		jmp boot_up
+		
+		!zone LowestLevel_Functions
+boot_up
+		lda #"B"
+		jsr send_byte
+		lda #machinetype
+		jsr send_byte
+		jsr get_byte
+		sta devnum			; get one (later all) 64net devices numbers
+		jmp command_loop
+
+_64net2_listen	pha
+		lda #"W"
+.listen		jsr send_byte
+		pla
+		jmp send_byte
+
+_64net2_talk	pha
+		lda #"R"
+		bne .listen
+
+_64net2_second	pha
+		lda #"A"
+		bne .listen
+
+_64net2_ciout	pha
+		lda #"G"
+		bne .listen
+
+_64net2_tksa	pha
+		lda #"D"
+		bne .listen
+
+_64net2_acptr	lda #"H"
+		jsr send_byte
+		jsr get_byte
+		sta status
+		jsr get_byte
+.statcheck	bit status			; 7th bit !=0, or use 6th and do nothing with C flag
+		bpl .acptr
+		sec
+		rts
+.acptr		clc
+		rts
+
+_64net2_unlisten
+	    	lda #"I"
+		!byte $2c
+_64net2_untalk	lda #"J"
+		jsr send_byte
+		jsr get_byte
+		;sta status			; ignore status after untalk
+		jmp .statcheck			; bne should work here
+
+		!zone Helpers
+
+check_devnum	lda $ba				; not allowed to change X'n'Y
+check_devnum2					; jsr here with device # in A
+		cmp devnum
+		rts
+
+sendname	lda $ba				; similar to C64 $f3d5
+		jsr _64net2_listen
+		lda $b9
+		ora #$f0
+		jsr _64net2_second
+		lda $b7
+		beq .nosend
+		ldy #0
+.sendnamelp	
+!if (machine=64) {
+		lda ($bb),y
+} else {
+!if (machine=128) {
+		ldx $c7				; fetch name from correct bank
+		lda #$bb
+		jsr indfet
+}}
+		jsr _64net2_ciout
+		iny
+		cpy $b7
+		bne .sendnamelp
+.nosend		jmp _64net2_unlisten
+
+getadrnum	jsr get_byte
+		sta $10
+getaddress	jsr get_byte
+		sta $9e
+		jsr get_byte
+		sta $9f
+		rts
+
+		!zone CBM_Kernal_replacements
+
+own_open	jsr check_devnum
+		bne .oldopen
+		lda #"O"
+		jsr send_byte
+		jsr command_loop
+		bcs .open_error
+		jmp sendname		; C will be set by check after unlisten
+.open_error	rts
+.oldopen 	jmp open
+
+own_close	sta $b8
+		lda #"C"
+		jsr send_byte
+		jsr command_loop
+		bcs .oldclose
+		rts
+.oldclose	lda $b8
+		jmp close
+
+own_chkin	stx $b8
+		lda #"P"
+		jsr send_byte
+		jsr command_loop
+		bcs .oldchkin
+		rts
+.oldchkin	ldx $b8
+		jmp chkin
+
+own_chkout	stx $b8
+		lda #"Q"
+		jsr send_byte
+		jsr command_loop
+		bcs .oldchkout
+		rts
+.oldchkout	ldx $b8
+		jmp chkout
+
+own_clrchn
+		ldx #3
+		lda $9a
+		jsr check_devnum2
+		bne .clrchn_1			; not 64net2 device
+		jsr _64net2_unlisten
+		jmp .clrchn_2			; omit check below
+.clrchn_1	cpx $9a				; keyboard?
+		bcs .clrchn_2			; no and 64net2 neither, so IEC bus
+		jsr unlisten
+
+.clrchn_2	lda $99
+		jsr check_devnum2
+		bne .clrchn_3
+		jsr _64net2_untalk
+		jmp .clrchn_end
+.clrchn_3	cpx $99
+		bcs .clrchn_end
+		jsr untalk
+
+.clrchn_end	stx $9a
+		lda #0
+		sta $99
+		rts
+
+own_getin	lda $99
+		jsr check_devnum2
+		beq .chrincommon
+		jmp getin
+
+own_chrin	lda $99
+		jsr check_devnum2
+		bne .oldchrin
+.chrincommon	lda status
+		beq .chrincont
+		lda #13
+		clc
+		rts
+.chrincont	jmp _64net2_acptr
+.oldchrin	jmp chrin
+
+own_chrout	pha
+		lda $9a
+		jsr check_devnum2
+		bne .oldchrout
+		pla
+		jmp _64net2_ciout
+.oldchrout	pla
+		jmp chrout
+
+		!zone Load_and_Save
+own_load	pha
+		jsr check_devnum
+		beq .loadcont
+		pla
+		jmp load
+.loadcont	lda #"K"
+		jsr send_byte
+		jsr sendname
+		lda #"L"
+		jsr send_byte
+		pla
+		jsr command_exe
+		ldx $ae
+		ldy $af
+		rts
+
+own_save	jsr check_devnum
+		beq .savecont
+		jmp save
+.savecont	lda #"K"
+		jsr send_byte
+		jsr sendname
+		lda #"S"
+		jmp command_exe
+
+		!zone Client_Commands
+fastload
+fastsave	rts
+
+do_error	jsr get_byte
+		sta status
+		clc
+		tax
+		beq .no_error
+		sec
+.no_error	rts
+
+do_exit		clc
+		rts
+
+do_ostype	lda #machinetype
+command_exe	jsr send_byte
+command_loop	jsr get_byte
+		cmp #$fc
+		beq do_exit
+		cmp #$f4
+		beq fastsave
+		cmp #$f5
+		beq fastload
+		cmp #$f6
+		beq do_getinput
+		cmp #$f7
+		beq do_ostype
+		cmp #$f8
+		beq do_jsr
+		cmp #$f9
+		beq do_chrinput
+		cmp #$fd
+		beq do_print
+		cmp #$fe
+		beq do_error
+		cmp #$ff
+		bne command_loop
+
+do_peekpoke
+		php
+		sei
+!if machine=64 {
+		lda $01
+		pha
+		lda #$35
+		sta $01
+} else {
+!if machine=128 {
+		lda $ff00
+		pha
+		;!!!lda #????????
+		sta $ff00
+}}
+		jsr get_byte
+		pha
+		jsr getadrnum
+		ldx $10
+		ldy #$ff
+		pla
+		cmp #2
+		beq peek_loop
+poke_loop	iny
+		dex
+		beq peekpokeend
+		jsr get_byte
+!if machine=64 {
+		dec $01
+} else {
+!if machine=128 {
+		;!!!to be written - something with memconfig
+}}
+		sta ($9e),y
+!if machine=64 {
+		inc $01
+} else {
+!if machine=128 {
+		;!!!to be written
+}}
+		jmp poke_loop
+
+peek_loop	iny
+		dex
+		beq peekpokeend
+		lda ($9e),y
+		jsr send_byte
+		jmp peek_loop
+
+peekpokeend
+		pla
+!if machine=64 {
+		sta $01
+} else {
+!if machine=128 {
+		sta $ff00
+}}
+		plp
+		jmp command_loop
+
+do_chrinput	jsr chrin
+.inputcont	jsr send_byte
+		jmp command_loop
+
+do_getinput	jsr getin
+		jmp .inputcont
+
+do_print	jsr get_byte
+		tax
+		beq .printend
+		jsr chrout
+		jmp do_print
+.printend	jmp command_loop
+
+do_jsr		lda #$4c
+		sta $0310		; just to be sure, $4c should already be there
+		jsr get_byte
+		sta $0311
+		jsr get_byte
+		sta $0312
+		jsr get_byte
+		tay
+		jsr get_byte
+		tax
+		jsr get_byte
+		jsr $0310
+		jmp command_loop
+
+		!zone Hardware_Functions
+
+acia		= $de00
+acia_data	= acia
+acia_status	= acia+1
+acia_command	= acia+2
+acia_control	= acia+3
+
+B4800		= %00001010
+B9600		= %00001100
+B19200		= %00001110
+B38400		= %00001111
+
+init_port	lda acia_status
+		sta acia_status		; soft reset
+		lda #%00010000|B9600	; 8?1, 9600 baud
+		sta acia_control
+		lda #%00001011		; 8N1, RTS low, DTR low, no interrupts, no echo
+		sta acia_command
+		rts
+
+send_byte	pha
+.sendbusy	lda acia_status
+		and #%00010000
+		beq .sendbusy		; wait until byte sent
+		pla
+		sta acia_data
+		clc
+		rts
+
+get_byte
+.getbusy	lda acia_status
+		and #%00001000
+		beq .getbusy		; wait until something arrives
+		lda acia_data
+		clc
+		rts
+
+		!zone VectorInstaller
+init_vectors	jsr init_port
+		ldx #0
+.loop		lda vectortab,x
+		beq .end
+		tay
+		inx
+		lda vectortab,x
+		sta $0300,y
+		inx
+		lda vectortab,x
+		inx
+		sta $0301,y
+		jmp .loop
+.end		rts
+
+vectortab	!byte $1a
+		!word own_open
+		!byte $1c
+		!word own_close
+		!byte $1e
+		!word own_chkin
+		!byte $20
+		!word own_chkout
+		!byte $22
+		!word own_clrchn
+		!byte $24
+		!word own_chrin
+		!byte $26
+		!word own_chrout
+		!byte $2a
+		!word own_getin
+		!byte $30
+		!word own_load
+		!byte $32
+		!word own_save
+		!byte 0

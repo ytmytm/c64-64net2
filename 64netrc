@@ -1,5 +1,9 @@
-# The LPT port address to communicate on
+
+# The LPT port address to communicate on (interpreted as hex number)
 port 278
+
+# or if you are using serial cable place correct device below
+# port /dev/ttyS1
 
 # The CBM device number to primarily masquerade as
 devnum 10

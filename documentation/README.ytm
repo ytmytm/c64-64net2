@@ -60,6 +60,7 @@ BUGS:
 - for networking there must be support for blocking/non-blocking sockets
 - need to check M-[RW] commands (replace for loop by memcpy there),
   perhaps setup first 8k with some values, and last 16k with ROM image
+- serial driver drops bytes during doing c64print, avoid scrolling screens!
 
 MODULE VERSION ISSUES
 - device and module name is 'fastpc' (ask me why :-), MAJOR number is dynamically
@@ -83,6 +84,7 @@ MODULE VERSION ISSUES
   (15.6) - sync_char() was broken, timings are adjustable in machdep.h
 
 IDEAS:
+    * add time&date commands
     * fs_xxx stuff should be implemented like in Linux kernel - as pointers to structures
       holding pointers to functions e.g.
     * incorporate my kernel module for linux io - ability to use IRQs, slightly different
@@ -114,6 +116,8 @@ IDEAS:
     * add safe shutdown function (do_quit from main_64net2)
 
 TODO
+    * make wedge ROMable (it won't change much, all functionality is there)
+    * merge wedge and wedge-ser
     * replace ftime call in datestamp.c by gettimeofday - ftime is obsoleted in BSD for some reason
     + move wedge functionality into server side with peeks and pokes
 	+ remember about machine issues when writing wedge for C128 (FILETABLE,SATABLE...)

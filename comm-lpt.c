@@ -29,6 +29,11 @@
 /* ports */
 int portin  = DEF_INPORT;
 int portout = DEF_OUTPORT;
+#ifdef USE_SERIAL_DRIVER
+uchar port[64] = COMM_DEVICE;
+#else
+uchar port[64] = { 0 };
+#endif
 
 /* Current talk & listen logical files */
 int talklf=-1;
@@ -107,11 +112,9 @@ int commune (void)
   while (1)
   {
 
-    /* the following line may effect stuff, so dont delete */
-/*      debug_msg("Waiting. . .\n");     */
 #ifdef USE_LINUX_KERNEL_MODULE
     a = charget();
-#else /* !USE_LINUX_KERNEL_MODULE */
+#else
     a = syncchar();
 #endif
     switch (a)
@@ -274,13 +277,10 @@ int commune (void)
 	    if (a==UNTALK) debug_msg ("Untalk call on channel %i\n",talklf & 0x0f);
 #endif
 	    /* untalk/unlisten system call, lower all talk flags, close files, (send error?) */
-	    /* ATN+0x5f */
 	    lastlf = (a==UNLISTEN) ? listenlf : talklf;
-//	    if (a==UNLISTEN) devlf=listenlf; else devlf=talklf; 
-	/* do_dos_command if after listen and channel 15 */
+	    /* do_dos_command if after listen and channel 15 */
 	    if (a==UNLISTEN) listenlf = -1; else talklf = -1;
 
-//^	    if ((a==UNLISTEN) && ((lastlf & 0x0f)==15) && (dos_comm_len[last_unit]!=0)) {
 	    if ((a==UNLISTEN) && ((lastlf & 0x0f)==15)) {
     		debug_msg ("Processing dos command\n");
 		if (dos_comm_len[last_unit]!=0) do_command();
@@ -289,6 +289,9 @@ int commune (void)
 		switch(lastlf & 0xf0) {
 		    case 0xf0:	/* got full name - open it */
 			if ((lastlf & 0x0f)!=0x0f) do_open(lastlf);
+#ifdef USE_SERIAL_DRIVER
+			sendchar(0);
+#endif
 			break;
 		    case 0xe0:	/* close that file */
 			if ((lastlf & 0x0f)!=0x0f) do_close(lastlf);
@@ -317,7 +320,6 @@ read_config (uchar *file)
 
   FILE *cf = 0;
   uchar temp[256];
-  uchar port[256]={0};
 
   if ((cf = fopen (file, "r")) == NULL)
     fatal_error ("Cannot read configuration file.");
@@ -364,11 +366,14 @@ read_config (uchar *file)
 	strcpy (port, &temp[5]);
 #else
 	strcpy (port, &temp[5]);
+	port[strlen(&temp[5])-1]='\0';
 	printf ("INIT: Communication port set to %s\n", port);
+#ifndef USE_SERIAL_DRIVER
 	printf ("      (Port interpretted as hex addr for lpt)\n");
 	portout = strtol ((char*)port, NULL, 16);
 	portin = portout + 1;
 	printf ("INIT: Port now $%04x\n", portout);
+#endif
 #endif
       }
       else if (!strncmp ("path ", temp, 4))
@@ -416,12 +421,20 @@ read_config (uchar *file)
         /* enable fishload */
         allowFishLoad = 1;
 	printf("INIT: enabled fishload routine.\n");
+#ifdef USE_SERIAL_DRIVER
+	allowFishLoad = 0;
+	printf("INIT: fishload disabled on serial driver.\n");
+#endif
       }
       else if (!strncmp ("fishsave", temp, 7))
       {
         /* enable fishsave */
 	allowFishSave = 1;
 	printf("INIT: enabled fishsave routine.\n");
+#ifdef USE_SERIAL_DRIVER
+	allowFishSave = 0;
+	printf("INIT: fishsave disabled on serial driver.\n");
+#endif
       }
       else
       {
@@ -640,6 +653,7 @@ int
 c64print (uchar *text)
 {
 #ifdef USE_LINUX_KERNEL_MODULE
+    asciitopetscii(text);
     sendchar (0xfd);
     fishsendblock(strlen(text)+1,text);
 #else

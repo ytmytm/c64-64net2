@@ -1,0 +1,8 @@
+
+You can use standard null-modem rs232 cable between C64/128 with
+Swiftlink and the host, but be warned that it is not very reliable.
+It works at 9600 baud, and there are no problems with LOAD or SAVE,
+but avoid executing commands that may result in scrolling the
+screen because everything may lock then.
+
+Maciej Witkowiak <ytm@elysium.pl>

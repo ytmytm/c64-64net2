@@ -46,6 +46,7 @@
 /* port addresses */
 extern int portout,portin;
 extern int max_tries;
+extern uchar port[64];
 
 /* function prototypes */
 int commune(void);

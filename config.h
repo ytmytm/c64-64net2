@@ -20,6 +20,11 @@
 /* resource debugging (file stuff) */
 /* #define DEBUG_RES */
 
+/* uncomment this if you want to use serial driver instead of parallel one */
+// #define USE_SERIAL_DRIVER
+/* if you uncommented line above, then you must define speed, 9600 is OK for C64 */
+// #define BAUDRATE B9600
+
 /* LINUX target features, don't use it */
 /* #define USE_LINUX_KERNEL_MODULE */
 
@@ -31,8 +36,10 @@
 /* 1 - INET network off, 0 - INET network on */
 #define NONET 0
 
+/* default devices */
 #define DEF_INPORT	0x3bd
 #define DEF_OUTPORT	0x3bc
+#define COMM_DEVICE	"/dev/ttyS0"
 
 #define VER_MAJ 0
 #define VER_MIN 9
