@@ -6,20 +6,15 @@
 #include "config.h"
 #include "fs.h"
 
-#ifdef SOLARIS
-    #include <sys/statvfs.h>
-#endif
-
-#ifndef AMIGA
-#include <sys/mount.h>
-#ifndef LINUX
-#include <sys/filio.h>
-#else
+#ifdef UNIX
 #include <sys/vfs.h>
 #endif
-#include <sys/wait.h>
-#include <varargs.h>
-#endif /* AMIGA */
+
+#ifdef WINDOWS
+#include <sys/stat.h>
+#define EDQUOT 0
+#define ELOOP -1
+#endif
 
 int
 fs_ufs_createfile (uchar *path, uchar *name, int t, int rel_len, fs64_file * f)
@@ -158,27 +153,25 @@ fs_ufs_blocksfree (fs64_filesystem * fs)
   else
     return ((info.id_NumBlocks - info.id_NumBlocksUsed) * info.id_BytesPerBlock
 	    / 254);
-#else
-  /* unix file system */
-#ifdef SOLARIS
-  struct statvfs buf;
-#else
-  struct statfs buf;
 #endif
+#ifdef UNIX
+  /* unix file system */
+  struct statfs buf;
 
   errno = 0;
 
-#ifndef SOLARIS
   statfs ((char*)fs->fspath, &buf);
-#else
-  statvfs((char*)fs->fspath,&buf);
-#endif
+
   if (!errno)
     return ((buf.f_bsize * buf.f_bavail) / 254);
   else
     return (2);
 #endif
-
+#ifdef WINDOWS
+    /* XXX - fixme */
+    debug_msg("fs_ufs_blocksfree: unimplemented\n");
+    return (2);
+#endif
   /* dead code */
   return(0);
 }

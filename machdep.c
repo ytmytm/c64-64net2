@@ -1,6 +1,7 @@
 
 #include "config.h"
 #include "machdep.h"
+#include "fs.h"
 
 #ifdef USE_LINUX_KERNEL_MODULE
 #include "machdep-lin.c"
@@ -21,7 +22,7 @@ fastsendblock (int addr, int size, uchar * the_block)
    */
 
 #ifdef DEBUG2
-  printf ("Inside fastsendblock\n");
+  debug_msg ("Inside fastsendblock\n");
   fflush (stdout);
 #endif
   sendchar (0xf5);
@@ -29,7 +30,7 @@ fastsendblock (int addr, int size, uchar * the_block)
   sendchar (addr / 256);
 
 #ifdef DEBUG2
-  printf ("Outside fastsendblock\n");
+  debug_msg ("Outside fastsendblock\n");
   fflush (stdout);
 #endif
   return (fishsendblock (254, the_block));
@@ -49,7 +50,7 @@ fastgetblock (int addr, int size, uchar * the_block)
    */
 
 #ifdef DEBUG2
-  printf ("Inside fastgetblock\n");
+  debug_msg ("Inside fastgetblock\n");
   fflush (stdout);
 #endif
   sendchar (0xf4);
@@ -57,7 +58,7 @@ fastgetblock (int addr, int size, uchar * the_block)
   sendchar (addr / 256);
 
 #ifdef DEBUG2
-  printf ("Outside fastgetblock\n");
+  debug_msg ("Outside fastgetblock\n");
   fflush (stdout);
 #endif
   return (fishgetblock (254, the_block));

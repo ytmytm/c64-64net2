@@ -5,15 +5,20 @@
 */
 
 
-#define UNIX
+/* target architecture */
 #define LINUX
 /*
-#define USE_LINUX_KERNEL_MODULE
 #define BSD
+#define SOLARIS
+#define WINDOWS
 #define AMIGA
-
-#define DEBUG
 */
+
+/* do not define this - debug stuff is buggy (it's not a joke) */
+/* #define DEBUG */
+
+/* LINUX target features */
+/* #define USE_LINUX_KERNEL_MODULE */
 
 /* 1 - on, 0 - off */
 #define FISHLOAD 0
@@ -28,6 +33,16 @@
 #define VER_MAJ 0
 #define VER_MIN 8
 #define VERSIONSTRING "V%02d.%02d ALPHA"
+
+#ifdef LINUX
+#define UNIX
+#endif
+#ifdef BSD
+#define UNIX
+#endif
+#ifdef SOLARIS
+#define UNIX
+#endif
 
 /* the longest that a filename & path may be in characters.
    This makes a significant impact on the amount of memory 64NET/2 requires
@@ -52,9 +67,24 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <dirent.h>
-#include <netdb.h>
 #include <sys/stat.h>
+
+#ifdef UNIX
+#define HAS_FTIME
+#include <netdb.h>
 #include <sys/socket.h>
+#endif
+
+#ifdef SOLARIS
+#define statfs statvfs
+#endif
+
+#ifdef WINDOWS
+#define HAS_FTIME
+#include <winsock.h>
+#define socklen_t int
+#define usleep(x) sleep(x/1000)
+#endif
 
 #ifdef AMIGA
 #include <dos.h>
@@ -67,8 +97,8 @@
 
 /* save lots of typing */
 #define uchar unsigned char
-/* #define uchar char */
 
+/* hides lots of warnings */
 #undef strlen
 #define strlen(x) strlen((char*)x)
 #undef atol
@@ -84,4 +114,3 @@
 #ifndef NULL
 #define NULL 0
 #endif
-

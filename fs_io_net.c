@@ -51,7 +51,22 @@
 #include "config.h"
 #include "fs.h"
 #include <fcntl.h>
+
+#ifdef UNIX
+#define net_errno errno
 #include <arpa/inet.h>
+#endif
+
+#ifdef WINDOWS
+#define net_errno WSAGetLastError()
+/* XXX make dummy ones */
+void setservent (int a) { }
+void endservent (void) { }
+/* replace by something from WinSock to set socket into non-blocking mode */
+#define O_NONBLOCK 0
+#define F_SETFL 0
+void fcntl(int a, int b, long c) { }
+#endif
 
 #ifdef AMIGA
 #include <bsdsocket.h>
@@ -132,22 +147,21 @@ fs_net_readchar (fs64_file * f, uchar *c)
       else
 	{
 	  /* read a char from the stream */
-	  errno = 0;
 	  debug_msg ("reading\n");
 	  if (read (f->socket, c, 1) == 1)
 	    {
 	      /* success! */
 	      debug_msg ("read char\n");
-	      if (errno)
+	      if (net_errno)
 		perror ("64net/2");
 	      return (0);
 	    }
 	  else
 	    {
 	      debug_msg ("read nothing\n");
-	      if (errno != 0)
+	      if (net_errno != 0)
 		{
-		  if (errno == 35)
+		  if (net_errno == 35)
 		    {
 		      /* Resource Temporarily Unavailable
 			 (ie no char yet) */
@@ -157,7 +171,7 @@ fs_net_readchar (fs64_file * f, uchar *c)
 		  else
 		    {
 		      perror ("64net/2");
-		      debug_msg ("Closing file (%d)\n", errno);
+		      debug_msg ("Closing file (%d)\n", net_errno);
 		      close (f->socket);
 		      f->open = 0;
 		      *c = 199;
@@ -184,9 +198,8 @@ fs_net_writechar (fs64_file * f, uchar c)
     {
       if (f->socket > -1)
 	{
-	  errno = 0;
 	  write (f->socket, &c, 1);
-	  if (errno)
+	  if (net_errno)
 	    perror ("64net/2");
 	}
       return (0);

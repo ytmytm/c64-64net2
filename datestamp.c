@@ -33,22 +33,17 @@ gettimestamp (int *year, int *month, int *day, int *hour, int *minute, int *seco
 int
 gettimer (int *second, int *ms)
 {
-
-#ifndef UNIX
+#ifdef HAS_FTIME
+    struct timeb tb;
+    ftime(&tb);
+    *ms=tb.millitm;
+#else
+/* does it work on Amiga? */
   unsigned int clock[2];
 
   timer (clock);
   *ms = clock[1] * 1000;
-
-#else
-  {
-    struct timeb tb;
-    ftime(&tb);
-    *ms=tb.millitm;
-  }
-
 #endif
-
   /* KLUGE: same arg is okay, as second gets assigned last */
   gettimestamp (second, second, second, second, second, second);
 

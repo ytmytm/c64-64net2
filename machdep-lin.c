@@ -9,24 +9,20 @@ int direction = 0;	// 0 - read, !=0 - write
 void starthw (void) { };
 
 void init_hw (void) {
-    printf("LINUX: opening " COMM_DEVICE " device...\n");
+    debug_msg("LINUX: opening " COMM_DEVICE " device...\n");
     in_device = fopen (COMM_DEVICE,"r");
     out_device = fopen (COMM_DEVICE,"w");
     if ((in_device==0) || (out_device==0)) {
-	printf("Error: couldn't open communication device.\n");
-	printf("Check if kernel module is loaded.\n");
-	exit(1);
-    } 
-    else { printf ("Success\n"); };
+	fatal_error("Error: couldn't open communication device.\nCheck if kernel module is loaded.\n");
+    } else { debug_msg ("Success\n"); };
     fflush(stdout);
-    sleep(0);
 }
 
 void checkdir(void) {
     if (direction!=0) {
 	fflush (out_device);
 	direction=0;
-	};
+    };
 }
 
 int charget (void) {

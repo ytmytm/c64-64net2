@@ -1256,7 +1256,8 @@ fs_dxx_validate_dir (fs64_filesystem * fs, int purgeflag, void *bam, int t, int 
 	  else
 	  {
 	    /* block allocated */
-#warning Is it OK here?
+// XXX fixme
+//#warning Is it OK here?
 //#warning Why arnt the following two vars used???
 //	    int ft = dirbuff[i * 32 + 3];
 //	    int fse = dirbuff[i * 32 + 4];

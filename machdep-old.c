@@ -4,12 +4,11 @@
 
 #ifdef BSD
 #include "bsd/cpufunc.h"
-#endif /* BSD */
+#endif
 
 #ifdef LINUX
-#include <asm/io.h>
 #include <sys/io.h>
-#endif /* LINUX */
+#endif
 
 #ifdef AMIGA
 #include "amiga/my_exec_types.h"
@@ -20,6 +19,15 @@
 #include <resources/misc.h>
 extern volatile struct CIA ciaa;
 extern volatile struct CIA ciab;
+#endif
+
+#ifdef WINDOWS
+#include <windows.h>
+typedef void (CALLBACK * outb_t)(int,int);
+typedef unsigned char (CALLBACK * inb_t)(int);
+HINSTANCE dll_handle;
+outb_t outb;
+inb_t inb;
 #endif
 
 /* Low-level functions definitions for each architecture */
@@ -59,24 +67,17 @@ extern volatile struct CIA ciab;
 #endif /* LINUX */
 #endif /* AMIGA */
 
+/* Faxe port access XXX */
 #ifdef SOLARIS
-  /* Faxe port access XXX */
-int outb(int p,int v)
-{ return 0; 
-}
-
-int inb(int p)
-{
-return 255;
-}
+int outb(int p,int v) { return 0; }
+int inb(int p) { return 255; }
 #endif /* SOLARIS */
 
 void
 init_hw (void)
 {
 #ifdef BSD
- if ((f = fopen ("/dev/io", "rw")) == NULL)
-  {
+ if ((f = fopen ("/dev/io", "rw")) == NULL) {
     fatal_error ("Cannot get chip-bash privilege.\
                  \nPlease setgid to kmem (or similar)\n");
     exit (1);
@@ -87,19 +88,34 @@ init_hw (void)
  int a;
 
  /* Enable port access to the range [portout] to [portout+3] */
- printf("LINUX: Asking for chip-bash privileges\n");
+ debug_msg("Asking for chip-bash privileges... ");
  a = ioperm(portout,3,3);
- printf("ioperm returned = %i\n", a);
- if (a != 0)
-  {
+ debug_msg("ioperm returned = %i\n", a);
+ if (a != 0) {
     fatal_error ("Cannot get io space privilege. Please setsgid to root (or similar)\n");
     exit (1);
   }
 
  fflush(stdout);
- sleep(0);
-
 #endif /* LINUX */
+
+#ifdef WINDOWS
+  if (no_net != 1) {
+    printf("Initializing wsock32.dll\n");
+    /* XXX: FIXME: uknown parameters for WSAStartup */
+    /* WSAStartup(); */
+  }
+  dll_handle = LoadLibrary("inpout32");
+  if (dll_handle!=NULL) {
+    debug_msg("Opened inpout32.dll\n");
+    outb = (outb_t)GetProcAddress(dll_handle,"Out32");
+    inb = (inb_t)GetProcAddress(dll_handle,"Inp32");
+     if (!outb || !inb)
+	fatal_error("Failed to get functions adresses from Inpout32.dll");
+  } else {
+    fatal_error("Could not open inpout32.dll");
+  }
+#endif /* WINDOWS */
 
 #ifdef AMIGA
   const char *user;
@@ -107,39 +123,23 @@ init_hw (void)
 
   if (steal_parallel_port == 0)
   {
-#ifdef DEBUG
-    printf ("Opening misc resource\n");
-#endif /* DEBUG */
-
+    debug_msg ("Opening misc resource\n");
     if ((MiscBase = OpenResource ("misc.resource")) == NULL)
-    {
-      printf ("Can't open misc.resource\n");
-      exit (10);
-    }
+	fatal_error ("Can't open misc.resource\n");
 
-#ifdef DEBUG
-    printf ("Allocating parallel port\n");
-#endif /* DEBUG */
+    debug_msg ("Allocating parallel port\n");
     user = AllocMiscResource (MR_PARALLELPORT, myname);
     if (user != NULL && user != myname)
-    {
-      printf ("Printer data lines already in use by %s.\n", user);
-      printf ("Unable to lock parallel port\n");
-      exit (10);
-    }
+      fatal_error ("Printer data lines already in use by %s.\nUnable to lock parallel port\n", user);
   }
-#ifdef DEBUG
-  printf ("Setting DDRs\n");
-#endif /* DEBUG */
+  debug_msg ("Setting DDRs\n");
   PAROUT;			/* Set data lines for output initially */
   /* Set following control line DDR stuff
      Bit 2 - Sel - Input
      Bit 1 - Pout - Out
      Bit 0 - Busy - Input
    */
-
   SETINITDDR;
-
 #endif /* AMIGA */
 }
 
@@ -165,8 +165,7 @@ sync_loop:
   c = 0; d = 0;
   /* Set parallel port DDR = in, POUT=high */
 #ifdef DEBUG2
-  printf ("syncchar - Waiting for 64 ACK (!BUSY)\n");
-  fflush (stdout);
+  debug_msg ("syncchar - Waiting for 64 ACK (!BUSY)\n"); fflush (stdout);
 #endif
   /* Wait for 64 ACK */
   while (!(BUSY))
@@ -177,7 +176,7 @@ sync_loop:
 	c=0;
 	debug_msg ("z"); fflush (stdout);
 #ifdef AMIGA
-	Delay (3);
+	Delay (snooz_time);
 #else
 	usleep (snooz_time);	/* dont hog cpu  */
 #endif
@@ -198,7 +197,7 @@ sync_loop:
 	if (c > synctolerance) {
 	debug_msg ("x"); fflush (stdout);
 #ifdef AMIGA
-	Delay (3);
+	Delay (snooz_time_2);
 #else
 	usleep (snooz_time_2);	/* dont hog cpu  */
 #endif
@@ -221,15 +220,13 @@ charget (void)
   int value;
 
 #ifdef DEBUG2
-  printf ("Trying to get char...");
-  fflush (stdout);
+  debug_msg ("Trying to get char..."); fflush (stdout);
 #endif
   /* Parallel port DDR = in , POUT = high */
   PARIN;
   POUTRHIGH;
 #ifdef DEBUG2
-  printf ("getchar - Waiting for 64 ACK (!BUSY)\n");
-  fflush (stdout);
+  debug_msg ("getchar - Waiting for 64 ACK (!BUSY)\n"); fflush (stdout);
 #endif
   /* Wait for 64 ACK */
   while (!(BUSY));
@@ -238,8 +235,7 @@ charget (void)
   /* Toggle POUT low, Parallel port DDR = in */
   POUTRLOW;
 #ifdef DEBUG2
-  printf ("getchar - Waiting for 64 ACK (BUSY)\n");
-  fflush (stdout);
+  debug_msg ("getchar - Waiting for 64 ACK (BUSY)\n"); fflush (stdout);
 #endif
   /* Wait for 64 ACK */
   while (BUSY);
@@ -247,8 +243,7 @@ charget (void)
   POUTRHIGH;
   POUTRLOW;
 #ifdef DEBUG2
-  printf ("Got %02x\n", value);
-  fflush (stdout);
+  debug_msg ("Got %02x\n", value); fflush (stdout);
 #endif
 
   return (value);
@@ -261,12 +256,8 @@ int
 sendchar (int byte)
 {
 #ifdef DEBUG2
-  printf ("Trying to send %02x...", byte);
-  fflush (stdout);
-#endif
-#ifdef DEBUG2
-  printf ("sendchar - Waiting for 64 ACK (!BUSY)\n");
-  fflush (stdout);
+  debug_msg ("Trying to send %02x...", byte); fflush (stdout);
+  debug_msg ("sendchar - Waiting for 64 ACK (!BUSY)\n"); fflush (stdout);
 #endif
   /* wait for 64 ready (93) */
   while (!(BUSY));
@@ -279,8 +270,7 @@ sendchar (int byte)
   /* Bring POUT low */
   POUTWLOW;
 #ifdef DEBUG2
-  printf ("sendchar - Waiting for 64 ACK (BUSY)\n");
-  fflush (stdout);
+  debug_msg ("sendchar - Waiting for 64 ACK (BUSY)\n"); fflush (stdout);
 #endif
   while (BUSY);
   PARIN;
@@ -289,7 +279,7 @@ sendchar (int byte)
   POUTRHIGH;
 /*  while(inb(portout)!=0xff) ; */
 #ifdef DEBUG2
-  printf ("Sent\n");
+  debug_msg ("Sent\n");
 #endif
   return (0);
 }

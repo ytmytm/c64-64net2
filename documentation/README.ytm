@@ -2,6 +2,9 @@
 Maciej 'YTM/Alliance' Witkowiak
 <ytm@friko.onet.pl>
 
+Win32 can be built with MINGW (www.mingw.org), copy inpout32.dll from inpout32/ to directory
+with executables.
+
 BUGS:
 + executables are too big (200K now), a lot of empty space is inside
     (fixed with static library linking)
@@ -42,6 +45,8 @@ BUGS:
 - something connected with two above errors - $90 should be asserted _when_ last byte is sent,
   not with next call IMO, but it is still unclear
 - endaddress seems to be wrong when saving from within active Action Replay, don't know why
+- WINDOWS target has problems with ufs (names), BLOCKS FREE is unimplemented
+- WINDOWS target needs checking network stuff, WSAStartup needs to be called
 
 MODULE VERSION ISSUES
 - device and module name is 'fastpc' (ask me why :-), MAJOR number is dynamically

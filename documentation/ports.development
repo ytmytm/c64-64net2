@@ -1,8 +1,10 @@
 20.06.2001
 Information below is obsolete. 64net/2 currently compiles and works on Linux.
-Windows binary can be build without any major problems with Borland C++ 5.02,
-but with fs_net and fs_ufs commented-out. It is unusable due to fact that
-inpb/outb functions are not available to Windows target. This will be solved.
+
+Windows binary can be built using MINGW (www.ming.org) but its internet subset
+was not tested. It has problems described below in MS-DOS/Win95 target. Windows
+binary needs inpout32.dll that is distributed together with 64net/2. It will
+work only on Win95/98. You need to edit Makefile and config.h.
 
 Maciej 'YTM/Elysium' Witkowiak (ytm@elysium.pl)
 

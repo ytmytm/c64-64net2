@@ -14,7 +14,10 @@ XPROGS	= x/x64net.o
 AR =ar
 CC =gcc
 XFLAGS =$(CFLAGS) -L/usr/X11R6/lib -lX11
+# This is for unices
 LOPT=-L. -l64net2
+# This is for Windows
+#LOPT=-L. -l64net2 -lwsock32
 COPT=$(CFLAGS) -Wall -pedantic
 
 .PHONY: all clean spotless depend dep
