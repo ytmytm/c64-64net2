@@ -1,3 +1,11 @@
+2001-09-20  
+	* added LOPT in Makefile for Solaris (wohoo! it compiles and works!)
+	* added missing netinet/in.h (with sockaddr_in) to includes
+	* removed bug that prevented other shellutils from working
+	* removed bug that prevented media_NET from displaying directory
+	* media_NET seems to work, disabled O_NONBLOCK setting mode that
+	  caused errors in 64shell, maybe need to reenable it again later
+
 2001-09-19  
 	* after LOAD endadress is reported correctly
 	* fixed Win32 networking stuff

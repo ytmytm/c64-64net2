@@ -28,8 +28,8 @@
 #define FISHLOAD 0
 #define FISHSAVE 0
 
-/* 1 - network off, 0 - network on */
-#define NONET 1
+/* 1 - INET network off, 0 - INET network on */
+#define NONET 0
 
 #define DEF_INPORT	0x3bd
 #define DEF_OUTPORT	0x3bc
@@ -77,6 +77,7 @@
 #define HAS_FTIME
 #include <netdb.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 #endif
 
 #ifdef SOLARIS

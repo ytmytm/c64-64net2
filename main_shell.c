@@ -23,6 +23,7 @@ main (int argc, char **argv)
 {
 
   debug_mode = 0;
+  talklf = 0;
 
 #ifdef DEBUG
   initDebug();

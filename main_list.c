@@ -2,6 +2,7 @@
 
 #include "config.h"
 #include "fs.h"
+#include "comm-lpt.h"
 
 int no_net=NONET;
 
@@ -12,6 +13,7 @@ main (int argc, char **argv)
   uchar c;
   fs64_file f;
 
+  talklf = 0;
   if (argc < 2)
   {
     printf ("64list: Usage 64list [nnn[/dir[ ..]:]<64filename>\n");

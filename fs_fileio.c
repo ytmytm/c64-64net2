@@ -82,6 +82,7 @@ fs_pathtofilesystem (fs64_filesystem * fs, uchar *path)
       }
       break;
     }
+  case media_NET:
   case media_UFS:
     {
       /* copy name (already done!)  */

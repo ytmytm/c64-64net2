@@ -11,7 +11,7 @@
 
    Each with the following contents:
    services/<service_names>
-   ports/nnn/nnn
+   ports/<port_lsb>/<port_msb>
    aliases
 
    Description:
@@ -56,6 +56,7 @@
 #define net_errno errno
 #define closesocket close
 #include <arpa/inet.h>
+void clear_net_errno(void) { net_errno = 0; }
 #endif
 
 #ifdef WINDOWS
@@ -63,6 +64,7 @@
 /* dummy ones */
 void setservent (int a) { }
 void endservent (void) { }
+void clear_net_errno(void) { }
 #endif
 
 #ifdef AMIGA
@@ -121,13 +123,15 @@ fs_net_readchar (fs64_file * f, uchar *c)
 	      if (f->socket > -1)
 		{
 		  /* woo hoo! connected! */
+/*
 #ifdef WINDOWS
 		  int nonblock=1;
 		  ioctlsocket(f->socket, FIONBIO, &nonblock);
 #else
 		  fcntl (f->socket, F_SETFL, O_NONBLOCK);
 #endif
-		  perror ("64net/2");
+*/
+		  if (net_errno) perror ("64net/2");
 		  *c = 'C';
 		  return (2);
 		}
@@ -148,21 +152,26 @@ fs_net_readchar (fs64_file * f, uchar *c)
       else
 	{
 	  /* read a char from the stream */
+	  clear_net_errno();
+#ifdef DEBUG
 	  debug_msg ("reading\n");
+#endif
 	  if (read (f->socket, c, 1) == 1)
 	    {
 	      /* success! */
+#ifdef DEBUG
 	      debug_msg ("read char\n");
+#endif
 	      if (net_errno)
 		perror ("64net/2");
 	      return (0);
 	    }
 	  else
 	    {
-	      debug_msg ("read nothing\n");
+	      debug_msg ("read nothing - EOF or EDEADLK\n");
 	      if (net_errno != 0)
 		{
-		  if (net_errno == 35)
+		  if (net_errno == EDEADLK)
 		    {
 		      /* Resource Temporarily Unavailable
 			 (ie no char yet) */
@@ -171,7 +180,7 @@ fs_net_readchar (fs64_file * f, uchar *c)
 		    }
 		  else
 		    {
-		      perror ("64net/2");
+		      if (net_errno) perror ("64net/2");
 		      debug_msg ("Closing file (%d)\n", net_errno);
 		      closesocket (f->socket);
 		      f->open = 0;
@@ -199,6 +208,7 @@ fs_net_writechar (fs64_file * f, uchar c)
     {
       if (f->socket > -1)
 	{
+	  clear_net_errno();
 	  write (f->socket, &c, 1);
 	  if (net_errno)
 	    perror ("64net/2");
@@ -260,6 +270,8 @@ fs_net_openfile (fs64_file * f)
 	{
 	  /* active connect */
 	  uchar temp[32];
+
+	  clear_net_errno();
 	  f->socket = socket (AF_INET, SOCK_STREAM, 0);
 	  f->sockaddr.sin_family = AF_INET;
 	  sprintf ((char*)temp, "%d.%d.%d.%d", ((f->ip >> 24) + 256) & 0xff, ((f->ip >> 16) + 256) & 0xff,
@@ -273,6 +285,7 @@ fs_net_openfile (fs64_file * f)
 	      perror ("64net/2");
 	      return (-1);
 	    }
+/*
 #ifdef WINDOWS
 	  { int nonblock=1;
 	    ioctlsocket(f->socket, FIONBIO, &nonblock);
@@ -280,7 +293,8 @@ fs_net_openfile (fs64_file * f)
 #else
 	  fcntl (f->socket, F_SETFL, O_NONBLOCK);
 #endif
-	  perror ("non-blocking");
+*/
+	  if (net_errno) perror ("non-blocking");
 	  f->open = 1;
 	  return (0);
 	}
