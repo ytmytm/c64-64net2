@@ -76,9 +76,7 @@ int last_drive=-1; /* none */
 int last_unit=-1; /* none */
 
 /* number of times we should try to poll before snoozing */
-/* FIXME:!!! this should be exported to machdep !!!*/
-int max_tries=10;
-int tries;
+int max_tries=synctolerance;
 
 /* structures for redirected devices */
 int devices[MAX_NET_DEVS]={0};
@@ -410,6 +408,18 @@ read_config (uchar *file)
 	/* debug mode */
 	debug_mode = 1;
 	printf ("INIT: Debug mode messages will be displayed.\n");
+      }
+      else if (!strncmp ("fishload", temp, 7))
+      {
+        /* enable fishload */
+        allowFishLoad = 1;
+	printf("INIT: enabled fishload routine.\n");
+      }
+      else if (!strncmp ("fishsave", temp, 7))
+      {
+        /* enable fishsave */
+	allowFishSave = 1;
+	printf("INIT: enabled fishsave routine.\n");
       }
       else
       {

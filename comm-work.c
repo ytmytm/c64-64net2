@@ -108,8 +108,6 @@ void do_acptr(int secaddr)
 	  /* command channel */
 	    if (dos_stat_len[last_unit] < 1) {
 		set_error (0, 0, 0);	/* default to OK message */
-//		sendchar (64); sendchar (199); /* EOF */
-//		return;
 	    }
 	  /* send status */
 	    if (dos_stat_len[last_unit]==1)	/* assert EOF with last byte */
@@ -408,12 +406,15 @@ void do_load(void)
 	/* be user friendly on C= side and print addresses */
         sprintf((char*)buff," $%04x",startaddr);
         c64print(buff);
-
+#ifdef DEBUG
+	debug_msg("FS: $%04x, SA: $%04x\n, mode:%i",filestart,startaddr,mode);
+	debug_msg ("About to send file\n");
+#endif
 	/* check whether to load or verify */
 	if (mode==0) {
-	    do_load_lowlevel(&loadfile, startaddr);
+	    do_load_lowlevel(&loadfile, &startaddr);
 	} else {
-	    do_verify_lowlevel(&loadfile, startaddr);
+	    do_verify_lowlevel(&loadfile, &startaddr);
 	}
 
 	/* successful load */
@@ -438,15 +439,13 @@ void do_load(void)
 	  ms = ms2 - ms;
 	  debug_msg ("Load time: %d.%d\n", s, ms);
 	}
-	c64poke (0xb2, startaddr & 0xff);
-	c64poke (0xb3, startaddr / 256);
-	sendchar (0);
-	sendchar (0);
+	c64poke (0xae, startaddr & 0xff);
+	c64poke (0xaf, startaddr / 256);
 	sendchar (254);
 	sendchar (0);
 }
 
-void do_verify_lowlevel(fs64_file *loadfile, int startaddr) {
+void do_verify_lowlevel(fs64_file *loadfile, int *startaddr) {
 
 int n, bc = 0, l = 0;
 int differences = 0;
@@ -460,11 +459,11 @@ uchar buff[256];
 		sendchar (255);
 		sendchar (2);
 		sendchar (bc + 1);
-		sendchar (startaddr & 0xff);
-		sendchar (startaddr / 256);
+		sendchar (*startaddr & 0xff);
+		sendchar (*startaddr / 256);
 		for (n = 0; n < bc; n++)
 		  if (charget()!=buff[n]) differences++;
-		startaddr += bc;
+		*startaddr += bc;
 		bc = 0;
 	    }
   }
@@ -474,16 +473,16 @@ uchar buff[256];
 	  sendchar (255);
 	  sendchar (2);
 	  sendchar (bc + 1);
-	  sendchar (startaddr & 0xff);
-	  sendchar (startaddr / 256);
+	  sendchar (*startaddr & 0xff);
+	  sendchar (*startaddr / 256);
 	  for (n = 0; n < bc; n++)
 	    if (charget()!=buff[n]) differences++;
-	  startaddr += bc;
+	  *startaddr += bc;
 	  bc = 0;
     }
 
 	/* be user friendly on C= side and print addresses */
-        sprintf((char*)buff," $%04x\r",startaddr);
+        sprintf((char*)buff," $%04x\r",*startaddr);
         c64print(buff);
 
     if (differences!=0)
@@ -491,16 +490,11 @@ uchar buff[256];
 
 }
 
-void do_load_lowlevel(fs64_file *loadfile, int startaddr) {
+void do_load_lowlevel(fs64_file *loadfile, int *startaddr) {
 
 int n, bc = 0, l = 0;
 uchar c;
 uchar buff[256];
-
-#ifdef DEBUG
-	debug_msg("FS: $%04x, SA: $%04x\n, mode:%i",filestart,startaddr,mode);
-	debug_msg ("About to send file\n");
-#endif
 
 	while (!fs64_readchar (loadfile, &c))
 	{
@@ -512,12 +506,12 @@ uchar buff[256];
 	    printf ("Sending block(in while loop)\n");
 #endif
 	    /* send block (using fastest allowed protocol) */
-	    if (allowFishLoad&&(startaddr < 0xcf00))
+	    if (allowFishLoad&&(*startaddr < 0xcf00))
 	      {
 #ifdef DEBUG
 		printf ("Sending block addr<0xcf00 (in while loop)\n");
 #endif
-		fastsendblock (startaddr, 254, buff);
+		fastsendblock (*startaddr, 254, buff);
 #ifdef DEBUG
 		printf ("Done.\n");
 #endif
@@ -530,13 +524,13 @@ uchar buff[256];
 		sendchar (255);
 		sendchar (1);
 		sendchar (bc + 1);
-		sendchar (startaddr & 0xff);
-		sendchar (startaddr / 256);
+		sendchar (*startaddr & 0xff);
+		sendchar (*startaddr / 256);
 		for (n = 0; n < bc; n++)
 		  sendchar (buff[n]);
 
 	      }
-	    startaddr += bc;
+	    *startaddr += bc;
 	    bc = 0;
 	  }
 	}
@@ -548,16 +542,16 @@ uchar buff[256];
 	  sendchar (255);
 	  sendchar (1);
 	  sendchar (bc + 1);
-	  sendchar (startaddr & 0xff);
-	  sendchar (startaddr / 256);
+	  sendchar (*startaddr & 0xff);
+	  sendchar (*startaddr / 256);
 	  for (n = 0; n < bc; n++)
 	    sendchar(buff[n]);
 
-	  startaddr += bc;
+	  *startaddr += bc;
 	  bc = 0;
 	}
 	/* be user friendly on C= side and print addresses */
-        sprintf((char*)buff," $%04x",startaddr);
+        sprintf((char*)buff," $%04x",*startaddr);
         c64print(buff);
 
 #ifdef DEBUG

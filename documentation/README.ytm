@@ -43,15 +43,15 @@ BUGS:
     (fixed - BASIC must know about adresses)
 + under LNG copying from IEC to /net64 fails on first byte, this is probably status byte issue (untalk?!)
     (fixed - untalk DOES not set status)
-- fishsave doesn't work (as it is stated - on Linux), don't know, maybe whole
-  fishsend is broken (original version)
-- fishload sometimes hang on start of first block
++ fishsave/load don't change memory config, will die on $dxxx
+    (fixed - address is checked in do_load_lowlevel)
++ fishload/save sometimes hang on start of block
+    (load fixed, save is FOOBAR, never enable)
 - if secondary address is >128 then file isn't really opened, just return w/o error, doing nothing;
   this is handled by Kernal, but worth knowing for wedge
 - opening "$name*" should show all files within current directory with 'name*' globbing
 - WINDOWS target has problems with ufs (names), BLOCKS FREE is unimplemented
 - WINDOWS target needs checking network stuff, WSAStartup needs to be called
-- fishsave/load don't change memory config, will die on $dxxx (currently checked in do_load_lowlevel)
 
 MODULE VERSION ISSUES
 - device and module name is 'fastpc' (ask me why :-), MAJOR number is dynamically
@@ -88,7 +88,7 @@ IDEAS:
     * make log option (redirect stdout to a file) in config file
 	(simple hook done in debug.h)
     ~ replace all printf by macros and separate debug messages from log messages
-    * make fishxxxx turned on/off in config file (on runtime)
+    + make fishxxxx turned on/off in config file (on runtime)
     * use dynamically allocated memory for tables
     + move fs stuff into static/shared library (local) and link executabels against it
     + wedge works as device #1, should get it from server upon boot
@@ -110,7 +110,8 @@ TODO
 	+ remember about machine issues when writing wedge for C128 (FILETABLE,SATABLE...)
 	- update clientdep_tables for C65 native
     + write code for VERIFY
-    * fix fishload/save (load often locks on my C128)
+    + fix fishload/save (load often locks on my C128)
+	(fishsave is foobar and will be)
     * write GEOS wedge (was it disk driver or REU exp. handler replacement?)
 	- time&date settings (add lowlevel command for this purpose)
 	- REU replacement, i/o whole pages (should work for RAMdisk)
@@ -152,6 +153,12 @@ acptr	'H'	<status, <data, X
 unlisten'I'	<status, X
 untalk	'J'	<status, X
 
+KERNAL WEDGE: (error means to fall to ROM routine)
+open	'O'	|
+close	'C'	|
+chkin	'P'	|
+chkout	'Q'	|
+
 CUSTOM:
 boot	'B'	>fnlen, >fname[], >secaddr (all dropped), |	OLD
 boot	'B'	>os_type, <devnum, |				NEW
@@ -163,20 +170,14 @@ devcheck'?'	>devnum, <{0,1}, X
 fsaccel	'F'
 opendisable 'K'	X
 
-KERNAL WEDGE: (error means to fall to ROM routine)
-open	'O'	|
-close	'C'	|
-chkin	'P'	|
-chkout	'Q'	|
-
-FS_ACCEL: (prefix 'F')
-read	'I'	>pagel, >pageh, <page[256]
-readmem	'H'	>bytes, >pagel, >pageh, <page[256]
-write	'O'	>pagel, >pageh, >page[256]
-writemem'N'	>bytes, >pagel, >pageh, >page[256]
+FS_ACCEL: (prefix 'F') (mode==0 - not fishy)
+read	'I'	>pagel, >pageh, <mode <page[256]
+readmem	'H'	>bytes, >pagel, >pageh, <mode <page[256]
+write	'O'	>pagel, >pageh, <mode, >page[256]
+writemem'N'	>bytes, >pagel, >pageh, <mode, >page[256]
 size	'S'	<sizel, <sizeh
-readsec	'R'	>p, >t, >s, <error <page[256]
-writesec'W'	>p, >t, >s, <error >page[256] <error
+readsec	'R'	>p, >t, >s, <error, <mode, <page[256]
+writesec'W'	>p, >t, >s, <error, <mode, >page[256], <error
 parinfo	'P'	<mediatype
 ------------------------------------------------------------------------------------
 

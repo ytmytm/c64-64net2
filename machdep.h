@@ -9,9 +9,10 @@
 
 #else
 /*
-   first value defines wait time (ms) for first byte before sleeping,
-   second value is number of sleep cycles when waiting for handshake
-   before throwing data out
+   first value is number of port checks before going to sleep for (snooz_time)
+   waiting for first byte, it will be overriden by timeout from config file
+   second value is number of port checks when waiting for data handshake
+   before throwing it out
 */
 #define synctolerance	5000
 #define synctolerance_2	5

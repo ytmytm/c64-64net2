@@ -54,18 +54,15 @@
 
 #ifdef UNIX
 #define net_errno errno
+#define closesocket close
 #include <arpa/inet.h>
 #endif
 
 #ifdef WINDOWS
 #define net_errno WSAGetLastError()
-/* XXX make dummy ones */
+/* dummy ones */
 void setservent (int a) { }
 void endservent (void) { }
-/* replace by something from WinSock to set socket into non-blocking mode */
-#define O_NONBLOCK 0
-#define F_SETFL 0
-void fcntl(int a, int b, long c) { }
 #endif
 
 #ifdef AMIGA
@@ -74,7 +71,6 @@ void fcntl(int a, int b, long c) { }
 #include <proto/socket.h>
 #include <exec/exec.h>
 struct Library BSDBase;
-int no_net;
 #endif
 
 int fs_net_dirtype (uchar *path);
@@ -100,9 +96,9 @@ fs_net_closefile (fs64_file * f)
   if(no_net != 1)
     {
       if (f->socket > -1)
-	close (f->socket);
+	closesocket (f->socket);
       if ((f->msocket > -1) && (f->sockmode == 0))
-	close (f->msocket);
+	closesocket (f->msocket);
       f->open = 0;
   return (0);
     }
@@ -125,7 +121,12 @@ fs_net_readchar (fs64_file * f, uchar *c)
 	      if (f->socket > -1)
 		{
 		  /* woo hoo! connected! */
+#ifdef WINDOWS
+		  int nonblock=1;
+		  ioctlsocket(f->socket, FIONBIO, &nonblock);
+#else
 		  fcntl (f->socket, F_SETFL, O_NONBLOCK);
+#endif
 		  perror ("64net/2");
 		  *c = 'C';
 		  return (2);
@@ -172,7 +173,7 @@ fs_net_readchar (fs64_file * f, uchar *c)
 		    {
 		      perror ("64net/2");
 		      debug_msg ("Closing file (%d)\n", net_errno);
-		      close (f->socket);
+		      closesocket (f->socket);
 		      f->open = 0;
 		      *c = 199;
 		      return (-1);
@@ -272,7 +273,13 @@ fs_net_openfile (fs64_file * f)
 	      perror ("64net/2");
 	      return (-1);
 	    }
+#ifdef WINDOWS
+	  { int nonblock=1;
+	    ioctlsocket(f->socket, FIONBIO, &nonblock);
+	  }
+#else
 	  fcntl (f->socket, F_SETFL, O_NONBLOCK);
+#endif
 	  perror ("non-blocking");
 	  f->open = 1;
 	  return (0);

@@ -23,6 +23,7 @@
 /* LINUX target features, don't use it */
 /* #define USE_LINUX_KERNEL_MODULE */
 
+/* default options */
 /* 1 - on, 0 - off */
 #define FISHLOAD 0
 #define FISHSAVE 0
@@ -91,6 +92,7 @@
 
 #ifdef AMIGA
 #include <dos.h>
+#define usleep(x) Delay(x)
 #endif
 
 /* save lots of typing */

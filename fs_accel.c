@@ -41,6 +41,7 @@ fs_accel (uchar command)
       /* dud page */
       page = &buff[0];
     /* send it! */
+    sendchar(allowFishSave);
     if (allowFishLoad) fishsendblock (n, buff);
 	else
 	for (i=0;i<n;i++) sendchar(buff[i]);
@@ -58,6 +59,7 @@ fs_accel (uchar command)
       /* dud page */
       page = &buff[0];
     /* send it! */
+    sendchar(allowFishSave);
     if (allowFishSave) fishgetblock (n, buff);
 	else
 	for (i=0;i<n;i++) buff[i]=charget();
@@ -118,6 +120,7 @@ fs_accel (uchar command)
     fclose (filesys.fsfile);
     filesys.fsfile = 0;
     sendchar(0);	/* no error */
+    sendchar(allowFishLoad);
     if (allowFishLoad) fishsendblock (256, buff);
 	else
 	for (i=0;i<256;i++) sendchar(buff[i]);
@@ -162,6 +165,7 @@ fs_accel (uchar command)
       return (-1);
     }
     sendchar(0);	/* no error so far */
+    sendchar(allowFishSave);
     if (allowFishSave) fishgetblock (256, buff);
 	else
 	for (i=0;i<256;i++) buff[i]=charget();

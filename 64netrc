@@ -2,7 +2,7 @@
 port 278
 
 # The CBM device number to primarily masquerade as
-devnum 9 
+devnum 10
 
 # Uncomment the next line if you plan to use 64net/2 in combination with
 # the X11 display application
@@ -12,7 +12,17 @@ devnum 9
 debug mode
 
 # Create a 256 page GeoRAM emulation bank
-ram 256
+#ram 256
+
+# Uncomment the next line to enable fishload
+fishload
+
+# Uncomment the next line to enable fishsave
+# DON'T do it, fishsave is broken and will remain as such :(
+#fishsave
+
+# number of port polls before sleeping
+timeout 5000
 
 # Define a drive number to be served with 
 #  3 partitions.
@@ -24,7 +34,7 @@ ram 256
 device
 number 9
 #partition 1,TESTDIR/
-partition 1,/TMP/C64/NAME.D64
+partition 1,/OPT/C64/TEST.D64
 partition 2,/HOME/MACIEK/
 partition 3,@/
 end

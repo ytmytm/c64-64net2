@@ -26,9 +26,16 @@ extern volatile struct CIA ciab;
 typedef void (CALLBACK * outb_t)(int,int);
 typedef unsigned char (CALLBACK * inb_t)(int);
 HINSTANCE dll_handle;
+WSADATA wsa_data;
 outb_t outb;
 inb_t inb;
 #endif
+
+/* Faxe port access XXX */
+#ifdef SOLARIS
+int outb(int p,int v) { return 0; }
+int inb(int p) { return 255; }
+#endif /* SOLARIS */
 
 /* Low-level functions definitions for each architecture */
 
@@ -67,12 +74,6 @@ inb_t inb;
 #endif /* LINUX */
 #endif /* AMIGA */
 
-/* Faxe port access XXX */
-#ifdef SOLARIS
-int outb(int p,int v) { return 0; }
-int inb(int p) { return 255; }
-#endif /* SOLARIS */
-
 void
 init_hw (void)
 {
@@ -102,8 +103,7 @@ init_hw (void)
 #ifdef WINDOWS
   if (no_net != 1) {
     printf("Initializing wsock32.dll\n");
-    /* XXX: FIXME: uknown parameters for WSAStartup */
-    /* WSAStartup(); */
+    WSAStartup(0x0101, &wsa_data);
   }
   dll_handle = LoadLibrary("inpout32");
   if (dll_handle!=NULL) {
@@ -171,15 +171,11 @@ sync_loop:
   while (!(BUSY))
   {
         c++;
-	if (c > synctolerance) {
+	if (c > max_tries) {
 
 	c=0;
 	debug_msg ("z"); fflush (stdout);
-#ifdef AMIGA
-	Delay (snooz_time);
-#else
 	usleep (snooz_time);	/* dont hog cpu  */
-#endif
 	}
   }
   /* read value */
@@ -194,13 +190,9 @@ sync_loop:
   while (BUSY)
   {
 	c++;
-	if (c > synctolerance) {
+	if (c > max_tries) {
 	debug_msg ("x"); fflush (stdout);
-#ifdef AMIGA
-	Delay (snooz_time_2);
-#else
 	usleep (snooz_time_2);	/* dont hog cpu  */
-#endif
 	c=0; d++;
 	if (d > synctolerance_2) goto sync_loop;
 	}
@@ -277,12 +269,13 @@ sendchar (int byte)
   POUTRHIGH;
   POUTRLOW;
   POUTRHIGH;
-/*  while(inb(portout)!=0xff) ; */
 #ifdef DEBUG2
   debug_msg ("Sent\n");
 #endif
   return (0);
 }
+
+//#define DEBUG2
 
 int
 fishsendblock (int size, uchar * block)
@@ -301,12 +294,18 @@ fishsendblock (int size, uchar * block)
     POUTWLOW;
     POUTWHIGH;			/* raise here before busy loop to reduce port accesses */
     n++;
+#ifdef DEBUG2
+    printf("$%02x ",n);
+#endif
     /* wait for 64 NACK */
     while (BUSY);
     PARW (block[n]);
     POUTWLOW;
     POUTWHIGH;
     n++;
+#ifdef DEBUG2
+    printf("$%02x ",n);
+#endif
   }
   /* close off */
   while (!(BUSY));
@@ -314,7 +313,10 @@ fishsendblock (int size, uchar * block)
   /* Parallel port DDR = in, POUT = low */
   PARIN;
   POUTRLOW;
+  POUTRHIGH;
 
+  /* FIXME - how to handle it??? it must be here and it must have \n at the end (flushing) */
+  printf("delay\n");
   return (0);
 
 }
@@ -326,6 +328,7 @@ fishgetblock (int size, uchar * block)
 
   PARIN;
   POUTRHIGH;	/* set port DDR in, don't toggle strobe, this is for non-AMIGA */
+  usleep(1);
 
   while (n < size)
   {
@@ -334,6 +337,9 @@ fishgetblock (int size, uchar * block)
     /* get char & toggle POUT */
     block[n] = PARR;
     n++;
+#ifdef DEBUG2
+    printf("$%02x ",n);
+#endif
     POUTRLOW;
     POUTRHIGH;			/* raise here before busy loop to reduce port accesses */
     /* wait for ACK */
@@ -341,6 +347,9 @@ fishgetblock (int size, uchar * block)
     /* get char & toggle POUT */
     block[n] = PARR;
     n++;
+#ifdef DEBUG2
+    printf("$%02x ",n);
+#endif
     POUTRLOW;
     POUTRHIGH;
   }
@@ -351,6 +360,9 @@ fishgetblock (int size, uchar * block)
   /* Parallel port DDR = in, POUT = low */
   PARIN;
   POUTRLOW;
+  POUTRHIGH;
+
+  usleep(5);
   return (0);
 
 }

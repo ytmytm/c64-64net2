@@ -1,4 +1,10 @@
 2001-09-19  
+	* after LOAD endadress is reported correctly
+	* fixed Win32 networking stuff
+	* 'F' commands now send transfermode byte before data page
+	* added fishload/fishsave/timeout options to config file
+	* fixed fishload, fishsave is FOOBAR and will remain as such
+	    it _must_ work, but it does not...
 	* fixed EOF handling, older LNG bugs
 	* wedge for C128 works
 	* basic support for M-R and M-W commands

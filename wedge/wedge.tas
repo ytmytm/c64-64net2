@@ -293,7 +293,10 @@ own_load	pha
 		lda #"L"
 		jsr send_byte
 		pla
-		jmp command_exe
+		jsr command_exe
+		ldx $ae
+		ldy $af
+		rts
 
 own_save	jsr check_devnum
 		beq .savecont
@@ -476,6 +479,8 @@ get_byte	;lda $dd0d		; possibly remove it
 ;put fishload and fishsave here
 fishload	jsr getaddress
 		ldy #0
+		php
+		sei
 .fl_loop	lda $dd0d
 		lda #$93
 		sta $dd00
@@ -501,25 +506,29 @@ fishload	jsr getaddress
 		lda #$10
 		bit $dd0d
 		beq *-3
+		lda $dd0d
+		plp
 		jmp command_loop
 
 fishsave	jsr getaddress
 		ldy #0
+		php
+		sei
 		lda $dd0d
 		lda #$ff
 		sta $dd03
-.fs_loop	lda ($9e),y
+.fs_loop	lda $dd0d
+		lda ($9e),y
 		sta $dd01
-		lda $dd0d
 		lda #$93
 		sta $dd00
 		lda #$10
 		bit $dd0d
 		beq *-3
 		iny
+		lda $dd0d
 		lda ($9e),y
 		sta $dd01
-		lda $dd0d
 		lda #$97
 		sta $dd00
 		lda #$10

@@ -45,6 +45,7 @@
 
 /* port addresses */
 extern int portout,portin;
+extern int max_tries;
 
 /* function prototypes */
 int commune(void);
