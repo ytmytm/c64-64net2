@@ -993,7 +993,7 @@ fs64_openfile_g (uchar *curdir, uchar *filespec, fs64_file * f)
 	strcpy (id, "64NET");
       }
       /* output header */
-      if ((talklf & 0x0f)==0) {
+      if (((talklf & 0x0f)==0)||(talklf<0)) {
         fs64_dirheader (f, par, header, id); }
       else {
         fs64_rawdirheader (f, par, header, id); }
