@@ -18,7 +18,7 @@
 //#define DEVCHECK	'?'
 
 /*ABCDEFGHIJKLMNOPQRSTUVWXYZ*/
-/*xxxx xxxxxxx  xxxxx   x   */
+/*xxxx xxxxxxx  xxxxxxx x   */
 
 /* new, sane command enumeration, only few make sense, though */
 #define BOOT		'B'
@@ -42,6 +42,10 @@
 #define CLOSE		'C'
 #define CHKIN		'P'
 #define CHKOUT		'Q'
+
+/* services */
+#define TIME		'T'
+#define TIMESTRING	'U'
 
 /* port addresses */
 extern int portout,portin;

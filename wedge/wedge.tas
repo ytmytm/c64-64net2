@@ -14,10 +14,17 @@
 ; 18.9.2001
 ; - moved open,close,chkin,chkout to server side (now only kernal jumptable matters)
 
+; 28.9.2001, 23.12.2001
+; - serial version retuned, 9600B seems to be the best
+
+; 25.12.2001
+; - merged both drivers
+
 !cpu 6502
 
 ; configuration
 machine = 64				; 64 or 128 (or 65?)
+serial  = 0				; use serial driver? 0 - false, 1 - true
 
 !if (machine=64) {
     machinetype=0			; reported to server
@@ -308,6 +315,7 @@ own_save	jsr check_devnum
 		jmp command_exe
 
 		!zone Client_Commands
+
 fastload	jmp fishload
 fastsave	jmp fishsave
 
@@ -435,7 +443,7 @@ do_jsr		lda #$4c
 		jmp command_loop
 
 		!zone Hardware_Functions
-
+!if (serial=0) {
 send_byte	pha
 		lda #$ff
 		sta $dd03
@@ -476,7 +484,6 @@ get_byte	;lda $dd0d		; possibly remove it
 		clc
 		rts
 
-;put fishload and fishsave here
 fishload	jsr getaddress
 		ldy #0
 		php
@@ -540,9 +547,54 @@ fishsave	jsr getaddress
 		lda #$00
 		sta $dd03
 		jmp .fl_end
+} else {
+
+acia		= $de00
+acia_data	= acia
+acia_status	= acia+1
+acia_command	= acia+2
+acia_control	= acia+3
+
+B4800		= %00001010
+B9600		= %00001100
+B19200		= %00001110
+B38400		= %00001111
+
+init_port	lda acia_status
+		sta acia_status		; soft reset
+		lda #%00010000|B9600	; 8?1, 9600 baud
+		sta acia_control
+		lda #%00001011		; 8N1, RTS low, DTR low, no interrupts, no echo
+		sta acia_command
+		rts
+
+send_byte	pha
+.sendbusy	lda acia_status
+		and #%00010000
+		beq .sendbusy		; wait until byte sent
+		pla
+		sta acia_data
+		clc
+		rts
+
+get_byte
+.getbusy	lda acia_status
+		and #%00001000
+		beq .getbusy		; wait until something arrives
+		lda acia_data
+		clc
+		rts
+
+fishload
+fishsave	rts
+}
 
 		!zone VectorInstaller
-init_vectors	ldx #0
+init_vectors
+!if (serial!=0) {
+		jsr init_port
+}
+		ldx #0
 .loop		lda vectortab,x
 		beq .end
 		tay

@@ -1,3 +1,7 @@
+2001-12-25  
+	* merged wedges
+	* added lowlevel time and date functions
+
 2001-12-23  
 	* serial cable version (requires Swiftlink)
 	* BeOS parallel port confirmed working

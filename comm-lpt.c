@@ -23,6 +23,7 @@
 #include "fs_accel.h"
 #include "misc_func.h"
 #include "comm-work.h"
+#include "datestamp.h"
 
 #define PADDING 1
 
@@ -131,6 +132,26 @@ int commune (void)
       goto next;
     case LOAD:
       do_load();
+      goto next;
+    case TIME:
+      {
+        int i, timebuf[8];
+	current_time(&timebuf[0]);
+	for (i=0;i!=8;i++)
+	  sendchar(timebuf[i]);
+      }
+      goto next;
+    case TIMESTRING:
+      {
+        int i;
+	char *text;
+	
+	text = current_time_string();
+	asciitopetscii(text);
+	for (i = 0; i < strlen (text); i++)
+	  sendchar (text[i]);
+	sendchar (0);
+      }
       goto next;
     case DEVCHECK:
       {

@@ -84,7 +84,9 @@ MODULE VERSION ISSUES
   (15.6) - sync_char() was broken, timings are adjustable in machdep.h
 
 IDEAS:
-    * add time&date commands
+    * use cbm.o Linux kernel module as low-level driver for serial cable
+    + add time&date low level commands
+    * add DOS level time&date commands (need to compatible with something: CMD or 64HDD)
     * fs_xxx stuff should be implemented like in Linux kernel - as pointers to structures
       holding pointers to functions e.g.
     * incorporate my kernel module for linux io - ability to use IRQs, slightly different
@@ -117,7 +119,7 @@ IDEAS:
 
 TODO
     * make wedge ROMable (it won't change much, all functionality is there)
-    * merge wedge and wedge-ser
+    + merge wedge and wedge-ser
     * replace ftime call in datestamp.c by gettimeofday - ftime is obsoleted in BSD for some reason
     + move wedge functionality into server side with peeks and pokes
 	+ remember about machine issues when writing wedge for C128 (FILETABLE,SATABLE...)
@@ -126,7 +128,7 @@ TODO
     + fix fishload/save (load often locks on my C128)
 	(fishsave is foobar and will be)
     * write GEOS wedge (was it disk driver or REU exp. handler replacement?)
-	- time&date settings (add lowlevel command for this purpose)
+	- time&date settings
 	- REU replacement, i/o whole pages (should work for RAMdisk)
 	- true disk emulation via dhd or alike, with real disk driver code
 	  (still needs RAM exp. or patch REU functions to work as GEOS RAM via 64net2)
@@ -135,6 +137,7 @@ TODO
 	- simple filetransfer
 	- use of images
 	- device H: emulation (remote r/w via 2 byte sequences)
+	- time and date
     + find out what EOF is ($90) - LUnix sez it's $80 while 64net/2 thinks $40 (that's
       devnotpresent by LUnix)
       This is always $40, fix LUnix for that
@@ -173,38 +176,34 @@ chkin	'P'	|
 chkout	'Q'	|
 
 CUSTOM:
-boot	'B'	>fnlen, >fname[], >secaddr (all dropped), |	OLD
-boot	'B'	>os_type, <devnum, |				NEW
-load	'L'	>fnlen, >fname[], >secaddr, |			OLD
-load	'L'	>secaddr, |					NEW
-save	'S'	>fnlen, >fname[], >secaddr, |			OLD
-save	'S'	|						NEW
+boot	'B'	>os_type, <devnum, |
+load	'L'	>secaddr, |
+save	'S'	|
 devcheck'?'	>devnum, <{0,1}, X
-fsaccel	'F'
+fsaccel	'F'	(prefix)
+time	'T'	<century,<year,<month,<day,<hour,<minute,<second,<weekday, X
+timestring  'U' <string_with_date_and_time_info, <0, X
 opendisable 'K'	X
 
 FS_ACCEL: (prefix 'F') (mode==0 - not fishy)
-read	'I'	>pagel, >pageh, <mode <page[256]
-readmem	'H'	>bytes, >pagel, >pageh, <mode <page[256]
-write	'O'	>pagel, >pageh, <mode, >page[256]
-writemem'N'	>bytes, >pagel, >pageh, <mode, >page[256]
-size	'S'	<sizel, <sizeh
-readsec	'R'	>p, >t, >s, <error, <mode, <page[256]
-writesec'W'	>p, >t, >s, <error, <mode, >page[256], <error
-parinfo	'P'	<mediatype
+read	'I'	>pagel, >pageh, <mode <page[256]. X
+readmem	'H'	>bytes, >pagel, >pageh, <mode <page[256]. X
+write	'O'	>pagel, >pageh, <mode, >page[256]. X
+writemem'N'	>bytes, >pagel, >pageh, <mode, >page[256]. X
+size	'S'	<sizel, <sizeh. X
+readsec	'R'	>p, >t, >s, <error, <mode, <page[256], X
+writesec'W'	>p, >t, >s, <error, <mode, >page[256], <error, X
+parinfo	'P'	<mediatype, X
 ------------------------------------------------------------------------------------
 
 CLIENT FUNCTIONS LIST (always return to command loop except 'error')
 ------------------------------------------------------------------------------------
 0xf4	fastgetblock		<addyl, <addyh, >256 bytes
 0xf5	fastsendblock		<addyl, <addyh, <256 bytes
-0xf6	???			>$ffe4 (GETIN keyboard input) - cursor inv. never used		NEW
-				<?, >$ffe4 (GETIN keyboard input) - cursor inv. never used	OLD
+0xf6	???			>$ffe4 (GETIN keyboard input) - cursor inv. never used
 0xf7	client type query	>os_type
-0xf8	memory execute		<addyl, <addyh, <y, <x, <a				NEW
-				<addyl, <addyh, <a, <x, <y, <0				OLD
-0xf9	???			>$f157 (CHRIN $ffcf) - cursor visible, never used	NEW
-				<?, >$f157 (CHRIN $ffcf) - cursor visible, never used	OLD
+0xf8	memory execute		<addyl, <addyh, <y, <x, <a
+0xf9	???			>$f157 (CHRIN $ffcf) - cursor visible, never used
 0xfa	N/U
 0xfb	N/U
 0xfc	exit command loop
@@ -214,8 +213,7 @@ CLIENT FUNCTIONS LIST (always return to command loop except 'error')
 				    1 - poke
 					<number+1, <addyl, <addyh, <value[]
 				    2 - peek
-					<number+1, <addyl, <addyh, >value[]		NEW
-					<number+1, <addyl, <addyh, <0, >value[]		OLD
+					<number+1, <addyl, <addyh, >value[]
 ------------------------------------------------------------------------------------
 
 CHANGES:
