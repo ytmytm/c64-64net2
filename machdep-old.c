@@ -239,6 +239,10 @@ sync_loop:
   }
   /* read value */
   value = PARR;
+
+  /* Add 256 if the character was received under attention */
+  if (!ACK) value|=0x100;
+
   /* Set POUT low, Parallel port DDR = in */
   POUTRLOW;
 #ifdef DEBUG2
@@ -283,6 +287,10 @@ charget (void)
   while (!(BUSY));
   /* read value */
   value = PARR;
+
+  /* Add 256 if the character was received under attention */
+  if (!ACK) value|=0x100;
+
   /* Toggle POUT low, Parallel port DDR = in */
   POUTRLOW;
 #ifdef DEBUG2
