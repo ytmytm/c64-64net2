@@ -1,0 +1,35 @@
+64NET/2 Glossary file
+---------------------
+
+Last updated 5 October 1996
+
+This file includes a glossary of terms used in the documentation, and
+use of 64NET/2.  It may not be complete, and additions are welcomed.
+
+"64NET v1"
+	64NET v1 is the first genesis in the 64NET project.  It
+features exceedingly fast LOAD and SAVE speeds (upto 41KB/sec when
+using a Flash8, and ~10KB/sec on a stock C64).  64NET v1 is the direct
+predecesor to the 64NET/2(qv) project, and founded many of the
+concepts which have been enhanced and refined for inclusion in
+64NET/2.
+
+"64NET/2"
+	64NET/2 is the latest development in the 64NET line.  64NET/2
+is literally "64NET System 2".  It is a complete re-write, and
+features incredible features for both power, and budget C64 users,
+offering the advantages of mass-media storage, InterNET access and
+GEOS support.
+
+"Media"
+	A Media is any data structure which 64NET/2 can use as a file
+system(qv).  The media generally implies what filesystem(qv) will be
+used on any instance of that media type.  An example could be .D64
+files.
+
+"File System"
+	A File System is a means of storing files and file control
+data.  64NET/2 features an highly complex file system heirachy which
+allows the end users to move between a large number of file systems
+(currently including 1541,1571,1581,CMD Native (HD),LNX,T64,InterNET)
+types transparently, and with a uniform interface.

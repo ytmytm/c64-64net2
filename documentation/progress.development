@@ -1,0 +1,269 @@
+Progress Information for 64net/2
+--------------------------------
+
+* Last updated 23 October 1996
+
+Progress Descriptions/Priorities
+--------------------------------
+
+(Order does not necessarily indicate priority)
+
+- REL files (were partly there..)
+- Client independency
+- Re-design open/close for really memory tight operation
+    (instead of best-guess as present)
+- Fix media_NET file system (what is wrong anyway?)
+- Proper STatus variable operation
+    (fix bizarre stuff when at end of a stream)
+
+Progress tree
+-------------
+(This tree is not necessarily complete)
+
+
+- Entire System
+
+-	Parallel/RS-232 Interface version
++		Interface to "front end" programme
++			Enable
++			Disable
+-		BOOT
++			Server message
+-			Message of the day (?)
++			Generic setup
+-			Close all files
+-			Startup sequence
+-			Dooby 64net/2 image (C64 mode only!)
+			 (for display while startup sequence is executing)
+-		LOAD
++			File Resolution
++			Load Address
++			Burst Loading			
++			Fish Loading
+-			Client Independency
++		SAVE
++			File Resolution
++			Memory range
+-			Burst Saving
+-			Fish Saving
+-			Client independency
+-		OPEN
++			File Resolution
+-			Client Independency
++		CLOSE
++			Normal closing
++			NET filesystem special case
++			Channel 15 special case
++		GET#
++		PRINT#
++		CHKIN
++		CHKOUT
+-		Extended
+-			Printer access
+-				Write single byte
+-				Write multiple bytes
+-				Mark end of print job
+-			Fast file access
+-				Block read
+-				Block Write
+-				REL Record read
+-				REL Record write
+-			DOS Command interface
+-				DOS Command Read
+-				DOS Command Write
+-			Get Time & Date
++		FS Accel
++			New GEOS block access
++			Read block
++			Write Block
++			Read partn info
++			Read "RAM"
++			Write "RAM"
++			Size "RAM"
+
+-	FileSystem
+-		General
++			Search
++				Open find
++				Find next
++				Close find
++					Free used resources
++			Open
+-			Close
+-				Free used resources 
+-		Specific
+-			UFS
++				UFS Files
++				RAW C64 Binaries
+-				N64 Files
++					PRG,SEQ,USR
+-					REL
++				Search
++				Read block
++				Write block
++				Open
++				Close
+-				Scratch
++				Create
++			Lynx
++				Search
++				Read Block
++				Write block (stub)
++				Open
++				Close
+-			T64
++				PRG
++				Read Block
++				Write Block
+-				Create
++				Search
++				Open
+-				Close 
+-			D64/D41
++				PRG,SEQ,USR
+-				REL
++				Read Block
++				Write Block
++				Create
++				Search
++				Open
++				Close 
+-				Validate
++					PRG,SEQ,USR
+-					REL
++				Format
++					Quick
++					Full
+-			D71
++				PRG,SEQ,USR
+-				REL
++				Read Block
++				Write Block
++				Create
++				Search
++				Open
++				Close 
+-				Validate
++					PRG,SEQ,USR
+-					REL
++				Format
++					Quick
++					Full
++			D81
++				PRG,SEQ,USR
+-				REL
+-				CBM
++				Read Block
++				Write Block
++				Create
++				Search
++				Open
++				Close 
+-				Sub-partitions
++				Validate
++					PRG,SEQ,USR
+-					REL
+-					CBM
++				Format
++					Quick
++					Full
++			DHD
++				PRG,SEQ,USR
+-				REL
++				Read Block
++				Write Block
++				Create
++				Search
++				Open
++				Close 
+-				Validate
++					PRG,SEQ,USR
+-					REL
++					DIR
++				Format
++					Quick
++					Full
+-			Internet
++				Search
++				Open
++				Close 
+-				Transparent FTP
++				Read char
++				Write char
+-			Partition ("partition 255")
+-				Search
+
++	Glob system
++		Parse Globs
++		Compare string to glob pattern
+
+-	CBM/CMD Emulation DOS
++		V (Validate)
++			Normal validate
++			Validate with correction
+-		I
+-			Check media & report
+-		U Commands
+-			U1/UA (Read block)
+-			U2/UB (Write block)
+-			U3/UC (JMP $0500)
+-			U4/UD (JMP $0503)
+-			U5/UE (JMP $0506)
+-			U6/UF (JMP $0509)
+-			U7/UG (JMP $050C)
+-			U8/UH (JMP $050F)
++			U9/UI (Soft reset)
++				Stub
++			UJ/U: (Hard reset)
++				Reset drive system
++		CD
++			"pwd"
++			CD To a path
++		CP
+-		Copy files
+-			Get dest file
+-			Cat each source file into dest file
+-		MD (Make directory)
+-			Conventional MD
++			M(shift-D) form (create disk image)
++				.D64
++				.D71
++				.D81
++				.DHD
+-		RD (Remove subdirectory - both forms are *very* similar)
+-			Conventional RD
+-				Ensure directory is empty
+-				Un-link
+-			R(stifd-D) form (delete disk image)
+-				Ensure image is empty
+-				Un-link
+-		S  (Scratch file(s)
++		N	(Format disk image)
++				Short format
++				Full Format
+-		O	(Set 64NET Options)
+-			Default subdirectory type
+-			Burst loading selection
+-			Write configuration
+-		P (REL stuff)
+-			whatever the commands are!
+
++	X Windows "disk drive" front end
++		Pretty XBM
++		Humungous (400x150) icon
++		Power led (red) (with error blinking @ 2.5Hz)
++		Access light (green)
+
+Progress-Nontree
+--------------
+
+(This is a list of important "other" things which have been 
+implemented etc.)
+
+* 64NET/2 is now memory tight (apparently!).  Does not leave file descriptors (inc opendir's)
+around.
+
+
+
+
+

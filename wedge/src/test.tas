@@ -1,0 +1,67 @@
+
+!to "test.out"
+
+; I/O routines maximally compressed
+; I really don't know if it works anymore :-)
+
+		*=$9e80
+
+fastsend
+		ldy #0
+		lda #$ff
+		sta $dd03
+fs_loop		lda ($02),y
+		sta $dd01
+		lda $dd0d
+		jsr flag_waitl
+		iny
+		lda ($02),y
+		sta $dd01
+		lda $dd0d
+		jsr flag_waith
+		iny
+		bne fs_loop
+		sty $dd03
+		beq flag_waitl
+
+fastload
+		ldy #0
+fl_loop		lda $dd0d
+		jsr flag_waitl
+		lda $dd01
+		sta ($02),y
+		iny
+		lda $dd0d
+		jsr flag_waith
+		lda $dd01
+		sta ($02),y
+		iny
+		bne fl_loop
+		beq flag_waitl
+
+sendbyte	pha
+		lda #$ff
+		sta $dd03
+		pla
+		sta $dd01
+		lda $dd0d
+		jsr flag_waitl
+		lda #0
+		sta $dd03
+flag_waith	lda #$97
+		!byte $2c
+flag_waitl	lda #$93
+		sta $dd00
+flag_wait	lda #$10
+		bit $dd0d
+		beq *-3
+		rts
+
+getbyte		lda $dd0d
+		jsr flag_waitl
+		lda $dd01
+		pha
+		jsr flag_waith
+		pla
+		rts
+

@@ -1,0 +1,27 @@
+#port /dev/tty00
+port 3bc
+#ledfile /home/64net/.64net2.leds
+debug mode
+ram 256
+device
+number 9
+#partition 1,TESTDIR/
+partition 1,/
+#partition 1, xTerm:Storage/64/
+#partition 1,/HOME/64NET/TESTDIR/HD*/FL*/
+#partition 2,/HOME/64NET/TESTDIR/
+partition 3,/PUB/C64/
+partition 4,/PUB/C64/GAMES/
+#partition 6,/HOME/64NET/TESTDIR/ADINFIN.D64
+#partition 8,@/
+end
+path 2
+#device
+#number 10
+#partition 1,/pub/pictures/
+#end
+#device 
+#number 15
+#partition 1,/pub/c64/
+#partition 2,/pub/
+#end

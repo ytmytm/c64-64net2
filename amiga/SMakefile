@@ -1,0 +1,200 @@
+
+# this is obsolete, if someone volunteers please use Makefile as template
+
+
+OBJECTS =fs_error.o fs_media.o fs_readts.o fs_search.o fs_fileio.o\
+	fs_glob.o fs_parse.o comm-lpt.o fs_hostdep.o fs_accel.o\
+	fs_io_ufs.o fs_io_t64.o fs_io_lnx.o fs_io_net.o\
+	fs_io_dxx.o fs_io_d64.o fs_io_d71.o fs_io_d81.o fs_io_dhd.o\
+	dosemu.o dos_blockio.o machdep.o\
+	client-comm.o clientdep.o\
+	misc_func.o resman.o datestamp.o read_key.o\
+	version.o
+
+CC=sc
+COPT= INCDIR=sc:netinclude/ DEF=DEBUG DEF=NO_NET DEF=AMIGA DATA=FAR DEBUG=SF
+LOPT= MATH=STANDARD DATA=FAR DEBUG=SF
+
+all:	64net2 64rm 64ls 64list 64cat x64net
+
+backup:
+	lha a 64net2backup.lha *c *h SMakefile devel*
+
+clean:
+	delete *.o
+
+spotless:	clean
+	delete 64net2 64ls 64rm 64list 64cat x64net
+
+#
+#	Distribution build commands
+#
+
+amiga-dist: 64net2
+	lha c 64net2fb.tgz 64net2 64netrc *.development AmigaCable.doc
+
+#
+# Directives to build actual binaries
+#
+# 64net2 - 64NET/2 Server
+# 64rm   - Delete files in a 64net filesystem
+# 64ls   - View a directory c64 style using the 64net filesystem
+# 64list - Show the BASIC listing of a file using the 64net filesystem
+# 64cat  - Show the contents of a file using the 64net filesystem
+#
+
+64net2:	$(OBJECTS) 64net2.o
+	$(CC) <WITH <
+	$(LOPT) $(OBJECTS) 64net2.o
+	LINK TO 64net2
+	<
+
+64list:	$(OBJECTS) 64list.o
+	$(CC) <WITH <
+	$(LOPT) $(OBJECTS) 64list.o
+	LINK TO 64list
+	<
+
+64rm:	$(OBJECTS) 64rm.o
+	$(CC) <WITH <
+	$(LOPT) $(OBJECTS) 64rm.o
+	LINK TO 64rm
+	<
+
+64ls:	$(OBJECTS) 64ls.o
+	$(CC) <WITH <
+	$(LOPT) $(OBJECTS) 64ls.o
+	LINK TO 64ls
+	<
+
+64cat:	$(OBJECTS) 64cat.o
+	$(CC) <WITH <
+	$(LOPT) $(OBJECTS) 64cat.o
+	LINK TO 64cat
+	<
+
+#
+# Directives for 64NET filesystem and front end modules
+#
+
+64rm.o:		64rm.c 64fs.h
+	$(CC) $(COPT) 64rm.c
+
+64net2.o:	64net2.c 64fs.h
+	$(CC) $(COPT) 64net2.c
+
+64list.o:	64list.c 64fs.h
+	$(CC) $(COPT) 64list.c
+
+64ls.o:	64ls.c 64fs.h
+	$(CC) $(COPT) 64ls.c
+
+64cat.o:	64cat.c 64fs.h
+	$(CC) $(COPT) 64cat.c
+
+version.o:	version.c
+	$(CC) $(COPT) version.c
+
+datestamp.o:	datestamp.c
+	$(CC) $(COPT) datestamp.c
+
+#
+# File system interfaces
+#
+
+fs_parse.o:	fs_parse.c 64fs.h
+	$(CC) $(COPT) fs_parse.c
+
+fs_error.o:	fs_error.c 64fs.h
+	$(CC) $(COPT) fs_error.c
+
+fs_media.o:	fs_media.c 64fs.h
+	$(CC) $(COPT) fs_media.c
+
+fs_readts.o:	fs_readts.c 64fs.h
+	$(CC) $(COPT) fs_readts.c
+
+fs_search.o:	fs_search.c 64fs.h fs_func.h
+	$(CC) $(COPT) fs_search.c
+
+fs_fileio.o:	fs_fileio.c 64fs.h fs_func.h misc_func.h
+	$(CC) $(COPT) fs_fileio.c
+
+fs_glob.o:	fs_glob.c 64fs.h
+	$(CC) $(COPT) fs_glob.c
+
+fs_hostdep.o:	fs_hostdep.c 
+	$(CC) $(COPT) fs_hostdep.c
+
+fs_accel.o:	fs_accel.c 64fs.h 
+	$(CC) $(COPT) fs_accel.c
+
+#
+# 64net/2 Filesystem modules
+#
+
+fs_io_ufs.o:	fs_io_ufs.c 64fs.h
+	$(CC) $(COPT) fs_io_ufs.c
+
+fs_io_dxx.o:	fs_io_dxx.c 64fs.h fs_func.h
+	$(CC) $(COPT) fs_io_dxx.c
+
+fs_io_d64.o:	fs_io_d64.c 64fs.h fs_func.h
+	$(CC) $(COPT) fs_io_d64.c
+
+fs_io_d71.o:	fs_io_d71.c 64fs.h fs_func.h misc_func.h
+	$(CC) $(COPT) fs_io_d71.c
+
+fs_io_d81.o:	fs_io_d81.c 64fs.h fs_func.h misc_func.h
+	$(CC) $(COPT) fs_io_d81.c
+
+fs_io_dhd.o:	fs_io_dhd.c 64fs.h fs_func.h misc_func.h
+	$(CC) $(COPT) fs_io_dhd.c
+
+fs_io_t64.o:	fs_io_t64.c 64fs.h
+	$(CC) $(COPT) fs_io_t64.c
+
+fs_io_lnx.o:	fs_io_lnx.c 64fs.h
+	$(CC) $(COPT) fs_io_lnx.c
+
+fs_io_net.o:	fs_io_net.c 64fs.h
+	$(CC) $(COPT) fs_io_net.c
+
+#
+# DOS Emulation modules
+#
+
+dosemu.o:	dosemu.c 64fs.h fs_func.h dosemu.h
+	$(CC) $(COPT) dosemu.c
+
+dos_blockio.o:	dos_blockio.c 64fs.h fs_func.h dosemu.h
+	$(CC) $(COPT) dos_blockio.c
+
+#
+# Other modules (eg communication etc)
+#
+
+comm-lpt.o:	comm-lpt.c 64fs.h comm-lpt.h cpufunc.h clientdep.h
+	$(CC) $(COPT) comm-lpt.c
+
+machdep.o: machdep.c machdep.h
+	$(CC) $(COPT) machdep.c
+
+client-comm.o: client-comm.c
+	$(CC) $(COPT) client-comm.c
+
+clientdep.o:	clientdep.c
+	$(CC) $(COPT) clientdep.c
+
+resman.o:	resman.c 64fs.h
+	$(CC) $(COPT) resman.c
+
+misc_func.o:	misc_func.c
+	$(CC) $(COPT) misc_func.c
+
+#
+# Security/registration modules
+#
+
+read_key.o:	read_key.c
+	$(CC) $(COPT) read_key.c

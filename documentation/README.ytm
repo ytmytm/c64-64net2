@@ -1,0 +1,226 @@
+
+Maciej 'YTM/Alliance' Witkowiak
+<ytm@friko.onet.pl>
+
+BUGS:
++ executables are too big (200K now), a lot of empty space is inside
+    (fixed with static library linking)
++ getting dos status via talk/acptr is most likely broken
+    (fixed)
++ dos_commands can be sent as either filename or data (0xf? or 0x6?) in one session (listen/unlisten)
+    (fixed)
++ dumps core when won't gain i/o permissions (should exit barking)
+    (fixed)
++ possible bug in fs_ufs_getinfo - raw binary file recognizer doesn't check for 0x4001, but only
+  0x0801, 0x1c01 and 0x2001 (where was that used?)
+    (fixed)
++ file "$" is special - if used with secondary address ==0 (or in LOAD) it returns BASIC-formatted
+  output, otherwise it is opened as a file with t&s=(18,0), should work this way on 15x1
+  (regarding that 1581 gets current partition), results from other media types are unpredictable
+  (unless some kind of directory emulation on sector level is already implemented), returning
+  EOF or error should be enough; for dxx there's fs_dxx_finddirblock
+    (almost done, everything is regenerated now)
+- fishsave doesn't work (as it is stated - on Linux), don't know, maybe whole
+  fishsend is broken (original version)
+- possible bug in wedge chkin/chkout ("D"/"A") - $026d,y instead of $026d,x (X is parameter)
+- possible bug in fs_accel, read sector - if successful should send 0 (noerror) and then fishsend
+  same for following write sector
+- if secondary address is >128 then file isn't really opened, just return w/o error, doing nothing;
+  this is handled by Kernal, but worth knowing for wedge
+- files created by LUnix CP are 1 byte larger than original - EOF should be asserted when reading
+  last byte, one additional byte is 199 (as in error); probably CP has bug, not 64net/2, I'm not
+  sure... (other apps writing disk e.g. uudecode are OK)
+
+MODULE VERSION ISSUES
+- device and module name is 'fastpc' (ask me why :-), MAJOR number is dynamically
+  allocated, but always shows 254 on my system, and this seems to be constant and good
+  value, position of device file is defined at top of machdep-lin.c (in case you'll want
+  to create such a device in /dev directory)
+- losting strobe/flag2 in module version will most probably result in locking
+  machine with server (process can't be killed, it is sleeping in kernel space)
+  However I experienced this few times today, there are two possible solutions
+  - check if extending a bit delay between direction change r<->w and few cycles
+    inside r/w functions will make it more reliable
+  - find a way to free resources, close device and unload module (possibly
+    PA2 could have its usage here)
+  - (24.4) - in case of lock - CTRL+C and on C= read $dd01 and $dd0d in loop    
+  - (30.5) - debug has shown that lock happens only when C= is reading
+  [ check everything against a _working_ CIA as my C128 is slightly broken: CIA or connections ]
+- device has to be opened twice for r/w, really don't know why...
+- nothing is sure as C128 CIA was unsure...
+  ... and C64 CIA too when day was too hot :-( I don't know what's going on...
+  (15.6) - sync_char() was broken, timings are adjustable in machdep.h
+
+IDEAS:
+    * fs_xxx stuff should be implemented like in Linux kernel - as pointers to structures
+      holding pointers to functions e.g.
+    * incorporate my kernel module for linux io - ability to use IRQs, slightly different
+      i/o, needs special treatment for fastblocksend/get
+      (or throw it everything out, this is faster anyway)
+    * support for gzipped files (.d64.gz, .n64.gz etc.)
+    * make log option (redirect stdout to a file) in config file
+    * make fishxxxx turned on/off in config file
+    * use dynamically allocated memory for tables to reduce executables size
+    + move fs stuff into static/shared library (local) and link executabels against it
+    + wedge works as device #1, should get it from server upon boot
+	+ update 'B' command for this purpose
+    + replace 'for' loops with byte copying by library functions (faster?)
+	(not much of them, 2 or 3 only in comm-xxx.c)
+    * find all places where last_unit / last_device is used and replace by proper function
+      or dummy one
+
+TODO
+    * write new version of wedge (regarding listen/second etc)
+	- ROM patch (running in EPROM or copy in RAM)
+	- wedge (as now - ROM/RAM switch/vectors in $0340-$03ff, code in upper RAM)
+    * write c128 wedge
+	- put it somewhere at $1300
+    * write GEOS wedge (was it disk driver or REU exp. handler replacement?)
+	- REU replacement, i/o whole pages (should work for RAMdisk)
+	- true disk emulation via dhd or alike, with real disk driver code
+	  (still needs RAM exp. or patch REU functions to work as GEOS RAM via 64net2)
+    * write CP/M wedge
+	- simple filetransfer
+	- use of images
+	- device H: emulation (remote r/w via 2 byte sequences)
+    * find out what EOF is ($90) - LUnix sez it's $80 while 64net/2 thinks $40 (that's
+      devnotpresent by LUnix)
+    + strip some protocols from unneeded bytes (boot,jsr,peek,0xf6,0xf9)
+    + fix "$" file handling - in fs_fileio.c in fs64_{dirtail,dirheader,direntry2block}
+      - if channel (pass it, or make global, talklf only, ensure for LOAD) ==0 translate into BASIC
+	(untested, should work)
+      - try to use native data (w/o recreating) on image filesystems
+
+HOST FUNCTIONS LIST
+> (c64 send), < (c64 receive), | (back to command loop), X (eXit)
+------------------------------------------------------------------------------------
+KERNAL:
+listen	'W'	>devnum, X
+second	'A'	>secaddr, X
+ciout	'G'	>data, X
+talk	'R'	>devnum, X
+tksa	'D'	>secaddr, X
+acptr	'H'	<status, <data, X
+unlisten'I'	<status, X
+untalk	'J'	<status, X
+
+CUSTOM:
+boot	'B'	>fnlen, >fname[], >secaddr (all dropped), |	OLD
+boot	'B'	<devnum, <status, |				NEW
+load	'L'	>fnlen, >fname[], >secaddr, |
+save	'S'	>fnlen, >fname[], >secaddr, |
+devcheck'?'	>devnum, <{0,1}, X
+fsaccel	'F'
+
+FS_ACCEL:
+read	'I'	>pagel, >pageh, <page[256]
+write	'O'	>pagel, >pageh, >page[256]
+size	'S'	<sizel, <sizeh
+readsec	'R'	>p, >t, >s, <error || <page[256]
+writesec'W'	>p, >t, >s, <error || >page[256]
+parinfo	'P'	<mediatype
+------------------------------------------------------------------------------------
+
+CLIENT FUNCTIONS LIST (always return to command loop except 'error')
+------------------------------------------------------------------------------------
+0xf4	fastgetblock		<addyl, <addyh, >256 bytes
+0xf5	fastsendblock		<addyl, <addyh, <256 bytes
+0xf6	???			>$ffe4 (GETIN keyboard input) - cursor inv. never used		NEW
+				<?, >$ffe4 (GETIN keyboard input) - cursor inv. never used	OLD
+0xf7	client type query	>os_type
+0xf8	memory execute		<addyl, <addyh, <a, <x, <y				NEW
+				<addyl, <addyh, <a, <x, <y, <0				OLD
+0xf9	???			>$f157 (CHRIN $ffcf) - cursor visible, never used	NEW
+				<?, >$f157 (CHRIN $ffcf) - cursor visible, never used	OLD
+0xfa	N/U
+0xfb	N/U
+0xfc	N/U
+0xfd	print			<text, <'\0'
+0xfe	error			<errnum {0=none,4=file not found}
+0xff	memory read/write	<opcode
+				    1 - poke
+					<number+1, <addyl, <addyh, <value[]
+				    2 - peek
+					<number+1, <addyl, <addyh, >value[]		NEW
+					<number+1, <addyl, <addyh, <0, >value[]		OLD
+------------------------------------------------------------------------------------
+
+CHANGES:
+31.1.2000
+    * cleaned most of gcc warnings
+    * cleaned Makefile
+    * fs.h cleaned, other still need clarification - what belongs to comm and what to fs
+      - need to know the interface of fs used by comm (possibly only fs64_xxx thing)
+    * some tries to clear commune/comm-lpt headers
+18-20.4.2000
+    * real work (that from 31.1 was totally broken but helped a lot)
+20.4.2000
+    * reassembled wedge, optimized a bit (size)
+22.4.2000
+    * included linux kernel module for unbuffered basic i/o (MAJOR device number is a
+      subject to change, but 254 seems to be nice, anyway :-)
+    * includes dependency cleanup
+    * machdep.[ch] cleaned from #ifdef {ARCH}, everything moved into #define in machdep.h
+    * removed some v1 junk from start of commune() in comm-lpt.c
+23.4.2000
+    * new #define option USE_LINUX_KERNEL_MODULE
+      - splitted machdep into machdep-old (for *BSD, Amiga, Linux w/o module) and
+        machdep-lin with new code
+      - modified start of commune (synchronysing isn't needed anymore) and
+        c64print (text send as a block), other c64xxx could be modified to for
+	block access
+      - new wedge in wedge/src/newwedge.tas
+      - module code is in linux/ directory
+24.4.2000
+    * replaced firsthighbit in misc_func.c by an optimized one
+    * removed registration code
+    * added COPYING file with license text
+25.4.2000
+    * minor change in linux kernel module (allows safe quit from server)
+25.5.2000
+    * major changes in -   '  '   - to make it more safe, failed
+29.5.2000
+    * started a new    -   '  '   - line, protocol compatible with original
+	- minor changes in wedge are needed (bit $dd01 in 2 places, maybe reorder)
+	+ fishxxxx is not allowed
+2.6.2000
+    * kernel module project is temporarily dropped, will be written later using
+      parport interface, will be protocol compatible with original one
+3.6.2000
+    * rewritten whole commune() stuff as listen/talk/etc. These can't be hooked easily
+      (needs copying ROM->RAM but wedge will have ROMable wersion too and RAMed Kernal is
+       just enough for testing [and for LUnix!])
+    - old stuff should be rewritten using proper names (chrout, chkin etc.) moving to host
+      as much functionality as possible (to keep wedge small)
+4.6.2000
+    * fixed minor bug in listenlf/talklf high nibble (0xe0 is normal close, 0xf0 for open)
+    * uses 128 (0x80) for status EOF everywhere, LUnix uses it, I don't know which value is
+      correct (64, 66 (as it was) or 128)
+    * reorganized makefile to build static library from objects and link it against main_*.c
+      (result - executables 50% smaller, who will tell me what happened?)
+8.6.2000
+    * cleaned debug stuff (with -DDEBUG and without) and some #include dependencies
+    * implemented scratch ('S') DOS command, not tested, as used in 64rm, seems to work
+    * fixed DOS command/status stuff, now works as expected under LUnix
+9.6.2000
+    * implemented correct "$" file handling, that is generating BASIC only when opened with
+      secondary address == 0, otherwise it is regenerated
+11.6.2000
+    * bugfixes at "$" file handling, should emit 254+(30+7*32=254)*x chunks
+    * moved whole stuff into CVS repository
+    * confirmed tests of "$"
+    * fixed do_command stuff (dos command has '\0' at the end now to mark end of it in string
+      because dos_comm_len table is not enough when parameters are passed)
+    * fixed bugs: ioperm (no more core files), fs_ufs_getinfo (0x4001 C128 are recognized as
+      Commodore binaries)
+    * stripped commands from unneeded bytes, boot is rebuilt
+12.6.2000
+    * some replaces in comm-lpt.c and comm-work.c from for (;;) to memmove, strchr etc.
+14.6.2000
+    * backed from changes in dosemu.c (rev. 1.3==1.1, 1.2 is buggy)
+15.6.2000
+    * rewritten sync_char() stuff, moved whole functionality to machdep-old.c (from comm-lpt.c)
+      it works much better (LUnix works flawlessly on C128 and C64, C128 has broken CIA, fastload
+      from AR doesn't work)
+      still synctolerance etc. stuff is ugly and present, but now it is adjustable in machdep.h;
+      really should be set basing on CPU speed or real timing of those settings

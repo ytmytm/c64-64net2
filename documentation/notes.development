@@ -1,0 +1,168 @@
+Development notes for 64net/2 (aka 64NET/TCP-IP)
+------------------------------------------------
+Last updated 8:15am Friday 12 July 1996
+Tokenly updated Friday 30 August 1996 (below note only)
+
+NOTE: This file is no longer kept upto date during the development.  Refer to
+development.progress for information on the current level of completion/
+functionality of the 64net/2 system. This note applied 30 august 1996.
+
+Aim: To reimplement the 64NET virtual filesystem in a cleaner, more modular,
+	and more versatile manner to facilitate improved compatibility and
+	performance of the overall 64NET system through a complete re-write of
+	the file-system core, and also all interface aspects, resulting in a 
+	portable, more professional product */
+
+------------------------------------------------------------------------------
+
+Proposed FileSystem Functions:
+
+	Low-Level
+	---------
+*	fs64_open_g	- open the first file in a filesystem matching a mask
+			  (parsing @'s, $'s and :'s etc)
+.	fs64_close_g	- macro to fs_close
+*	fs64_findfirst_g- Find first file in a filesystem matching a mask
+*	fs64_findfirst_g- Find successive files in a filesystem matching a
+			  mask
+*	fs64_readbyte	- Read a character from a file
+*	fs64_writebyte	- Write a character to a file
+
+	A-Little-Lower Level
+	--------------------
+.	fs64_allocateblock	- Allocate a block (for when writing to a file etc)
+.	fs64_deallocateblock	- deallocate a block (for when scratching etc)
+.	fs64_isblockfree	- Check if a block is in use
+.	fs64_findfreeblock	- Find a free block on a filesystem
+.	fs64_readts	- Read a block from a filesystem (a direntry)
+.	fs64_writets	- Write a block to a filesystem (a direntry)
+*	fs64_blocksfree	- Return number of free blocks in filesystem
+
+	Lowest-Level
+	------------	
+.	fs64_openfile	- open a fileentry from a direntry
+.	fs64_closefile	- close a fileentry from a direntry
+.	fs64_readblock	- Read a block from an opened fileentry
+.	fs64_writeblock	- write a block to an opened fileentry
+*	fs64_findfirst	- find first entry in a filesystem
+*	fs64_findnext	- find additional entries in a filesystem
+*	glob_comp	- Compare a glob string to a filename and filetype
+	         
+	Hopelessly-Low Level
+	--------------------
+*	readts		- Read a `block' from a file which is presumed to be a
+			  disk image
+.	writets		- Write a `block' to a file which is presumed to be a
+			  disk image
+*	parse_glob	- parse a glob expression into glob terms and filetype
+			  mask
+*	glob_match	- test a single glob term to a filename (filetype not
+			  tested).
+*	glob_p_comp	- compare a parsed glob expression to a filename
+			  (filename not tested).
+
+
+Key:	* - Implemented
+	. - Partly implemented, and/or untested
+------------------------------------------------------------------------------
+
+Detail on Implemented Functions:
+
+	Low-Level
+	---------
+
+	fs64_findfirst_g(char *path,char *glob,fs64_direntry *de);
+		Locate the first file matching the glob expression glob, in the file
+		system path. Return 0 if successful, !0 if failure.
+	
+	fs64_findnext_g(fs64_direntry *de);
+		Find the next matching file after a call to fs64_findfirst_g.
+		Returns 0 if sucessfull, or !0 if failure.
+
+
+	Lowest-level
+	------------
+
+	fs64_findfirst(char *path,fs64_direntry *de);
+		Locate the first file in the filesystem specified by path.
+		direnrty is modified to contain the information on the entry,
+		including file type, file system type and other relevant data.
+		Returns: 0 if successful, other is failure (eg: end of
+	        directory).
+
+	fs64_findnext(fs64_direntry *de);
+		Locate additional files in the filesystem, after a 
+		fs_findfirst call has been made (and succeeded).
+
+	glob_comp(unsigned char *pattern,unsigned char *filename,int filetype);
+		Glob compare a filename & filetype, to a glob string, which may contain
+		options, and multiple globs (eg, CHEESE,FO*D,*PLAD,*E??A*?F??*,P)
+		NOTE: This function also allows an additional option (,$) which
+		indicates a directory search, and not an OPEN search. The sole difference
+		is that by default all files (except UFS) are matched, instead of only PRG
+		files.
+
+	Hoplessly Low-Level
+	-------------------
+	NOTE: Use of hopelessly low level routines should be minimized, as
+	      they operate at an even lower level than the direntry structure,
+	      and are really intended only for internal use in Lowest-Level
+	      functions.
+
+	parse_glob(unsigned char **glob_array,unsigned char *pattern);
+		Parse a glob expression for faster interpretation in fs64_findnext_g
+		calls and other related functions.
+
+	glob_match(unsigned char *glob,unsigned char *pattern);
+		Match an individual glob-term to a filename. This is called by
+		glob_p_comp and glob_comp.
+
+	glob_p_comp(unsigned char **glob_array,unsigned char *pattern);
+		Glob compare a parsed glob expression and a filename. This does not
+		test the filetype. Called by glob_p_comp and related functions.
+
+	readts(int media,FILE *file,int track,int sector,char *buffer);
+		Attempt to read a "block" from the specified file as though 
+		it were an image of type `media' (eg, media_D64).
+		Returns: 0 if successful, other if failed (eg non-blocky
+		file-system)
+	
+
+------------------------------------------------------------------------------
+
+Thoughts on implementation of other functions:
+
+File openning and closing etc:
+
+	At the higher levels, the directory is merely the special file $, and 
+can be openned, closed, and read from as any file.  $ is always globbed for
+matching files. The globbing on $ could be done by reading the next entry with
+fs64_nextentry, and comparing the filename to the pattern string, and adding
+entries until the directory is spent, or 8 valid records are read. The block
+(or part of) of data is then returned, and bp and be are set accordingly.
+	All files should first be located by fs64_findfirst_g() (this includes
+$, which will always return success, unless the directory requested is
+invalid).
+	Once a file is located, it can then be openned. An openned file can
+be asked to fetch the next block of data with fs64_readblock(), and written
+similarly. REL files will just read or write the appropriate record.
+	The last layer of file abstraction is the simple fs64_readbyte() and
+fs64_writebyte() routines which simply check if there is any buffered data, or
+if we need to read another block in, or lastly, if the end of the file has
+been reached (if reading the block has not left the buffer in an un-empty
+state).
+	
+	Hopefully the net result of this will be a system which can be made to
+operate almost identically to the 15xx file systems when operating on a disk
+image (or even a normal file in many cases), by the provision of a sector
+buffer which is actually used. Thus when writing a block of data, it can in
+fact be modified until it is writen, and also, no part of the data is actually
+written until the buffer fills.
+	This, in combination with, block operations in the general sence,
+should provide a vastly more compatible and versatile file system for the
+64net package, and remove many of the problems the current system has.
+
+
+
+
+

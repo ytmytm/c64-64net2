@@ -1,0 +1,511 @@
+(C) Copyright Paul Gardner-Stephen 1996, All rights reserved
+
+Brief documentation for 64net/2 pre-BETA
+
+--
+
+This document was last updated 18 September 1996
+This document is accurate for 64net/2 pre-BETA r0.
+The latest update of 64net/2 is pre-BETA r0.
+This document is subject to change.  In the event of change of
+specification, i will make clarifications of such changes.
+
+--
+
+Note: trademarks mentioned here are the property of their owners, and are used
+here without permission.  Some are listed directly below:
+
+* CMD, CMD-HD, HD-DOS, RAM-Link, FD-2000, FD-4000, RL-DOS, JiffyDOS
+are something or others of Create Micro Designs.
+* Commodore 64, C64, C128, Commodore 128, 1541, 1571,1581, CBM, PET
+are trademarks of Commodore Business Machines (now possibly defunt, sold or
+otherwise)
+* UNIX is a trademark of whoever it is that currently owns UNIX Laboratories
+  (Possibly AT&T,DEC, SCO or the local fish monger)
+* Windows95 and MS-DOS are trademarks of Microsoft
+* Action Replay is a trademark of Datel Electronics
+* OS/2, IBM, IBM-PC are trademarks of International Business Machines
+* GEOS is a trademark of Broderbund(?)
+* 64NET, 64NET/2, 64NET System2, 1586, 64 NETDrive, NETDrive,
+  FishLOAD are trademarks of Paul Gardner-Stephen
+******************************************************************************
+This file is designed for those people who write documentation for 64net
+(ie Russell Alphey, and overseas dealers in non-english speaking countries).
+
+My appologies for the lack of verbosity in places, but it is expected that the
+dealers can contact me if they have any difficulties in understanding the 
+contents, and if you're not a 64NET dealer or documentor, then you should not
+be reading this.  Also, i document as i implement, and am prone to the
+occasional ommision due to forgetfullness.  Check the
+development.progress for clues about forgotten implementations.
+
+This file is psuedo equivalent to the readthis.too file in 64net v1
+******************************************************************************
+
+*****************
+23 October 1996
+******************
+
+"New" File System Acceleration API
+----------------------------------
+
+	64NET/2 Now implements a new "file system accelerator" for use
+with GEOS and other similar applications.  FS_ACCEL always uses
+Fish-load routines, and will use Fish-Save when implemented.
+	It supports the following functions:
+	Sector Read [FR]{PTS} - Read Block
+	  returns 0x00, then fish-load's block if read is valid
+	  returns non-zero (error number) if invalid	
+	Sector Write [FW]{PTS} - Write Block
+	  Fish-save's block, returns 0x00 if write is valid, else
+	  returns non-zero (error number) if invalid
+	Partition Info [FP]{P} - Get media type
+	  returns media type, or 0xff is bad partition number,
+	Size Memory [FS] - Get size of "RAM" in pages.
+	  returns two bytes (low then high).
+	Memory Read [FI]{pl}{ph} - Read a page of "RAM".
+	  Returns 256 bytes of data (or undefined data if out of
+	  bounds)
+	Memory Write [FO]{pl}{ph} - Write a page of "RAM".
+	  Accepts 256 bytes of data, which is written to "RAM", if
+	  a valid page was specified.
+
+NOTE:
+	* Memory pages begin at $00, and memory size returns the *number* 
+	  of expansion pages, so $0100 means 64KB, with $ff being the last page.
+	* Other commands will be added as required.
+	* All accesses refer to the current directory of each
+	  partition, thus making it (reasonably) simple for packages such as
+	  GEOS to read disk images from CD-ROM, and other hosts of composite
+	  file systems.
+
+*****************
+14 October 1996
+*****************
+
+64NET/2 now requires a key file to enable writing to any media.
+The one exception is that the InterNET filesystem is still read write.
+I am thinking about some means to limit this also (not inoperably
+however).  Perhaps a limit to the number of chars that can be read
+from a stream or something?
+
+*****************
+12 October 1996
+*****************
+
+FishLOAD(tm) is finally complete!
+
+	64NET/2 now supports the long-fabled FishLOAD(tm).  FishLOAD
+provides ~20KB/sec on a C64, and ~36KB/sec on a C128 (and who knows
+how fast on a C65, Flash8 or Super128 !!).  FishLOAD is automatically
+used for LOADing data from the memory range $0000-$cfff.  Burst
+loading is used for other address ranges (if enabled).  FishLOAD will
+(hopefully) be used by the GEOS drivers to give really zippy responce.
+
+	FishLOAD allows Elite (218 blocks) to be loaded in
+1.404 seconds with 64NET/2 on a C128 in C64 mode (with a P90 FreeBSD
+system hosting 64NET/2 server)  
+
+	Initial tests of FishLOAD on a C65 in C64 mode were negitive
+(failed to load!).  This is most likely an implementation issue, to be resolved.
+
+*****************
+7 October 1996
+*****************
+
+Buffer Access
+-------------
+
+	64NET/2 Supports buffer access with the following syntax for
+openning buffers;
+
+	open n,m,o,"#[nnn]"
+
+	The current working directory is the filesystem to which all
+block accesses will occur.
+	NOTE: You can not specify which buffer you wish to use.  If
+you specify a buffer number, you will be infact specifying a partition number!
+
+*****************
+6 October 1996
+*****************
+
+`NEW' Disk Command
+------------------
+
+	64NET/2 now supports the NEW disk command, with the syntax of:
+	
+	N[nnn[/path]:]header[,id]
+
+Paths are allowed in the command as it is possible to format disk
+images etc which do not have an explicit partition number, but are in
+the accessible file space.
+
+MkDir 
+-----
+
+	64NET/2 supports two forms of the `MD' disk command;
+		MD[nnn[/path]:]dirname
+		M(shift-D)xx[nnn[/path]:]dirname
+The first form is the "normal" MD command, which can create a
+sub-directory on any media type which supports that feature.
+The second form is used to create disk images and other archives
+(called media). The xx specifies the structure to create.  Note that
+this form will only create structures on `UFS' media (that is, the
+underlying file system). The valid structure descriptors are;
+	64	-	.D64 (1581 image)
+	71	-	.D71 (1571 image)
+	81	-	.D81 (1581 image)
+	Hn	-	.DHD (CMD HD image of n tracks)
+--
+	LX	-	.LNX file (not yet supported!)
+	TP	-	.T64 tape image (not yet supported)
+	ZC	-	ZipCode files (not yet supported)
+
+	NOTE: The `Hn' is only two characters, with the second being a
+chr$() code. eg, to make a 200 track .DHD called `fnurgle', one could
+use the command: 
+	"MdH"+chr$(200)+"fnurgle"
+
+	NOTE: You may *not* specify a disk id when creating a disk
+image.  A default ID of 01 is used.  Of course, you can re-format the
+image once created to alter the ID & header.
+
+
+*****************
+4 October 1996
+*****************
+
+Validate Disk command
+-------------------
+
+	64NET/2 now supports the "VALIDATE" command on disk images.
+Currently only D64 validation is implemented.  Attempting to validate any
+non-blocky filesystem will give the following message:
+
+	76,MEDIA TYPE MISMATCH,00,00
+
+	The validate command has the following format:
+	V[nnn][[/path][/path ...]:]
+or	v[nnn][[/path][/path ...]:]
+
+	This first form is essentially equivalent to the CBM/CMD VALIDATE
+command.  If it encounters any of the problems which the "shift-v" form 
+could correct it will terminate with one of the error messages below;
+
+	75,FILE SYSTEM INCONSISTANT,t,s
+	71,DIRECTORY ERROR,t,s
+	66,ILLEGAL BLOCK,t,s
+	67,ILLEGAL BLOCK,t,s.
+
+	The second form is a more intelligent version, which will correct any
+file system errors as it finds them.  It will correct the following *aswell* as
+the usual:
+
+	* Cross-linked/cyclic directories (truncated at first cycle)
+	* Cross-linked/cyclic files (truncated at first cycle)
+	* Files/Dirs which contain invalid blocks
+	  (truncated at invalid block).
+
+This introduces two new disk status messages:
+
+	03,DIR X-LINK FIXED,t,s
+and	04,FILE X-LINK FIXED,t,s
+
+NOTE: This can be dangerous!  It is recommended that a backup of the disk
+image be made before executing this command.  While this command can
+fix problems, it is a little bit stupid at times.
+
+Where t and s are the block which was attempted to be multiply allocated.
+
+NOTE: Validate does not currently operate correctly on REL files (it will 
+currently free *all* blocks used by them!!!)
+
+*****************
+18 September 1996
+*****************
+
+64NET/2 Configuration file
+--------------------------
+
+Updated 7 October 1996
+
+64NET/2 currently uses a file called `64netrc' to maintain configuration
+information.  This file accepts the following directives:
+
+port <address>
+	This line specifies the port address for communication to c64's.
+ledfile <path and file>
+	This line specifies what file is to be used for communication to the 
+	graphical representation under Xwindows (UNIX only).
+debug mode
+	Enable all sorts of debug stuff.
+path <partition number>
+	This line tells 64NET/2 to allow you to load programmes from
+the ROOT DIRECTORY of a partition, even if you are not currently in
+that directory.  This is similar to the PATH directive on other
+computer systems. 64NET/2 allows only one instance of this directive.
+(If multiply defined, only the last will be effective).  This command
+is useful for storing small BASIC programmes for changing partition
+and directory, and then running applications.
+
+The following structure is used to define a `device'.  The printer
+port version only allows one device to be defined.
+
+device
+number n
+partition n,path
+..
+partition m,path
+end
+
+Paths *must* be specified as they are visible to 64NET/2 (eg all
+directory and most file names have to be capitlised).  Note that this
+also means that 64NET/2 wild cards are available.  The only limitation
+is that no partitions can be specified, eg `partition 4,3:/BIN/' is
+not valid as it references another partition.
+	It is possible to specify a subdirectory of a .DHD file as the
+root of a partition.  Note however, that 64NET/2 can not protect the
+directories above the specified one from access, nor can 64NET/2
+prevent block reads and writes to those regions.
+
+x64net
+------
+
+This is the grapical server representation for Xwindows (X11R5/6).
+This programme can optionally handle one command line parameter, which
+is the name (and possibly path) of the file used to communicate to the
+server proper, to determine the state of the "leds" on the virtual
+drive.
+The image of a disk drive is displayed (similar looking to a 1581).
+The activity "led" will light when disk access is performed.
+The power "led" will blink when an error has occured (at 1541 blink
+rate (ie 2.5Hz), not 1581 speed (5Hz)).
+
+**************
+30 August 1996
+**************
+
+64NET v1 API Support
+--------------------
+
+64NET/2 is 100% cable compatible, and 0% protocol compatible with v1.  That is
+to say, you cannot use a v1 wedge with 64net/2 or vice versa.  Also, 64net
+aware programmes will require modification (see "Wedge" section for more 
+detail).
+
+For details on the policy regarding the future of 64net v1, see the performance
+section below.
+
+64NET/2 and the Internet
+------------------------
+
+64NET/2 supports easy access to the internet, when the server is run from 
+certain platforms. 
+
+See the section entitled `Filesystem' for more detail.
+
+The 64NET/2 filename "globber"
+------------------------------
+
+64NET/2 feature a globber which is even more featured than the 64net v1
+globber.  It will allow up to 16 comma delimited phrases of up to 32
+characters each. Each phrase may use literal characters and wild cards.
+
+Example globs:
+
+	"*"
+	"cheese,foo,b?t*er*a?*"
+
+Globs may NOT have:
+
+	* comma's (they are the delimiter)
+	* paths or partitions (they are file specifications, not file locators)
+
+File Locators
+-------------
+
+64NET/2 now supports the full "cmd" style file locator scheme.  That is to say
+the [[partition][/path]:] style.  The old 64net (MS-DOS locators with slashes)
+is no longer support.  Even on MS-DOS systems the new scheme will be present.
+
+LOAD, SAVE & OPEN
+-----------------
+
+Syntax:
+
+LOAD"[[$][partition][/path [.. ]]:]glob[,modifier]",n[,1]
+SAVE"[[@][partition][/path [.. ]]:]filename[,modifier]",n[,1]
+OPEN lf,n,sa,(as above for load or save, depending on sa)
+
+Load address relocation functions correctly.
+
+CLOSE
+-----
+
+Close is the same as usual, however, closing lf 15 (at present) does not 
+necessarily close all open files.  This is subject to change.
+
+GET#/PRINT#
+-----------
+
+These calls function as per 64net v1, which is 1541 compliant.
+
+Status Variable (ST)
+--------------------
+
+ST functions for the most part, however the odd mask problems which were in 
+64net v1 still seem to be present.  Also, ST is does not indicate the 2nd last
+character as it should.
+
+Wedge
+-----
+
+The default 64net/2 wedge resides in all of the following locations below:
+
+	$02a7-$02ff
+	$0330-$03ff
+	$fd50-$fff8
+
+Thus the wedge is cloaked, for better compatability.
+The following wedge variants will also be available:
+
+	* $cb00-$cfff wedge (similar to 64net v1)
+	* $a000-$bfff, $e000-$ffff (Patched kernel coppied to RAM)
+	* ROM version
+
+The wedge is actually smaller now, and nolonger displays the message alerting
+users to the Action Replay conflict (PRINT# will not work when an Action
+Replay is active).  Note that this problem still occurs, and that i simply
+removed the message to make the wedge smaller (and thus load faster).
+
+The wedge API has changed markedly since v1 to improve speed, and eradicate
+"hangs" which tended to occur.  Old 3rd party 64NET applications will need to
+be modified (ie the GEOS drivers) to use the new protocol.  Please note that 
+no major re-writes will be required, as the X-API will be maintained (though
+it is not yet implemented).  
+
+Software developers should contact me directly for information on the new API,
+and required software changes to bring old applications upto 64net/2.
+
+DOS Commands
+------------
+
+The aim is for the DOS commands to be 100% compatible to either the 15x1 disk 
+drives, or to the CMD HD-DOS.  Note that 64net/2 does enhance some commands,
+and format will necessarily behave moderately differently.  Please note that 
+the syntax for the format command has yet to be decided upon.
+
+Major differences are listed below:
+
+Change directory (CD)
+	Issuing a CD with no parameter will return the current directory in 
+the DOS status message.
+
+Long file names on "native" file systems
+----------------------------------------
+
+Long file name handling is now different.  Under UNIX/Workbench most filenames
+will only have "bad" characters stripped, and a ".n64" extension added.  
+Examples of bad characters are: '/',' ' etc.  Under MS-DOS the filenames are
+then truncated to 8 characters, and the extension applied.  If a filename
+already exists, the last three characters are removed from the name (if
+required), and a Windows95 style ~nn suffix is postpended.  Note that 64net/2
+does not support Windows95 long file names, as it is still expected that many
+64net/2 users will be on low end to archaic IBM compatibles.
+
+Performance/LOAD speed/64net v1 support
+---------------------------------------
+
+Performance of 64net/2 is expected to be slightly to moderately SLOWER than 
+64net v1 for directory access, file location etc.  
+
+Performance of 64net/2 is expected to be nearly identical to 64net v1 for 
+LOAD speed.
+
+Generally speaking, 64NET/2 will not be suitable for low-end to archaic users
+who want the zippiest responce.  The smaller 64net v1 system is still expected 
+to fill this nieche.  This is part of the reason behind keeping 64net v1
+available for sale, and for the key files to be transportable between the two
+products.  64NET/2 can be best described as "64net Professional", and a good 
+analogy would be the comparison of OS/2 to DOS (now you know why its called 
+64NET/2 - other than so that 64net v1 can go past v2).
+
+64NET/2 will also be available for the AMIGA, and many UNIX platforms due to
+its ease of portability (only about 50-100 lines of machine depenent code).
+
+64NET/2 will support C128 and C65 in C64 mode as per usual.
+
+64NET/2 will support C128 in C128 mode when the wedge is ported again.  This
+will hopefully be very soon after the first BETA version.
+
+64NET/2 will reach non-BETA stage after only a short time in testing.
+
+64NET v1 will hopefully leave the BETA stage very soon.  The reason why 64net 
+has stayed a BETA product is partly complex and involves the following issues:
+	* Rapid evolution and creeping featurism has meant that there has
+always been bugs to yank.
+	* MS-DOS lacks the nice version control tools which would have (and
+will now, under UNIX) allow good version control.
+	* I didnt know how to use version control programmes.
+	* Documentation - 64net v1 has evolved so much the documentation has
+generally lagged (well, in English anyway).
+	* Nagging bugs caused by major design flaws - Lets face it, 64net v1
+is approx 12000 lines of BASIC, much of which was written when i had only
+limited programming skills.  There is about 2500 lines which is labeled "dont 
+touch" due to non-comprehensability.
+	
+Filesystem
+----------
+
+64NET/2 recognuises the following file structures as subdriectories, which 
+are accessed transparently with no "mounting" or other yechy stuff.
+
+RWCSFN	Extension	Description
+------  ---------       -----------
+ynnnnn	LNX		C64/C128 Lynx files (with no special headers)
+yyyyyy	D64/D41		1541 Disk image
+yyyyyy	D71		1571 Disk image
+yyyyyy	D81		1581 Disk image
+yyyyyy	DHD		CMD HD image
+yyyyny	T64		Tape image
+(more to come!)
+
+key:
+R - Read files
+W - Write files
+C - Create files
+S - Scratch files
+F - Format
+N - Rename files
+
+The following file system structures are identified by 64NET/2 as c64 files:
+
+Extension	Description
+---------	-----------
+N64		64NET v1 / 64NET/2 files
+???		Raw c64 files (with $0801, $1c01 or $2001 load address link)
+(more to come!)
+
+64NET/2 will also allow access to non-c64 files as UFS (you can choose the
+meaning for this, it is currently UNIX File System, Universal File
+System, or Unknown File Structure - probably the later for copyright reasons!)
+The 64NET v1 concept of IBM was dropped, as it is "politically incorrect" for
+files on an AMIGA, for example, to use that extension.
+
+64NET/2 will also support 1581 CBM's and CMD HD DIR's eventually (currently
+only "external" subdirectories are supported).
+
+64NET/2 also supports one new type; NET.  This is the file type which allows
+access to TCP sockets.  More information on this at a later date, i will only 
+give a brief overview here.
+  64NET/2 will allow direct access to the internet from any UNIX (and possibly
+AMIGA, MS-DOS unlikely at present).  I am working on making several sample 
+applications to demonstrate this, and outsourceing for others to write
+additional ones.  64NET/2 will most likely ship with a TELNET programme, and 
+also possibly an IRC client.  I have considered writing a WWW browser, however
+this is probably best left to someone with more time.
+
+
+
+

@@ -1,0 +1,3 @@
+#!/bin/bash
+
+mknod fastpc c 254 0

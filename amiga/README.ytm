@@ -1,0 +1,6 @@
+
+These files are related with Amiga port (there are #ifdef AMIGA in sources).
+I don't know if 64net/2 is still buildable on Amiga. Hope that someone
+will check it...
+
+Maciek

@@ -1,0 +1,21 @@
+64NET/2 Design Information
+----------------------
+
+This file contains some information about design choices taken for the 64NET/2 system.
+
+This file may be of some use to the 64NET documentors, and they are encouraged to
+read this file thoroughly.
+
+Buffers
+-------
+
+Every open file has a buffer associated with it.
+This buffer has the virtual buffer number of the secondary address 
+of the OPEN.  Explicit buffer requests are ignored, and the default buffer
+is given to it.  This method is used, as with 16 buffers it is impossible to 
+run out.   Also, as 64NET/2 does not honour memory executes, i can see
+no real need for specifying the buffer address.
+
+Buffers are referenced as media_BUF to keep the interface uniform.
+Sector operations on buffers operate on the current filesystem, unless a 
+non-zero partition number is specified.

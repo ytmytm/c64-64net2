@@ -1,0 +1,24 @@
+
+!to "test2.out"
+
+		*=$9e80
+		
+getbyte
+		jsr wait_flag
+		lda $dd01
+		rts
+
+sendbyte	pha
+		lda #$ff
+		sta $dd03
+		pla
+		sta $dd01
+		jsr wait_flag
+		lda #0
+		sta $dd03
+		rts
+
+wait_flag	lda #$10
+		bit $dd0d
+		beq *-3
+		rts

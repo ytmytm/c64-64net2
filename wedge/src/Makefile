@@ -1,0 +1,8 @@
+
+#
+#
+#
+#
+
+all:
+	acme wedge.tas

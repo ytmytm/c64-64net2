@@ -1,0 +1,143 @@
+64NET/2 Readme file
+(C) Copyright Paul Gardner-Stephen, 1996
+
+Last updated 27 October 1996
+
+Welcome to the 64NET/2 Alpha/pre-BETA distribution!
+
+* 64NET/2 is a complete re-write of the 64NET v1.xx.xx package.
+
+INSTALLATION
+
+	Extract the archive to some convinient directory.
+	Modify the 64netrc file to taste - consult
+	  documentation.development for some information.
+	Remember to copy your 64net.key into the 64NET/2 directory.
+	  64NET/2 will operate with a 64NET v1.xx.xx key file.  Thats
+	  right, 64NET/2 is a free upgrade!
+	Build the cable (see cable.doc).
+	Run the 64net2 main programme.
+
+TROUBLE SHOOTING
+
+	Q: I get some daft message about no DPMI
+	A: The MS-DOS port requires DPMI.  There is a free DPMI
+	  package available from GNU (CWSDPMI.EXE).  This should be in
+	  your distribution.  Run this before running 64NET/2.
+
+	Q: When i try to run 64NET/2 it does nothing, or gives some
+	  message about a 386 processor.
+	A: The MS-DOS port of 64NET/2 currently requires a 386 or
+	  higher class processor. 
+
+	Q: When i try to run 64NET/2 on my CRAY CMY5 i get some
+	  message about "incorrect architecture".
+	A: You are using the wrong port of 64NET/2 for your operating
+	  system.  Consult your dealer, or contact Paul
+	  Gardner-Stephen directly.  It is possible your operating
+	  system is not yet supported.  If this is the case, fear not,
+	  as porting 64NET/2 is a fairly simple procedure, and it is
+	  very likely a port to your favourite OS can be done.
+
+	Q: When i try to run 64NET/2 it tells me it could not gain
+	  chip-bash privelige or something.
+	A: The UNIX ports of 64NET/2 which support parallel cables
+	  require the ability to write directly to the ports.  For
+	  security reasons this is not automatically granted.  You
+	  will need to type the following command, as root:
+		 setgid kmem 64net2
+	  If you do not have super-user access to your machine, then
+	  either consult the system administration, or use a serial
+	  version of 64NET/2.
+	
+	Q: Why cant i SAVE to 64NET/2?
+	A: Did you copy your key file to the 64NET/2 directory? Do you
+	  have a 64net key file?
+  
+	Q: I cant find the CeaScape(tm) WWW browser!
+	A: CeaScape has yet to be written! But fear not, it is
+	  scheduled for "when 64NET/2 is working and non-BETA".
+
+	Q: Where's the IRC client?
+	A: See above.
+
+	Q: And TELNET...
+	A: See above.
+
+	Q: How come 64NET/2 takes about 6 times as long to SAVE as it
+	  does to LOAD?
+	A: SAVEing to disk is much slower than LOADing.  64NET/2 takes
+	  advantage of look-ahead caching which most sensible
+	  operating systems provide, which accelerates LOAD, but
+	  provides no benefit to SAVE.  Also, SAVEing to disk images
+	  is futher slowed as 64NET/2 has to access the BAM, and make
+	  modifications to it.
+
+	Q: 64NET/2 dies with a SIGSEGV while starting up
+	A: The MS-DOS port does this when a bad path is specified in
+	  the 64netrc file.  This will be corrected.  Read the
+	  ports.development file for details on this.
+
+	Q: 64NET/2 runs, and displays lots of z's
+	A: This is normal.  64NET/2 currently writes a `z' each time
+	  it sleeps.  Try removing the `debug mode' line from your
+	  64netrc file.
+
+	Q: 64NET/2 works fine, but looks ugly, and displays lots of
+	  junk whenever it does anything!
+	A: This is normal.  64NET/2 is still in the pre-BETA stage,
+	  and thus functionality is the prime concern at present.
+	  64NET/2 will get a pretty user interface, and have all the
+	  debug information removed in the final version.
+
+	Q: I have a dial-up shell account, and a swiftlink.  Can i use
+	  the internet services of 64NET/2 with this setup?
+	A: Yes, when your ISP's Operating System is supported by
+	  64NET/2, and the swiflink wedge is complete.	
+
+	Q: I built the cable, and it works on my friends computer, but
+	  not on mine.  It just seems to ignore anything my c64 sends
+	  to the server!
+	A: 64NET/2 has higher system requirements than 64NET v1.xx.xx.
+	  Among these, is the need for a bi-directional printer port.
+	  64NET/2 will eventually include a utility to check if your
+	  computer has any bidirectional printer ports.
+
+	Q: Why doesnt the 64NET v1 filecopier work?
+	A: 64NET/2 and 64NET v1 use very different protocols and
+	  cables.  A 64NET/2 file copier will be included in the final
+	  distribution. 
+
+	Q: When ever i LOAD something over 64NET/2, the screen goes
+	  funny for about 1 second, and then i get my READY. prompt
+	  back.  Why wont it LOAD?
+	A: It is LOADing!  64NET/2 uses a new protocol which allows
+	  transfers of upto 50KB/sec on a C128 (and ~30kb/sec on a
+	  C64)  - and much faster if you have an accelerator!  The
+	  funny display while LOADing is 64NET/2 using 2Mhz mode on
+	  your C128.
+
+	Q: When i run the 64NET/2 wedge my C128 crashes.
+	A: There is currently only C64 mode wedge.
+
+	Q: No matter how often i use 64NET/2 my piano still remains
+	  out of tune.
+	A: While 64NET/2 has numerous useful features, piano tuning is
+	  not one of them.
+
+	Q: When i run the 64NET/2 wedge my C64 crashes.
+	A: The 64NET/2 C64 wedge "cloaks" under the KERNAL ROM, and
+	  also uses the cassette buffer, and another area of memory
+	  ($2A7).  If you are running anything which is also using
+	  these areas of memory, then a conflict will occur, most
+	  likely resulting in a crash.
+
+	Q: When i try to LOAD a programme with no device number, it
+	  loads from my floppy drive.
+	A: JiffyDOS and 64NET/2 both alter the C64's default device -
+	  and as JiffyDOS is in ROM, it tends to win. Try using ,7 at
+	  the end (this is the default device for 64NET).
+
+
+
+

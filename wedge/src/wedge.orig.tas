@@ -1,0 +1,590 @@
+
+; 64net/2 wedge by Paul G-S, 1996
+;
+; reassembled by Maciej Witkowiak, 20.4.2000
+; this is ACME crossassembler version
+
+; TODO:
+; - use kernal tape driver space (to ease burning it)
+; - think about throwing open/close/chkin/chkout/chrin/chrout stuff out
+;   and replacing it with more low-level listen/second/acptr/unlisten/talk/tksa/untalk
+;   (hope that dos wedge of Action Replay will work then and I can't live without it :-)
+; - when above will be known, make C128 version (conditional)
+; - optimize here and there...
+
+!to "wedge.64"
+!set devnum = 1
+
+;0xf4 - fastgetblock	(machdep.c)
+;0xf5 - fastsendblock	(machdep.c)
+;0xf6 - ???
+;0xf7 - client_type query (clientdep.c)
+;0xf8 - jsr		(comm-lpt.c)
+;0xf9 - ???
+;0xfd - print		(comm-lpt.c)
+;0xfe - error		(comm-lpt.c)
+;	0 - none
+;	4 - file not found
+;	xx - error code
+;0xff - followed by:	(comm-lpt.c)
+;	1 - poke
+;	2 - peek
+
+
+		* = $0801
+		
+		!word $080b, 2000
+		!byte $9e
+		!text "2061"
+		!byte 0,0,0
+
+init		ldx #0
+cp_lp1		lda chunk1,x
+		sta $02a7,x
+		inx
+		cpx #chunk2-chunk1
+		bne cp_lp1
+		ldx #0
+cp_lp2		lda chunk2,x
+		sta $0340,x
+		inx
+		cpx #chunk3-chunk2
+		bne cp_lp2
+		ldx #0
+cp_lp3		lda chunk3,x
+		sta $fce0,x
+		inx
+		cpx #chunk4-chunk3
+		bne cp_lp3
+		ldx #0
+cp_lp4		lda chunk4,x
+		sta $fd50,x
+		lda chunk4+$100,x
+		sta $fd50+$100,x
+		lda chunk4+$200-$50,x
+		sta $fd50+$200-$50,x
+		inx
+		bne cp_lp4
+		
+		lda #7
+		sta $a7
+		jmp $02a7
+
+chunk1
+		!pseudopc $02a7
+boot_up	
+		jsr rom_off
+		jsr init_vectors
+		ldy #$42	;'B'
+		jmp do_command
+
+		jmp rom_on	; 02b2
+
+check_dev	lda $ba		; 02b5
+		cmp #devnum
+		beq chkdv1
+		cmp $a7
+chkdv1		rts		; 02bd
+	
+;		!byte $44, $49, $52, $20, $4F, $46	;"DIR OF" ; 02be
+	
+new_load	pha 		; 02c4
+		jsr check_dev
+		beq nload_cont
+		pla
+		jmp $f4a5
+nload_cont	sty $b3		; 02ce
+		pla
+		ldy #$4c	; 'L'
+do_command	jsr rom_off	; 02d3
+		jsr sendname
+		jmp rom_on
+
+new_save	pha		; 02dc
+		jsr check_dev
+		beq nsave_cont
+		pla
+		jmp $f5ed
+nsave_cont	sty $b3		; 02e6
+		pla
+		ldy #$53	; 'S'
+		jmp do_command
+
+				;02ee
+;		!byte $20, $20, $50
+;		!byte $52, $47, $20, $20, $00, $FF, $20, $B5
+;		!byte $02, $F0, $03, $4C, $4A, $F3, $a0
+
+		!realpc
+chunk2
+		!pseudopc $0340
+
+new_open	jsr check_dev
+    		beq nopen_cont
+		jmp $f34a
+nopen_cont	ldy #$4f	; 0348	; 'O'
+		jmp do_command
+
+new_chrout	pha		; 034d
+		lda $9a
+		cmp $a7
+		beq nchro_cont
+		pla
+		jmp $f1ca
+nchro_cont	jsr rom_off	; 0358
+		pla
+	        jsr do_chrout
+	        jmp rom_on
+
+new_getin	lda $99		; 0362
+	        cmp $a7
+	        beq ngeti_cont
+	        jmp $f13e	; 0368
+
+new_chrin	jmp $f157	; 036b
+	        lda $99		; 036e
+	        cmp $a7
+	        bne nchri_cont
+ngeti_cont	jsr rom_off	; 0374
+	        jsr do_chrin
+		jmp rom_on
+nchri_cont	jmp $f157	; 037d
+	    
+new_chkin	jsr rom_off	; 0380
+	        jsr getdevnum
+	        jsr rom_on
+	        cmp $a7
+	        bne nchki_cont
+	        jsr rom_off
+	        jsr do_chkin
+		jmp rom_on
+nchki_cont	jmp $f20e	; 0396
+	    
+new_chkout	txa 		; 0399
+	        jsr rom_off
+	        jsr getdevnum
+	        jsr rom_on
+	        cmp $a7
+	        bne nchko_cont
+	        jsr rom_off
+	        jsr do_chkout
+	        jmp rom_on
+nchko_cont	jmp $f250	; 03b0
+
+new_close	tax		; 03b3
+	        pha
+	        jsr rom_off
+	        jsr getdevnum
+	        cmp $a7
+	        bne nclos_cont
+	        jsr rom_off
+	        jmp do_close
+nclos_cont	jsr rom_on	; 03c5
+		pla
+		jmp $f291
+	    
+rom_off	        sei		; 03cc
+	        lda #$35
+	        sta $01
+		rts
+	    
+rom_on		pha		; 03d2
+	        lda #$37
+	        sta $01
+	        pla
+	        cli
+	        clc
+	        rts
+	    
+old_chrout	pha		; 03db
+	        jsr rom_on
+	        jsr $ffd2
+	        jsr rom_off
+	        pla
+	        rts
+	    
+		!text "64NET/2"
+;	        !byte $20, $50, $48, $A9, $57, $20
+;	        !byte $4F, $FF, $68, $20, $4F, $FF, $60, $A9
+;	        !byte $52, $20, $4F, $FF
+
+		!realpc
+chunk3
+		!pseudopc $fce0
+				
+fastsave	jsr getbyte
+		sta $9e
+		jsr getbyte
+		sta $9f
+		ldy #0
+		lda $dd0d
+		lda #$ff
+		sta $dd03
+fs_loop		lda ($9e),y	;fcf4
+		sta $dd01
+		lda $dd0d
+		lda #$93
+		sta $dd00
+		lda #$10
+		bit $dd0d
+		beq *-3
+		iny
+		lda ($9e),y
+		sta $dd01
+		lda $dd0d
+		lda #$97
+		sta $dd00
+		lda #$10
+		bit $dd0d
+		beq *-3
+		iny
+		cpy #$fe
+		bne fs_loop
+		lda #$93
+		sta $dd00
+		lda #$00
+		sta $dd03
+		jmp fast_end
+
+		!realpc
+chunk4
+		!pseudopc $fd50
+
+do_chrout	pha		;fd50
+		lda #$57	; 'W'
+		jsr sendbyte
+		pla
+		jsr sendbyte
+		rts
+
+do_chrin	lda #$52	;fd5b	;'R'
+		jsr sendbyte
+		jsr getbyte
+		sta $90
+		jsr getbyte
+		rts
+
+do_chkin	lda #$44	;fd69	;'D'
+		jsr sendbyte
+		lda $026d,y
+		and #$1f
+		jsr sendbyte
+		lda $a7
+		sta $99
+		rts
+
+do_chkout	lda #$41	;fd7b	;'A'
+		jsr sendbyte
+		lda $026d,y
+		and #$1f
+		jsr sendbyte
+		lda $a7
+		sta $9a
+		rts
+
+do_close	lda #$43	;fd8d	;'C'
+		jsr sendbyte
+		pla
+		pha
+		jsr sendbyte
+		jmp nclos_cont	;->03c5, rts is OK
+
+getdevnum	txa		;fd9a
+		stx $b4
+		ldx #9
+gdnm_loop	cmp $0259,x	;fd9f
+		beq gdnm_cont
+		dex
+		bpl gdnm_loop
+		ldx $b4
+		sec
+		rts
+gdnm_cont	txa		;fdab
+		tay
+		lda $0263,x
+		ldx $b4
+		clc
+		rts
+
+sendname	stx $b2		;fdb4
+		jsr setinput1
+		tya
+		jsr sendbyte
+		lda $b7
+		jsr sendbyte
+		lda $b7
+		cmp #0
+		beq sdnm_cont
+		ldy #0
+sdnm_loop	lda ($bb),y
+		jsr sendbyte
+		iny
+		cpy $b7
+		bne sdnm_loop
+sdnm_cont	lda $b9
+		jsr sendbyte
+		jmp command_loop
+
+fastload	jsr getbyte	;fddc
+		sta $9e
+		jsr getbyte
+		sta $9f
+		ldy #0
+		lda $dd0d
+fl_loop		lda $dd0d	;fdeb
+		lda #$93
+		sta $dd00
+		lda #$10
+		bit $dd0d
+		beq *-3
+		lda $dd01
+		sta ($9e),y
+		iny
+		lda $dd0d
+		lda #$97
+		sta $dd00
+		lda #$10
+		bit $dd0d
+		beq *-3
+		lda $dd01
+		sta ($9e),y
+		iny
+		cpy #$fe
+		bne fl_loop
+		lda #$93
+		sta $dd00
+fast_end	lda #$10	;fe1e
+		bit $dd0d
+		beq *-3
+		jmp command_loop
+
+os_type		lda #$40	;fe28
+		jsr sendbyte
+command_loop	jsr getbyte	;fe2d
+		cmp #$f5
+		beq fastload
+		cmp #$f4
+		bne cmdlp_cont
+		jmp fastsave
+cmdlp_cont	cmp #$f7	;fe3b
+		beq os_type
+		cmp #$f6
+		beq unk2
+		cmp #$ff
+		beq peekpoke
+		cmp #$fe
+		beq error
+		cmp #$fd
+		beq print
+		cmp #$f9
+		beq unk1
+		cmp #$f8
+		bne command_loop
+		jmp do_jsr
+
+error		jsr getbyte	;fe5a
+		cmp #0
+		clc
+		beq no_error
+		sec
+no_error	ldx $b2		;fe63
+		ldy $b3
+		rts
+
+print		jsr getbyte	;fe68
+		cmp #0
+		beq print_end
+		jsr old_chrout
+		jmp print
+print_end	jmp command_loop	;fe75
+
+unk1		jsr getbyte	;fe78
+		jsr $ffe4
+		jsr sendbyte
+		jmp command_loop
+
+unk2		jsr getbyte	;fe84
+		jsr $f157
+		jsr sendbyte
+		jmp command_loop
+
+peekpoke	lda #$ff	;fe90
+		jsr getbyte
+		cmp #1
+		beq poke
+		jmp peek
+poke		lda #0		;fe9c
+		sta $aa
+		jsr getbyte
+		sta $10
+		jsr getbyte
+		sta $9e
+		jsr getbyte
+		sta $9f
+		ldx $10
+		ldy #$ff
+poke_loop	iny		;feb3
+		dex
+		beq poke_end
+		jsr getbyte
+		pha
+		lda #$34
+		sta $01
+		pla
+		sta ($9e),y
+		lda #$35
+		sta $01
+		jmp poke_loop
+poke_end	jmp command_loop	;fec9
+
+do_jsr		lda #$20	;fecc
+		sta $0334
+		lda #$d2
+		sta $0335
+		lda #$03
+		sta $0336
+		lda #$20
+		sta $0337
+		jsr getbyte
+		sta $0338
+		jsr getbyte
+		sta $0339
+		lda #$4c
+		sta $033a
+		lda #$cc
+		sta $033b
+		lda #$03
+		sta $033c
+		jsr getbyte
+		pha
+		jsr getbyte
+		tax
+		jsr getbyte
+		tay
+		jsr getbyte
+		pla
+		jsr $0334
+		jmp command_loop
+
+peek		jsr getbyte	;ff11
+		sta $10
+		jsr getbyte
+		sta $9e
+		jsr getbyte
+		sta $9f
+		jsr getbyte
+		ldx $10
+		ldy #$ff
+peek_loop	iny		;ff27
+		dex
+		beq peek_end
+		lda ($9e),y
+		jsr sendbyte
+		jmp peek_loop
+peek_end	jmp command_loop	;ff33
+
+setinput1	lda #0		;ff36 ;used once
+		sta $dd03
+		lda #0
+		sta $dd01
+		rts
+
+setinput2	lda #0		;ff41 ;unused
+		sta $dd03
+		lda $dd00
+		ora #4
+		sta $dd00
+		rts
+
+sendbyte	pha		;ff4f
+		lda #$ff
+		sta $dd03
+		pla
+		sta $dd01
+		lda $dd0d
+		lda #$93
+		sta $dd00
+		lda #$10
+		bit $dd0d
+		beq *-3
+		lda #$97
+		sta $dd00
+		lda #0
+		sta $dd03
+		lda #$10
+		bit $dd0d
+		beq *-3
+		rts
+
+getbyte		lda $dd0d	;ff7a
+		lda #$93
+		sta $dd00
+		lda #0
+		sta $dd03
+		lda #$10
+		bit $dd0d
+		beq *-3
+		lda $dd01
+		pha
+		lda #$97
+		sta $dd00
+		lda #$10
+		bit $dd0d
+		beq *-3
+		pla
+		rts
+
+init_vectors	lda #$07	;ffa0
+		sta $dd03
+		ldx #$00
+		stx $dd01
+iniv_loop	lda vectortab,x	;ffaa
+		beq iniv_end
+		tay
+		inx
+		lda vectortab,x
+		sta $0300,y
+		inx
+		lda vectortab,x
+		inx
+		sta $0301,y
+		jmp iniv_loop
+iniv_end	rts		;ffc2
+
+vectortab	!byte $1a
+		!word new_open
+		!byte $1c
+		!word new_close
+		!byte $1e
+		!word new_chkin
+		!byte $20
+		!word new_chkout
+		!byte $24
+		!word new_chrin
+		!byte $26
+		!word new_chrout
+		!byte $2a
+		!word new_getin
+		!byte $30
+		!word new_load
+		!byte $32
+		!word new_save
+		!byte 0
+
+;		stx $dd01	;ffdf ;unused
+;		lda $0b,x
+;		beq $fffa
+;		tay
+;		inx
+;		lda $0b,x
+;		sta $0300,y
+;		inx
+;		lda $0b,x
+;		inx
+;		sta $0301,y
+;		jmp $fff2
+;		rts
+;
+;		!byte $1a, $40, $03, $1C, $B3, $03, $1E, $80	;fff8
+
+		!realpc

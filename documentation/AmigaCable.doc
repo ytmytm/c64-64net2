@@ -1,0 +1,23 @@
+This file contains information on building the 64NET/2 cable for an Amiga.
+
+*The Amiga cable is DIFFERENT to the PC cable, you have been warned*
+
+*64NET/2 uses a _DIFFERENT_ cable to 64net v1*
+(this is for improved reliability, as well as speed).
+
+The 64NET/2 cable uses 12 pin-to-pin connections as follows:
+
+Parallel Port     User Port
+2                 B
+3                 C
+4                 D
+5                 E
+6                 F
+7                 H
+8                 J
+9                 K
+11                M
+12                B
+13                8
+18                N
+

@@ -1,0 +1,39 @@
+64NET/2 GEOS support (proposed, and suggesestions)
+(C)Copyright Paul Gardner-Stephen 1996, All rights reserved.
+
+Last updated 23 October 1996
+
+64NET/2 GEOS support is envisaged as providing the following:
+
+* Transparent usage of all disk image types
+* Access to all partitions
+* Ability to create (and possibly remove) disk images from GEOS
+* Ability to change directories (both intra-image, and inter-image)
+* Ability to use 64NET/2 as a RAM expansion for users with no phyiscal
+	RAM expansion unit.
+
+64NET/2 provides the following to allow implementation of this:
+(All without having to use KERNAL style access)
+
+* Ability to read and write blocks directly to/from disk images
+	(By issuiing a R,W or P command via the FS_ACCEL interface).
+* Ability to change subdirectories within partitions
+	(By issuing a CD command via the v1 Xtend interface).
+* Ability to create and remove disks images
+	(By issuing a mD or rD command via the v1 Xtend interface).
+* Ability to use 64NET/2 as a transient storage device via the
+	FS_ACCEL `S', `I' and `O' commands (thus removing the 
+	need for an REU etc. when using 64net with GEOS).
+
+ERGO:
+	The 64net v1 GEOS drivers will not work with 64net/2 (even
+despite cable differences) due to the altered API.
+	Modifying the 64net v1 GEOS drivers to conform to the 64net/2
+API should not be difficult, at least to provide a similar degree of
+functionality.
+	Enhancing the 64net v1 GEOS drivers to provide the new
+improved functionality should provide only a moderate project for the
+author (presumably Falk Rehwagen).
+
+
+

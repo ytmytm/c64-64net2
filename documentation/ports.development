@@ -1,0 +1,94 @@
+64NET/2 Documentation on ports to other platforms
+-----------------------------------------
+(C)Copyright Paul Gardner-Stephen, 1996
+
+Last updated 27 October 1996
+
+64NET/2 is assumed to be native to FreeBSD 2.x
+Instanciations of 64NET/2 for any other host/os combination are deemed
+to be "ports".
+
+64NET/2 has currently been ported to:
+	* MS-DOS / Win95
+
+64NET/2 is currently being ported to:
+	* AmigaDOS
+
+64NET/2 will soon be ported to:
+	* Linux
+	* NetBSD
+	* SunOS 4.1.x
+
+Details of ports in progress/proposed:
+--------------------------------------------------------
+
+Destination: MS-DOS / Win95
+Port Master: Paul Gardner-Stephen
+Date: 27 Oct 1996
+Status: Functional
+Ommisions:
+	* Internet filesystem
+Inclusions:
+	nil.
+Problems:
+	* Currently returns 2 blocks free on any MS-DOS filesystem.
+	* Paths in the 64netrc file can currently only reference the
+	current drive letter.
+	* Some eratic behaviour noted.
+
+---------------------------------------------------------
+
+Desitination: AmigaDOS
+Port Master: Daniel O'Connor
+Date: 27 Oct 1996
+Status: in progress
+Ommisions:
+	* Internet filesystem
+Inclusions:
+	nil.
+Problems:
+	Incomplete.
+
+--------------------------------------------------------
+
+Destination: Linux
+Port Master: Paul Gardner-Stephen
+Date: 27 Oct 1996
+Status: not yet started
+Ommisions:
+	nil.
+Inclusions:
+	nil.
+Problems:
+
+----------------------------------------------------------
+
+Destination: NetBSD
+Port Master: Daniel O'Connor
+Date: 27 Oct 1996
+Status: not yet started
+Ommisions:
+	nil.
+Inclusions:
+	nil.
+Problems:
+
+----------------------------------------------------------
+
+Destination: SunOS 4.1.x
+Port Master: Paul Gardner-Stephen
+Date: 27 Oct 1996
+Status: not yet started
+Ommisions:
+	nil.
+Inclusions:
+	nil.
+Problems:
+	Only a serial port version will be offered (no parallel due to
+	hardware constraints).  This may change if i am offered
+	details on the ports, and they prove suitable.
+
+----------------------------------------------------------
+
+
+

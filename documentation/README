@@ -1,0 +1,27 @@
+64NET/2 (C) Copyright Paul Gardner-Stephen, 1992-1997
+
+	As of the 15th of December 1997, 64NET/2 shall be freely available.
+
+The reasoning behind this is fairly simple;  im not going to make a living from
+it, and i would like to see more people able to use it.
+	The behind the scenes info is also fairly simple, with myself being
+reminded how hard drives are liable to go "pop" at in-opportune intervals,
+as a result the 64net/2 source was almost lost (and has been revived from 12
+month old source).
+
+The 64NET/2 public license:
+
+	64NET/2 is now covered by the gnu public license v2, or any later
+version, at your option. 
+	64NET/2 may not be used in a business environment, or sold without the
+express written permission of the author.
+	The author is Paul Gardner-Stephen.
+
+The authoritative source tree will be maintained here, on hld.c64.org.
+Soon i aim to set up a FreeBSD.org style CVS system to allow contributions and
+manipulation of the source tree by a yet-to-be-nominated 64net core team. 
+Basically, i aim for 64net to do as much as it possibly can for the c64 world.
+This is only enhanced by making the source code publicly available.
+
+Paul Gardner-Stephen.
+

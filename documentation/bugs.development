@@ -1,0 +1,123 @@
+Known bugs/faults in the 64NET/2 system
+---------------------------------------
+
+Last updated 4 October 1996
+
+This file contains a list of known bugs, faults, algorithm problems which
+have been detected in the 64net/2 system.  They are included here as a "todo"
+list once the main implementation phase is complete.
+
+Information included here is not intended for end user browsing.  It is
+intended for the development team only (currently only myself) - and possibly
+the manual writers (Russell Alphey and Michael Renz) for generating a 
+"known bugs" appendix.
+
+Entries should keep to the strict form used below.
+
+Entries are in (reverse) chronological order.
+
+Most entries here are either "kluged" or worked-around to allow the system
+to function.
+
+Most bugs can be located in the source code by searching for `BUG'.  Note
+that the occurance of BUG in the source code often indicates a bug in
+something other than the 64net/2 package, eg a shortfall in a file format.
+
+-----------------------------------------------------------------------------
+
+Desc: fs_d64_validate() needs to write T18 S0 twice when complete due to writets() mis-behaviour.
+Status: Working, by repeated writing.
+Importance: Low
+Date 4 October 1996
+Problem:
+	This function is unable to write the block.  writets() is called, and seems to operate, but does not
+actually write the data.
+
+-----------------------------------------------------------------------------
+
+Desc: fs_dxx_writeblock() seems to have sector linking problems
+Status: Unfixed, unconfirmed
+Importance: High
+Date: 2 October 1996
+Problem:
+	This function is getting a little messy, and seems to be misbehaving as a result.
+
+Suggested solution:
+	Re-code this function cleanly, taking into account all relevant possible states.
+
+-----------------------------------------------------------------------------
+
+Desc: fs_dxx_findfreeblock() allocates from the start of the disk
+Status: Unfixed
+Importance: Low
+Date: 2 October 1996
+Problem:
+	This function checks the tracks in the wrong order
+
+-----------------------------------------------------------------------------
+
+Desc:	fs_dxx_createfile() allocates any sector for a directory
+Status: Unfixed
+Importance: Medium
+Date:	2 October 1996
+Problem:
+	This function calles fs64_findfreeblock() to allocate directory blocks.
+
+
+-----------------------------------------------------------------------------
+
+Desc:       fs_closefind_g() uses dubious algorithm
+Status:     Yechy code
+Importance: Medium
+Date:       23 September 1996
+Problem:
+	This function uses a very dubious method (guess and try) to determine
+which resources need to be freed.  It currently operates adequately, but is a
+possible source of memory leakage.
+
+Suggested Solution:
+	Add flags to the fs64_direntrytype structure to allow accurate
+indication of which resources are in use at any point in time. 
+
+-----------------------------------------------------------------------------
+
+Desc:       The t64 file system call `fs64_t64_getopenablebyname()' is non
+              compliant.
+Status:     Kluge applied, seems fine, but may cause problems later.
+Importance: Medium
+Date:       30 August 1996
+Problem:
+        The de->realname variable contains (null) instead of the name
+of the T64 file.  The workaround applied should be acceptable, but may fault
+at a later date.  
+
+------------------------------------------------------------------------------
+
+
+
+Desc:       The Virtual LED code is very inefficient & is not MS-DOS workable
+Status:     Seems fine, but may slow some systems
+Importance: After dog wash
+Date:       26 August 1996
+Problem:
+        The code which interfaces to the client, by means of a small file, is
+currently being forced to open and close the file repeatedly.  This could slow
+things down somewhat.  File accesses are reasonably minimial, however may still
+cause slowdowns in some circumstance.
+
+------------------------------------------------------------------------------
+
+Desc:       Possible desync problem in turntoget()
+Status:     Kluged
+Importance: Critical
+Date:       19 August 1996
+Problem:
+	There is a possibility for de-sync'ing to occur during a turntoget().
+This is again possibly related to the previous character sent.  
+
+Solution:
+	A timeout has been added to turntoget() on phase2 (where the fault is
+manifest).  It is possible that this may slow LOAD's and SAVE's slightly,
+however no adverse performance effects are expected.
+
+-----------------------------------------------------------------------------

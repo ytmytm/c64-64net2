@@ -1,0 +1,20 @@
+2000-06-15  
+
+	* Rewritten sync_char() stuff, transfer errors seem to be fixed now
+
+2000-06-14  
+
+	* Removed changes from dosemu.c
+
+2000-06-13  
+
+	* Few replacements with libc functions, should be still portable
+
+2000-06-12  
+
+	* Various bugfixes, LUnix stuff is fully working now
+
+2000-06-11  
+
+	* Created repository
+

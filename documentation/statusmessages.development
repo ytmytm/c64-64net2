@@ -1,0 +1,138 @@
+64NET/2 Disk status messages and their meanings
+---------------------------------------
+
+Last updated 4 October 1996
+
+This file documents all 64NET/2 disk status messages
+
+Messages 00-19 are status reports.
+Messages 20-99 are error reports.
+
+00,OK,00,00
+	Non error.  Operation completed.
+01,FILES SCRATCHED,nn,00
+	nn files were removed from the disk.
+02,PARTITION SELECTED,nn,00
+	Partition nn was selected as the default partition.
+03,DIR X-LINK FIXED,tt,ss
+	A directory inconsistancy at track tt, sector ss was corrected.
+04,FILE X-LINK FIXED,tt,ss
+	A file inconsistancy at track tt, sector ss was corrected.
+20,READ ERROR,tt,ss
+21,READ ERROR,tt,ss
+22,READ ERROR,tt,ss
+23,READ ERROR,tt,ss
+24,READ ERROR,tt,ss
+	An error has occured reading track tt,sector ss.
+25, WRITE ERROR,tt,ss
+	A verify error has occured writing track tt,sector ss.
+26,WRITE PROTECT ON,tt,ss
+	An attempt was made to write to track tt, sector ss,
+	and either the host file system, or the block is read-only.
+27,READ ERROR,tt,ss
+	A checksum error occured while reading track tt, sector ss.
+28,WRITE ERROR,tt,ss
+	An undefined error has occured while writing track tt, sector ss.
+29,DISK ID MISMATCH,tt,ss
+30,SYNTAX ERROR,00,00
+	64NET/2 could not interprett a command.
+31,SYNTAX ERROR,00,00
+	64NET/2 could not associate the first char of the command.
+32,SYNTAX ERROR,00,00
+	The command was too long for 64NET/2 to interprett.
+	(64NET/2 can handle very long commands).
+33,SYNTAX ERROR,00,00
+	Illegal filename.  eg wildcards were present in a write request.
+34,SYNTAX ERROR,00,00
+	Missing file name in command.
+38,OPERATION UNIMPLEMENTED,00,00
+	A request was made to use an unimplemented feature of 64NET/2.
+	(Or a superceded 64NET v1 function).
+39,DIR NOT FOUND,00,00
+	64NET/2 could not locate a specified path.
+48,ILLEGAL JOB,00,00
+	An illegal job request was placed onto the list.
+50,RECORD NOT PRESENT,00,00
+	The record requested from a REL file has not yet been created.
+	Note that this error will occur, even when creating the record (and
+	should be ignored in this situation).
+51,OVERFLOW IN RECORD,00,00
+	Too much data was written to a REL file record.  Only the amount 
+	of data which can fit has been stored.
+52,FILE TOO LARGE,00,00
+	An attempt was made to either create a REL file too massive for
+	its host filesystem, or to extend an existing REL file beyond the 
+	amount of free space.  The request will have failed,  and either no
+	extension was made, or no REL file created respectively.
+60,WRITE FILE OPEN,00,00
+	An attempt was made to open a file which is currently being written
+	to.
+61,FILE NOT OPEN,00,00
+	An attempt was made to access a file (or logical file number) which 
+	is not open.  64NET/2 will generate this message when an attempt is
+	made to read past the end of a file.
+62,FILE NOT FOUND,00,00
+	64NET/2 could not locate the file you have requested.
+63,FILE EXISTS,00,00
+	An attempt has been made to open for write, or as a different type,
+	a file which has the same name as an existing file.  This error may 
+	also be generated when openning a TCP/IP socket which is already
+	in use.
+64,FILE TYPE MISMATCH,00,00
+	An attempt was made to access a file with the incorrect file type.
+	eg, LOADing a REL or DIR file.
+65,NO BLOCK,tt,ss
+	An attempt was made to allocate a block which is currently in use.
+	Tt and ss refer to a free block, or 00,00 if the filesystem is full (or
+	non block based).
+66,ILLEGAL BLOCK,tt,ss
+	An attempt was made to access a non-existant block (eg Track 36 
+	in a D64 file).
+67,ILLEGAL BLOCK,tt,ss
+	An attempt was made by 64NET/2 to access a non-existant block.
+	A common cause of this is corrupted directory links.
+70,NO CHANNEL,00,00
+	No channels are available for the command issued.  Try closing any
+	unnecessary files.  This should rarely occur, as 64NET/2 has 16 
+	static channels, and can dynamically allocate more (eg for LOAD and
+	SAVE).
+71,DIRECTORY ERROR,tt,ss
+	The directory has a problem. Typically it is due to a cyclic directory.
+	This message can also indicate an invalid BAM.  To correct this 
+	problem VALIDATE the filesystem.  If VALIDATE reports this error, 
+	use the "shift-v" form of VALIDATE to correct any loops in the 
+	directory.
+72, PARTITION FULL,00,00
+	There are no more free blocks on the file system.  When this message
+	occurs all files should still be able to be closed.
+73, 64NET/2 (C) 1996,00,00
+	This is the 64NET/2 startup message.  It may also indicate a DOS mismatch
+	on a disk image.  This should never occur however.
+74,DRIVE NOT READY,00,00
+	64NET/2 was unable to access a filesystem.  This is typically the result of
+	an invalid partition entry in the 64netrc file, or 64NET/2 running out of 
+	file descriptors.  If 64NET/2 is running on a UNIX system, try:
+		unlimit descriptors
+	from the UNIX shell, and re-start the 64NET/2 server.  For MS-DOS based
+	servers increase the FILES= and BUFFERS= lines in CONFIG.SYS.  64NET/2
+	servers should have atleast FILES=20 under MS-DOS, or the descriptors limit
+	for UNIX that is atleast 16, but preferably 32 or 64.  64NET/2 has been tested 
+	with only 8 file descriptors under UNIX, however, only LOAD and SAVE will work
+	correctly with this configuration.
+75,FILE SYSTEM INCONSISTANT,tt,ss
+	The execution of a VALIDATE command has found cross-linked, or cyclic files
+	on the file system.  Use the "shift-v" form of VALIDATE to correct this error.
+76,MEDIA TYPE MISMATCH,00,00
+	An media-specific operation was attempted on a media which does not support
+	that operation.  eg, VALIDATING the InterNET filesystem.
+77,ILLEGAL PARTITION,nn,00
+	An attempt was made to access partition nn, which does not exist.
+78,RECURSIVE FILESYSTEM,00,00
+	An attempt was made to create a disk image inside a disk image.
+79,INVALID MEDIA,00,00 
+	An attempt was made to create a media type which does not exist.
+80,END OF FILE,00,00
+	64NET/2 will send this message when the end of a file is reached.
+	This will be made optional in the release version.
+
+
