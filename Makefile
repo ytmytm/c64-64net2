@@ -20,6 +20,8 @@ LOPT=-L. -l64net2
 #LOPT=-L. -l64net2 -lwsock32
 # This is for Solaris
 #LOPT=-L. -l64net2 -lsocket -lnsl
+# This is for FreeBSD
+#LOPT=-L. -l64net2 -lcompat
 COPT=-O $(CFLAGS) -Wall
 
 .PHONY: all clean spotless depend dep

@@ -1,5 +1,5 @@
-20.06.2001
-Information below is obsolete. 64net/2 currently compiles and works on Linux.
+
+Default configuration in Makefile and config.h is for Linux.
 
 19.09.2001
 Windows binary can be built using MINGW (www.ming.org) but its internet subset
@@ -10,10 +10,14 @@ config.h.
 
 20.09.2001
 Solaris port is complete. It lacks inb/outb functions (replaced by dummy ones) but
-everything else is just perfect. The only Solaris system that I had access to didn't
-have GNU Make (and make at all), but compiling all .c files and linking everything
-except main_*.o to one by one main_*.o produced working binaries for Solaris.
-Due to networking '-lsocket -lnsl' were required for linking. When in doubt - read
-Makefile.
+everything else is just perfect. Remember to use GNU make, that is gmake to build
+the binaries, but edit Makefile before (there is LOPT line for SunOS) and config.h
+
+20.09.2001
+FreeBSD port is complete. I don't have any machine with BSD and root access and I am
+unable to test how to get I/O privileges. It may be either opening /dev/io - like in
+code that was before or i386_get_ioperm like it is now. If anyone is able to test it
+please contact me. Remember to use GNU make, that is gmake to build the binaries,
+but edit Makefile before (there is LOPT line for FreeBSD) and config.h.
 
 Maciej 'YTM/Elysium' Witkowiak (ytm@elysium.pl)

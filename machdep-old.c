@@ -3,7 +3,9 @@
 #include "comm-lpt.h"
 
 #ifdef BSD
-#include "bsd/cpufunc.h"
+#include <machine/cpufunc.h>
+/* for new ioperm scheme */
+#include <machine/sysarch.h>
 #endif
 
 #ifdef LINUX
@@ -78,12 +80,28 @@ void
 init_hw (void)
 {
 #ifdef BSD
+/* This is old privilege scheme, maybe it works - test it */
+/*
  FILE *f;
+
  if ((f = fopen ("/dev/io", "rw")) == NULL) {
     fatal_error ("Cannot get chip-bash privilege.\
                  \nPlease setgid to kmem (or similar)\n");
     exit (1);
   }
+*/
+/* This is new one */
+ int a;
+
+ debug_msg("Asking for chip-bash privileges... ");
+ a = i386_set_ioperm(portout,3,1);
+ debug_msg("i386_set_ioperm returned = %i\n", a);
+ if (a != 0) {
+    fatal_error ("Cannot get io space privilege. Please setsgid to kmem (or similar)\n");
+    exit (1);
+  }
+
+ fflush(stdout);
 #endif /* BSD */
 
 #ifdef LINUX

@@ -7,7 +7,12 @@
 #include "fs.h"
 
 #ifdef UNIX
+#ifdef BSD
+#include <sys/param.h>
+#include <sys/mount.h>
+#else
 #include <sys/vfs.h>
+#endif
 #endif
 
 #ifdef WINDOWS

@@ -6,6 +6,9 @@
 
 #include "config.h"
 #include <time.h>
+#ifdef BSD
+#include <sys/types.h>
+#endif
 #ifndef AMIGA
 #include <sys/timeb.h>
 #endif

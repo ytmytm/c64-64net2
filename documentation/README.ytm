@@ -107,6 +107,7 @@ IDEAS:
     * add safe shutdown function (do_quit from main_64net2)
 
 TODO
+    * replace ftime call in datestamp.c by gettimeofday - ftime is obsoleted in BSD for some reason
     + move wedge functionality into server side with peeks and pokes
 	+ remember about machine issues when writing wedge for C128 (FILETABLE,SATABLE...)
 	- update clientdep_tables for C65 native

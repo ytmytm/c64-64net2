@@ -8,6 +8,7 @@
 	* written BASIC example for media_NET - mailsend
 	* media_NET closes file after client disconnect
 	* made system somewhat more quiet
+	* added LOPT in Makefile and changes for FreeBSD (wohoo! it compiles and works!)
 
 2001-09-19  
 	* after LOAD endadress is reported correctly
