@@ -32,6 +32,8 @@ int value=0;
     return (value);
 }
 
+int syncchar(void) { return charget(); }
+
 int sendchar (int byte) {
     direction = fwrite(&byte,1,1,out_device);
     return (0);

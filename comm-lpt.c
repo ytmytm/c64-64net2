@@ -113,11 +113,8 @@ int commune (void)
   while (1)
   {
 
-#ifdef USE_LINUX_KERNEL_MODULE
-    a = charget();
-#else
     a = syncchar();
-#endif
+
     if (a&0x100)
       printf("Char under attention\n");
 
