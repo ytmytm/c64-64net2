@@ -643,11 +643,8 @@ void do_close_small(void) {
 		c64poke(0x98, no-1);
 		do_close(sa);	/* command loop will ignore 128 from do_close */
 		sendchar(0xfc);
-//		sendchar(254); sendchar(0);
 		return;
 	}
-    debug_msg("File %i not open!\n", fn);
-    if (c64peek(0x9d)!=0) c64print((uchar*)"?FILE NOT OPEN  ERROR\r");
     sendchar(254); sendchar(0x40);
 }
 
