@@ -1,0 +1,101 @@
+This file contains information on the proposed revised 64NET/2 cable.
+
+This revised cable supports the serial ATN line for true device
+identification.  This is designed to allow a patched C64 kernel which
+will work out which bus (IEC serial or 64NET/2 parallel) a given
+device is on, and  generally be much more compatible.
+
+Under this regieme the existing 64NET/2 cable would work, along with
+the existing LOAD code etc, i.e. where the PC takes control.
+
+The new cable however would allow for a smaller wedge, with no special 
+LOAD/SAVE code - just the normal IEC serial bus commands.  There
+should be little or no loss of LOAD/SAVE speed as 64NET/2 would become 
+a talker/listener and stream data over the parallel port.
+
+The 64NET/2 ATN cable uses 12 pin-to-pin connections as follows:
+
+Printer Port	User Port
+1		B
+2		C
+3		D
+4		E
+5		F,6
+6		H
+7		J
+8		K
+9		L
+10		9   <--- This is the single difference
+11		M
+18		N
+
+Refer to PCcable.txt for further information on generally building the 
+cable.
+
+User port pin 9 is electrically connected to the IEC serial ATN line.
+
+Each of the IEC serial transfer mode equivalents are described below:
+
+C64 originated ATN:
+-------------------
+
+This allows the C64 to call for attention on both busses
+simultaneously by:
+
+1. Set user port to output, write device number to $DD01
+2. Bring ATN low, and perform normal serial ATN sequence.
+3. Watch for FLAG2 line of CIA2 to indicate that 64NET/2 has
+   acknowledged the device as well as waiting for IEC serial
+   to respond.
+4. Send command byte to device ...
+
+The only caveat here is that the 64NET/2 server must respond in a
+certain time period.  Without kernel interrupt servicing of the ACK
+line (which is what ATN is connected to via the cable) a loaded server 
+may not respond for some time.  This will just have to be lived with
+for now.
+
+Talk-attention turn around:
+---------------------------
+
+When 64NET/2 acknowledges the existence of a device, it 
+pulses STROBE and then returns to passive mode.  Hence talk-attention
+turn around is not necessary.
+
+Talker EOI:
+-----------
+
+This is the trickiest one, getting 64NET/2 to indicate when it has no
+more data to send.  There simply aren't enough lines to make this easy 
+to indicate.  
+
+It could be possible to infer this state, just by having 64net/2 not
+respond to the next character request - but that is slow and ugly, and 
+breaks the nice asynchronous nature of 64NET/2 data communications.
+
+This could be resolved by tying the CNT2 pin (user port pin 6) to an
+output on the server end.  At the end of a transfer pulse it 8 times,
+and it will generate an interrupt on the C64 (set bit 3 of $DD0D).
+(Must clear bit 6 of $DD0E for this mode of operation).
+
+If CNT2 (user port 6) is tied to PB3 (user port pin F) then no
+additional wire is required.
+
+The only requirement is that before receiving a character that the
+serial port be set to output and then input again to clear the partial 
+byte it thinks it has received.
+
+64NET/2 stops talking
+---------------------
+
+1. C64 asserts ATN to tell 64NET/2 it wants attention, not the current
+   byte of data (if there is one) waiting on the userport.
+2. C64 sends IEC serial command to 64NET/2
+
+
+All other scenarios
+-------------------
+
+In all other situations, 64NET/2 is not talking, so the C64 can send
+either an ATN/address combo followed by a command, or it can send a
+byte of data if 64NET/2 is listening.
