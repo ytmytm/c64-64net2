@@ -90,6 +90,7 @@ void outb(int port, int value) {
 #define POUTLOW
 #define PARR inb(portout)
 #define BUSY (inb(portin) & 0x80)
+#define ACK (inb(portin) & 0x40)
 #ifdef LINUX
 #define POUTRHIGH outb(0xa0, portout+2)
 #define POUTWHIGH outb(0x40, portout+2)
