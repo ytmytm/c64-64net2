@@ -94,7 +94,7 @@ fs64_file file;
 /* partition # that will be searched for programs, whatever this means, not used */
 int pathdir;
 
-/* #define DEBUG_PIEC */
+#define DEBUG_PIEC
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -203,8 +203,18 @@ int start_server()
       printf("request=%d\n",request);
 #endif
       temp=receive_byte(); 
-      if((temp&0x100)==0) { change_state(IEC_IDLE); break; }
-      change_state(temp);
+      if (temp==0xff)
+	{
+	  /* 0xff received unsolicited is possibly a case of both sides
+	     thinking they are reading.  Send an EOI to prevent infinite
+	     reading by C64 */
+	  send_eoi();
+	}
+      else
+	{
+	  if((temp&0x100)==0) { change_state(IEC_IDLE); break; }
+	  change_state(temp);
+	}
       break;
       
     case IEC_LISTEN:
@@ -267,7 +277,7 @@ int start_server()
 	   which doesn't spend the time pre-reading the file
 	   before sending it. */
 	talklf=SA&0xf;
-	file_unit=0;
+	file_unit=last_unit;
 
 	output_buffer=malloc(1048576);
 	outputlen=0;
@@ -281,7 +291,6 @@ int start_server()
 	else
 	  {
 	    /* Read DOS status */
-	    last_unit=file_unit;
 	    bcopy(dos_status[last_unit],output_buffer,dos_stat_len[last_unit]);
 	    outputlen=dos_stat_len[last_unit];
 	    set_error(0,0,0);
@@ -378,8 +387,7 @@ unsigned int iec_listen() {
 	     input_buffer,listenlf);
 #endif
 
-      /* We only know about one device for now */
-      last_unit=0; file_unit=0;
+      file_unit=last_unit;
 
       if (logical_files[file_unit][listenlf].open == 1)
 	fs64_closefile_g (&logical_files[last_unit][listenlf]);
@@ -388,7 +396,6 @@ unsigned int iec_listen() {
       if (listenlf==15)
 	{
 	  /* filename is DOS command */
-	  last_unit=file_unit;
 	  input_buffer[inputlen]=0;
 	  strncpy(dos_command[last_unit],input_buffer,255);
 	  dos_command[last_unit][255]=0;
@@ -570,34 +577,49 @@ uchar change_state(unsigned int new_state)
 {
   /* Change TALK/LISTEN state based on character received under attention. */
   new_state=(new_state&0xff);
-  if((new_state&0xf0)==IEC_LISTEN) {
-    if(devicenumber==(new_state&0x0f)) {
-      state=IEC_LISTEN;
+  if((new_state&0xf0)==IEC_LISTEN) 
+    {
+      int unit;    
+      for(unit=0;unit<MAX_NET_DEVS;unit++)
+	if ((new_state&0x1f)==devices[unit]) 
+	  {
+	    state=IEC_LISTEN;
+	    last_unit=unit;
 #ifdef DEBUG_PIEC
-      printf("Received Listen command\n");
+	    printf("Received Listen command for device #%d\n",
+		   devices[last_unit]);
 #endif
-    }
-    else {
+	    break;
+	  }
+    
+	if (unit==MAX_NET_DEVS) {
 #ifdef DEBUG_PIEC
-      printf("Received Listen, but for different device.\n");
+	  printf("Received Listen, but for different device.\n");
 #endif
+	}
+	return 0;
     }
-    return 0;
-  }
-  else if((new_state&0xf0)==IEC_TALK) {
-    if(devicenumber==(new_state&0x0f)) {
-      state=IEC_TALK;
+  else if((new_state&0xf0)==IEC_TALK) 
+    {
+      int unit;    
+      for(unit=0;unit<MAX_NET_DEVS;unit++)
+	if ((new_state&0x1f)==devices[unit]) 
+	  {
+	    state=IEC_TALK;
+	    last_unit=unit;
 #ifdef DEBUG_PIEC
-      printf("Received Talk command\n");
+	    printf("Received Talk command for device #%d\n",
+		   devices[last_unit]);
 #endif
-    }
-    else {
+	    break;
+	  }
+	if (unit==MAX_NET_DEVS) {
 #ifdef DEBUG_PIEC
-      printf("Received Talk, but for different device\n");
+	  printf("Received Talk, but for different device\n");
 #endif
+	}
+	return 0;
     }
-    return 0;
-  }
   else if((new_state&0xff)==IEC_UNLISTEN) {
     state=IEC_UNLISTEN;
 #ifdef DEBUG_PIEC

@@ -19,6 +19,15 @@ debug mode
 #  Note that partitions must be specified using their C64 paths, which usually
 #   means using /'s and case inversion.
 device
+number 8
+#partition 1,TESTDIR/
+partition 1,/HOME/GARDNERS/C64
+partition 2,/HOME/GARDNERS/C64/PROGUTS2.D64
+partition 200,/TMP
+partition 254,@/
+end
+
+device
 number 9
 #partition 1,TESTDIR/
 partition 1,/HOME/GARDNERS/C64
@@ -26,6 +35,7 @@ partition 2,/HOME/GARDNERS/C64/PROGUTS2.D64
 partition 200,/TMP
 partition 254,@/
 end
+
 
 # Add partition 1 of each device to the auto-search path for LOAD commands.
 path 1
