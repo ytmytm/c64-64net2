@@ -1,0 +1,271 @@
+	; C64 wedge for 64net/2 parallel IEC mode
+
+	.space $c000 $cfff
+
+	; byte used to indicate whether a device is
+	; on 64net or serial bus
+	; bit7=1 means 64net
+	devflag = $a7
+
+	; Replace basic "READY." message
+ 	; so we know what is going on
+	.patch $a378
+	.byte '6','4','N','/','2','.'
+
+; ---------------------------------------------------------------------
+; Patch kernel ACPTR routine: Read char from serial bus
+; ---------------------------------------------------------------------
+
+	acptr=$ee13
+	.patch $ee13
+
+	sei
+	jmp myacptr
+	.byte $00
+
+	.section
+
+myacptr
+	; Test if 64net/2 device
+	bit $a7
+	bmi myacptr_entry
+	; not for us - normal acptr
+	inc $0400
+	lda #$00
+	sta $a5
+	jmp acptr+5
+myacptr_entry
+	; Request next byte
+	lda #$00
+	sta $dd03
+	lda $dd00
+	eor #$04
+	sta $dd00
+myacptr_loop
+	; Wait until a byte arrives, or an error
+	; condition occurs
+	lda $dd0d
+	cmp #$10
+	beq myacptr_gotbyte
+	and #$08
+	bne myacptr_goterr
+	beq myacptr_loop
+myacptr_gotbyte
+	; Got a byte, return happily
+	lda #$00
+	sta $90
+	lda $dd01
+	sta $a4
+
+	; DEBUG - display character read
+	jsr hexout
+
+	clc
+	rts
+myacptr_goterr
+	; No byte available, return a read timeout
+	; error
+	lda #$40
+	sta $90
+	sta $a4
+	sec
+	cli
+	rts
+
+	.section
+
+; ---------------------------------------------------------------------
+; Patch kernel clock wait routine at $edcc (in talk/listen)
+; ---------------------------------------------------------------------
+	clkwait=$edcc
+	.patch $edcc
+	sei
+	jmp myclkwait
+
+	.section
+
+myclkwait
+	bit $a7
+	bmi myclkwait_entry
+	; not for us - normal clock wait
+	inc $0401
+	jsr $eea0
+	jmp $edd0
+myclkwait_entry
+	; for us - but we need do nothing
+	cli
+	rts
+
+; ---------------------------------------------------------------------
+; Patch kernel chkin wait routine at $f23e (in chkin)
+; ---------------------------------------------------------------------
+;
+; Note this patch is only added for extra speed, since it should get
+; caught by the myclkwait patch... but anyway.
+;
+
+	chkinwait=$f23f
+	.patch $f23f
+	jmp mychkinwait
+	
+	.section
+
+mychkinwait
+	bit $a7
+	bpl mychkin_normal
+	; for us - so don't wait
+	rts
+mychkin_normal
+	; normal kernel job, 
+	; so wait normally
+	inc $0402
+	jmp clkwait
+
+; ---------------------------------------------------------------------
+; Patch kernel serout routine at $ed37
+; ---------------------------------------------------------------------
+	serout=$ed37
+	.patch $ed37
+	jmp myserout
+	
+	.patch $ed41
+	jmp myserout_alternate
+
+	.section
+
+myserout
+	; Test if it is for us
+	bit $a7
+	bmi myserout_entry
+	; nope ... pass back to kernel
+	inc $0403
+	jsr $ee8e
+	jmp serout+3
+myserout_entry
+	; for us
+
+	; set port to output
+	lda #$ff
+	sta $dd03
+	
+	; present character
+	lda $95
+	sta $dd01
+	
+	; Tell 64net/2 it is there
+	lda $dd00
+	eor #$04
+	sta $dd00
+
+	; wait for it to be accepted
+	lda #$10
+myserout_loop
+	bit $dd0d
+	beq myserout_loop
+	clc
+	rts
+
+	; Alternate entry point to write to serial bus
+myserout_alternate
+	bit $a7
+	bmi myserout_entry
+	; not for us
+	inc $0404	
+	jsr $ee97
+	jmp $ed44
+
+
+; ---------------------------------------------------------------------
+; Patch kernel wait for clock+data routine at $eea9
+; ---------------------------------------------------------------------
+	.patch $eea9
+	jmp myclkdata
+
+	.section
+
+myclkdata
+	bit $a7
+	bpl myclkdata_normal
+	; for us - do nothing
+	rts
+myclkdata_normal
+	inc $0405
+	lda $dd00
+	cmp $dd00
+	asl a
+	rts
+
+; ---------------------------------------------------------------------
+; Patch kernel talk/listen to pick which bus first
+; ---------------------------------------------------------------------
+	.patch $ed2e
+	jmp whichbus
+
+	.section
+
+whichbus
+	; Present char on port
+	lda #$ff
+	sta $dd03
+	lda $95
+	sta $dd01
+	; clear $dd0d flags
+	lda $dd0d
+	; notify 64net/2 under attention
+	lda $dd00
+	ora #$08
+	eor #$04
+	sta $dd00
+	; wait for response
+	lda #$90
+	sta $a7
+	lda #$10
+whichbus_loop
+	bit $dd0d
+	bne whichbus_gotresult
+	dec $a7
+	bmi whichbus_loop
+whichbus_gotresult
+	lda $a7
+	and #$80
+	sta $a7
+	sta $0407
+	jmp serout-1
+
+;---
+; DEBUG - hexout routine to display chars received to help debug
+;         multiple ack/wack problem
+;---
+
+	.section
+
+hextable 
+	.byte '0','1','2','3','4','5','6','7','8','9'
+	.byte 'A','B','C','D','E','F'
+
+	.section
+
+hexout
+	; display the char in accumulator on screen as hex
+	pha
+	lda #'$'
+	jsr $e716
+	pla
+	pha
+	lsr a
+	lsr a
+	lsr a
+	lsr a
+	tax
+	lda hextable,x
+	jsr $e716
+	pla
+	pha
+	and #$0f
+	tax
+	lda hextable,x
+	jsr $e716
+	lda #$20     ; space
+	jsr $e716
+	pla
+	rts
