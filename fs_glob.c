@@ -221,7 +221,7 @@ parse_glob (uchar glob_array[17][32], uchar *pattern)
     }
     /* or 
        2) For read mode, with no record size */
-    if ((fnord[i - 1] == ',') && (fnord[i - 2] == 'L'))
+    if ((fnord[i - 2] == ',') && (fnord[i - 1] == 'L'))
     {
       glob_array[0][cbm_REL] = 1;
       glob_array[0][30] = 0;	/* rel record length is invalid */
