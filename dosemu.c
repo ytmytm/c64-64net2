@@ -17,6 +17,9 @@
 #include "comm-lpt.h"
 #include "misc_func.h"
 
+/* virtual drive memory */
+uchar drive_memory[MAX_NET_DEVS][0x10000];
+
 void
 set_current_dir (uchar *foo)
 {
@@ -82,6 +85,11 @@ init_dos (void)
     if (last_unit != -1)
       reset_drive ();
   }
+  memset(drive_memory,0,MAX_NET_DEVS*0x10000);
+  for (i=0;i<MAX_NET_DEVS;i++) {
+    drive_memory[i][0x69]=0x08; 	/* interleave set */
+    drive_memory[i][0xe5c6]='4';	/* end of UJ message DOS VERSION, DRIVE - mimic 1541 */
+    }
 }
 
 int
@@ -107,6 +115,35 @@ do_dos_command (void)
       /* MkDir */
       switch (dos_command[i][1])
       {
+      case '-':
+        /* M-R and M-W */
+        switch (dos_command[i][2])
+        {
+	case 'R':
+	    { int addr, k;
+	      addr = dos_command[i][3]+256*dos_command[i][4];
+	      debug_msg("M-R on $%04x for $%02x\n",addr,dos_command[i][5]);
+	      for (k=0;k<dos_command[i][5];k++) {
+	        dos_status[i][k]=drive_memory[i][addr+k];
+		}
+	      dos_stat_len[i]=dos_command[i][5];
+	      dos_comm_len[i] = 0;
+	      return 0;
+	    }
+	    break;
+	case 'W':
+	    { int addr, k;
+	      addr = dos_command[i][3]+256*dos_command[i][4];
+	      debug_msg("M-W on $%04x for $%02x\n",addr,dos_command[i][5]);
+	      for (k=0;k<dos_command[i][5];k++)
+	        drive_memory[i][addr+k]=dos_status[i][k+6];
+	      dos_comm_len[i] = 0;
+	      set_error (0, 0, 0);
+	      return 0;
+	    }
+	    break;
+	}
+	break;
       case 'D':
 	/* make conventional dir */
 	dos_comm_len[i] = 0;
@@ -873,15 +910,16 @@ do_dos_command (void)
     }				/* end case 'c' */
     break;
   case 'S':
-	{
-	    if (dos_command[i][1]!=':') {
+	{ int k;
+	    for (k=0;(k<dos_comm_len[i])&&(dos_command[i][k]!=':');k++);
+	    if (k==dos_comm_len[i]) {
 		set_error (30, 0, 0);
 		dos_comm_len[i] = 0;
-		return (0); }
-	    else {
-		dos_comm_len[i] = 0;
-		fs64_scratchfile_g(&dos_command[i][2]);
-		return (0); }
+		return (1);
+	    }
+	    fs64_scratchfile_g(&dos_command[i][k+1]);
+	    dos_comm_len[i] = 0;
+	    return (0);
 	}
   default:
     /* unknown command */

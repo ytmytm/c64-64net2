@@ -1,7 +1,7 @@
 Progress Information for 64net/2
 --------------------------------
 
-* Last updated 23 October 1996
+* Last updated 19 September 2001
 
 Progress Descriptions/Priorities
 --------------------------------
@@ -9,12 +9,9 @@ Progress Descriptions/Priorities
 (Order does not necessarily indicate priority)
 
 - REL files (were partly there..)
-- Client independency
 - Re-design open/close for really memory tight operation
     (instead of best-guess as present)
 - Fix media_NET file system (what is wrong anyway?)
-- Proper STatus variable operation
-    (fix bizarre stuff when at end of a stream)
 
 Progress tree
 -------------
@@ -35,21 +32,21 @@ Progress tree
 -			Startup sequence
 -			Dooby 64net/2 image (C64 mode only!)
 			 (for display while startup sequence is executing)
--		LOAD
++		LOAD
 +			File Resolution
 +			Load Address
 +			Burst Loading			
 +			Fish Loading
--			Client Independency
++			Client Independency
 +		SAVE
 +			File Resolution
 +			Memory range
--			Burst Saving
--			Fish Saving
--			Client independency
--		OPEN
++			Burst Saving
++			Fish Saving
++			Client independency
++		OPEN
 +			File Resolution
--			Client Independency
++			Client Independency
 +		CLOSE
 +			Normal closing
 +			NET filesystem special case
@@ -223,6 +220,8 @@ Progress tree
 -		Copy files
 -			Get dest file
 -			Cat each source file into dest file
++		M-R (Memory read)
++		M-W (Memory write)
 -		MD (Make directory)
 -			Conventional MD
 +			M(shift-D) form (create disk image)
@@ -237,7 +236,7 @@ Progress tree
 -			R(stifd-D) form (delete disk image)
 -				Ensure image is empty
 -				Un-link
--		S  (Scratch file(s)
++		S  (Scratch file(s)
 +		N	(Format disk image)
 +				Short format
 +				Full Format

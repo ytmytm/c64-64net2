@@ -4,7 +4,7 @@
  */
 
 #include "config.h"
-//#include <signal.h>
+#include <signal.h>
 
 #include "dosemu.h"
 #include "misc_func.h"
@@ -17,11 +17,25 @@ int steal_parallel_port = 0;
 extern Library BSDBase;
 #endif
 
+void do_quit(void) {
+    /* a dummy routine that should shut down 64net/2 */
+}
+
+void sigint() {
+    do_quit();
+    fatal_error("SIGINT caught");
+}
+
+void sigterm() {
+    do_quit();
+    fatal_error("SIGTERM caught");
+}
+
 int 
 main (int argc, char **argv)
 {
-    /*   signal(SIGINT, (void *)fatal_error("SIGINT caught")); */
-    /*   signal(SIGTERM, (void *)fatal_error("SIGTERM caught")); */
+       signal(SIGINT, sigint);
+       signal(SIGTERM, sigterm); 
 
 #ifdef DEBUG
   initDebug();

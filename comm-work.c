@@ -28,6 +28,10 @@ int fnlen;
 uchar filename[256];
 int file_unit;
 
+/* next character that will be sent to client */
+uchar nextchar;
+int nextstatus=64;
+
 /* flag to use with OPEN and LOAD =0-> open file, =1->load file */
 int dont_open;
 
@@ -90,7 +94,7 @@ void do_ciout(int secaddr)
 
 void do_acptr(int secaddr)
 {
-    int sa;
+    int sa, status = 0;
     uchar c;
     
 	/* we are being asked to send a character */
@@ -104,13 +108,13 @@ void do_acptr(int secaddr)
 	  /* command channel */
 	    if (dos_stat_len[last_unit] < 1) {
 		set_error (0, 0, 0);	/* default to OK message */
-		sendchar (128);		/* XXX: EOF first */
-		sendchar (199);
-		return;
+//		sendchar (64); sendchar (199); /* EOF */
+//		return;
 	    }
 	  /* send status */
-	    sendchar (0);
-	    sendchar (dos_status[last_unit][0]);
+	    if (dos_stat_len[last_unit]==1)	/* assert EOF with last byte */
+		status=64;
+	    sendchar (status); sendchar (dos_status[last_unit][0]);
 	    /* update dos status */
 	    memmove (&dos_status[last_unit][0], &dos_status[last_unit][1], dos_stat_len[last_unit]);
 	    /* reduce length remainin */
@@ -120,22 +124,20 @@ void do_acptr(int secaddr)
 	else
 	{
 	  int r;
+	  /* read first byte if needed */
+	  if (nextstatus==-2)
+    	     nextstatus = fs64_readchar (&logical_files[file_unit][sa], &nextchar);
+	  /* read next byte */
 	  r = fs64_readchar (&logical_files[file_unit][sa], &c);
-	  if (r == -1)
-	  {
-	    /* couldnt read a char */
-/*                    debug_msg("EOF on lf#%d\n",sa); */
-	    /* since this is normal 64net where FILE NOT FOUND can
-	       be explicitly indicated, we know its EOF */
-	    sendchar (128);	/* XXX should be 64 EOF? */
-	    sendchar (199);
-	  }			/* end of failed to read from channel */
-	  else
-	  {
-	    /* file read succeeded */
-	    sendchar (r);
-	    sendchar (c);
-	  }			/* end of successful read from file */
+	  if (nextstatus==-1) {
+	     /* reading past end */
+	     sendchar(64); sendchar(199);
+	  } else {
+	     if (r==-1)				/* assert EOF with last byte */
+	        status=64;
+	     sendchar(status); sendchar(nextchar);
+	     nextchar = c; nextstatus = r;
+	  }
 	}
 }
 
@@ -173,13 +175,14 @@ void do_open(int secaddr)
 	  /* release c64 end */
 	  sendchar (0);
 	}
+	  nextstatus = -2;
+	  nextchar = 0;
 }
 
 void do_close(int secaddr)
 {
     int sa,i,j;
 	/* close a file */
-	debug_msg ("Close\n");
 	i = 0;			/* unit is always 0 */
 	sa = secaddr & 0x0f;
 	debug_msg ("Closing logical file $%02x\n", sa);
@@ -192,8 +195,7 @@ void do_close(int secaddr)
 	      fs64_closefile_g (&logical_files[i][j]);
 	}
 	/* XXX close is always successfull? */
-	sendchar (128);
-	debug_msg ("Done close\n");
+	sendchar (0);
 }
 
 void do_save(void) {
@@ -228,8 +230,7 @@ void do_save(void) {
 	  {
 	    /* cannot open file for some reason */
 	    /* simply abort */
-	    sendchar (254);
-	    sendchar (0);
+	    sendchar (254); sendchar (0);
 	    return;
 	  }
 	}
@@ -240,8 +241,7 @@ void do_save(void) {
 	  sprintf((char*)buff,"\r%s",dos_status[last_unit]);
 	  c64print(buff);
 
-	  sendchar (254);
-	  sendchar (128);
+	  sendchar (254); sendchar (128);
 	  return;
 	}
 
@@ -284,8 +284,7 @@ void do_save(void) {
 	    {
 	      debug_msg ("Closing save file due to error\n");
 	      fs64_closefile_g (&savefile);
-	      sendchar (254);
-	      sendchar (0);
+	      sendchar (254); sendchar (0);
 	      return;
 	    }
 	  startaddr += bc;
@@ -308,8 +307,7 @@ void do_save(void) {
 	  ms = ms2 - ms;
 	  debug_msg ("Save time: %d.%d\n", s, ms);
 	}
-	sendchar (254);
-	sendchar (0);
+	sendchar (254); sendchar (0);
 }
 
 void do_load(void)
@@ -358,16 +356,14 @@ void do_load(void)
 	    if (fs64_openfile_g (partn_dirs[last_unit][pathdir], foo, &loadfile))
 	    {
 	      /* file not found */
-	      sendchar (254);
-	      sendchar (4);
+	      sendchar (254); sendchar (4);
 	      return;
 	    }
 	  }
 	  else
 	  {
 	    /* file not found */
-	    sendchar (254);
-	    sendchar (4);
+	    sendchar (254); sendchar (4);
 	    return;
 	  }
 	}
@@ -389,16 +385,14 @@ void do_load(void)
 	if (fs64_readchar (&loadfile, &c))
 	{
 	  /* empty file */
-	  sendchar (254);
-	  sendchar (0);
+	  sendchar (254); sendchar (0);
 	}
 	else
 	  filestart = c;
 	if (fs64_readchar (&loadfile, &c))
 	{
 	  /* empty file */
-	  sendchar (254);
-	  sendchar (0);
+	  sendchar (254); sendchar (0);
 	}
 	else
 	  filestart += c * 256;
@@ -583,12 +577,13 @@ void do_boot(void)
 
 	{
 	  uchar temp[80];
-	  sprintf ((char*)temp, "\r 64NET/2 SERVER %s", server_version ());
+	  sprintf ((char*)temp, "\r 64NET/2 SERVER %s\r", server_version ());
+	  c64print (temp);
+	  sprintf ((char*)temp, "DEVICE: %d, MODE: %s\r", devnum, clientdep_name[client_type]);
 	  c64print (temp);
 	}
 	c64print ((uchar*)"\r");
-	sendchar (254);
-	sendchar (0);
+	sendchar (254);	sendchar (0);
 
 }
 
@@ -615,8 +610,8 @@ void do_open_small (void) {
 	if (c64peek (FILETABLE + i) == fn) {
 	      /* file already open */
 	      debug_msg ("File %i already open\n",fn);
-	      c64print((uchar*)"?FILE OPEN  ERROR\r");
-	      sendchar (254); sendchar (2);
+	      if (c64peek(0x9d)!=0) c64print((uchar*)"?FILE OPEN  ERROR\r");
+	      sendchar (254); sendchar (0);
 	      return;
 	}
     /* everything seems OK, so add new entry */
@@ -626,6 +621,7 @@ void do_open_small (void) {
     no++;
     c64poke (0x98, no);
     /* release client, it will send filename and fall into do_open right now */
+//    sendchar(0xfc);
     sendchar(254); sendchar(0);
 }
 
@@ -654,12 +650,13 @@ void do_close_small(void) {
 		}
 		c64poke(0x98, no-1);
 		do_close(sa);	/* command loop will ignore 128 from do_close */
-		sendchar(254); sendchar(0);
+		sendchar(0xfc);
+//		sendchar(254); sendchar(0);
 		return;
 	}
     debug_msg("File %i not open!\n", fn);
-    c64print((uchar*)"?FILE NOT OPEN  ERROR\r");
-    sendchar(254); sendchar(1);
+    if (c64peek(0x9d)!=0) c64print((uchar*)"?FILE NOT OPEN  ERROR\r");
+    sendchar(254); sendchar(0x40);
 }
 
 void do_chkinout(int type) {
@@ -698,7 +695,7 @@ void do_chkinout(int type) {
 			}
 		    }
 		    /* release client */
-		    sendchar(254); sendchar(0);
+		    sendchar(0xfc);
 		    return;
 		} else {
 		    debug_msg("not our device\n");

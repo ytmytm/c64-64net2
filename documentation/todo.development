@@ -1,12 +1,4 @@
 To-Do list for 64net/2
 ----------------------
 
-This file contains information on portions of the 64net/2 system which need to
-be written.  Entries are of a general form, and may be quite precise, or quite
-vague.
-
-25 Sept 1996
-------------
-
-* Complete resource manager fopen/fclose module.
-* Write resource manager opendir/closedir module.
+Read TODO section in README.ytm

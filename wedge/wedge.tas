@@ -15,14 +15,21 @@
 ; - moved open,close,chkin,chkout to server side (now only kernal jumptable matters)
 
 !cpu 6502
-!to "wedge.out"
 
 ; configuration
 machine = 64				; 64 or 128 (or 65?)
-machinetype = 0				; reported to server
+
+!if (machine=64) {
+    machinetype=0			; reported to server
+    !to "wedge.64"
+} else {
+!if (machine=128) {
+    machinetype=2
+    !to "wedge.128"
+}}
 
 ; own definitions
-devnum  = $ff				; place where device number is kept
+devnum  = $a7				; place where device number is kept
 tmp01	= $fe				; temporary memory config storage for C64
 
 ; Kernal definitions
@@ -47,6 +54,8 @@ save			= $f5ed
 
 } else {
 !if machine=128 {
+; extended kernal routines
+indfet			= $ff74
 ; kernal table
 open			= $efbd
 close			= $f188
@@ -61,9 +70,9 @@ save			= $f54e
 
 }}
 
-		    *=$c000
 
 !if machine=64 {
+		    *=$c000
 ;		    * =$0801
 		!word $080b, 2000
 		!byte $9e
@@ -71,6 +80,7 @@ save			= $f54e
 		!byte 0,0,0
 } else {
 !if machine=128 {
+		    * =$1300
 ;		    * =$1c01
 }}
 
@@ -141,7 +151,7 @@ _64net2_unlisten
 _64net2_untalk	lda #"J"
 		jsr send_byte
 		jsr get_byte
-		sta status
+		;sta status			; ignore status after untalk
 		jmp .statcheck			; bne should work here
 
 		!zone Helpers
@@ -159,7 +169,15 @@ sendname	lda $ba				; similar to C64 $f3d5
 		lda $b7
 		beq .nosend
 		ldy #0
-.sendnamelp	lda ($bb),y
+.sendnamelp	
+!if (machine=64) {
+		lda ($bb),y
+} else {
+!if (machine=128) {
+		ldx $c7				; fetch name from correct bank
+		lda #$bb
+		jsr indfet
+}}
 		jsr _64net2_ciout
 		iny
 		cpy $b7
@@ -298,9 +316,14 @@ do_error	jsr get_byte
 		sec
 .no_error	rts
 
+do_exit		clc
+		rts
+
 do_ostype	lda #machinetype
 command_exe	jsr send_byte
 command_loop	jsr get_byte
+		cmp #$fc
+		beq do_exit
 		cmp #$f4
 		beq fastsave
 		cmp #$f5

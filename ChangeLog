@@ -1,3 +1,9 @@
+2001-09-19  
+	* fixed EOF handling, older LNG bugs
+	* wedge for C128 works
+	* basic support for M-R and M-W commands
+	* added signal handlers to main
+
 2001-09-18  
 	* cleaned up resman.c, some update notes, various client machines support
 	* moved open/close/chkin/out to server side

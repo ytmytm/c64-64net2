@@ -1,6 +1,8 @@
 Known bugs/faults in the 64NET/2 system
 ---------------------------------------
 
+Read BUGS section in README.ytm.
+
 Last updated 4 October 1996
 
 This file contains a list of known bugs, faults, algorithm problems which
@@ -106,18 +108,3 @@ things down somewhat.  File accesses are reasonably minimial, however may still
 cause slowdowns in some circumstance.
 
 ------------------------------------------------------------------------------
-
-Desc:       Possible desync problem in turntoget()
-Status:     Kluged
-Importance: Critical
-Date:       19 August 1996
-Problem:
-	There is a possibility for de-sync'ing to occur during a turntoget().
-This is again possibly related to the previous character sent.  
-
-Solution:
-	A timeout has been added to turntoget() on phase2 (where the fault is
-manifest).  It is possible that this may slow LOAD's and SAVE's slightly,
-however no adverse performance effects are expected.
-
------------------------------------------------------------------------------

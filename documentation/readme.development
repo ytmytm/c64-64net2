@@ -1,7 +1,7 @@
 64NET/2 Readme file
 (C) Copyright Paul Gardner-Stephen, 1996
 
-Last updated 27 October 1996
+Last updated 19 September 2001
 
 Welcome to the 64NET/2 Alpha/pre-BETA distribution!
 
@@ -49,10 +49,6 @@ TROUBLE SHOOTING
 	  If you do not have super-user access to your machine, then
 	  either consult the system administration, or use a serial
 	  version of 64NET/2.
-	
-	Q: Why cant i SAVE to 64NET/2?
-	A: Did you copy your key file to the 64NET/2 directory? Do you
-	  have a 64net key file?
   
 	Q: I cant find the CeaScape(tm) WWW browser!
 	A: CeaScape has yet to be written! But fear not, it is
@@ -118,7 +114,7 @@ TROUBLE SHOOTING
 	  your C128.
 
 	Q: When i run the 64NET/2 wedge my C128 crashes.
-	A: There is currently only C64 mode wedge.
+	A: Use correct wedge (there are separate versions for C128 and C64)
 
 	Q: No matter how often i use 64NET/2 my piano still remains
 	  out of tune.
