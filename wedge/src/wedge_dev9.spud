@@ -2,10 +2,19 @@
 
 	.space $c000 $cfff
 
-	; byte used to indicate whether a device is
-	; on 64net or serial bus
-	; bit7=1 means 64net
-	devflag = $a7
+	; Value for $01
+        value_01 = $05 ; $e7 for ROM, $05 for RAM
+        .patch $fdd6
+        .byte value_01
+
+	; byte indicates the default drive for 64net
+	drive_64net = $a7
+
+	; Make SHIFT-RUN/STOP load from 64net device
+        ; bug in build wedge breaks this if LDX drive_64net is 
+	; used, as it tries to make it absolute instead of ZP addressed.
+	.patch $e1d9
+	.byte $a6, drive_64net ; LDX $A7 zero page mode
 
 	; Replace basic "READY." message
  	; so we know what is going on
@@ -27,8 +36,9 @@
 myacptr
 	; Test if 64net/2 device
 	lda $ba
-	cmp #$09
+	cmp drive_64net
 	beq myacptr_entry
+myacptr_exit
 	; not for us - normal acptr
 	lda #$00
 	sta $a5
@@ -88,10 +98,8 @@ myacptr_gotbyte
 
 myclkwait
 	lda $ba
-	cmp #$09
+	cmp drive_64net
 	beq myclkwait_entry
-	; not for us - normal clock wait
-	inc $0401
 	jsr $eea0
 	jmp $edd0
 myclkwait_entry
@@ -123,7 +131,6 @@ myclkwait_entry
 ;mychkin_normal
 ;	; normal kernel job, 
 ;	; so wait normally
-;	inc $0402
 ;	jmp clkwait
 
 ; ---------------------------------------------------------------------
@@ -141,7 +148,7 @@ myclkwait_entry
 myserout
 	; Test if it is for us
 	lda $ba
-	cmp #$09
+	cmp drive_64net
 	beq myserout_entry
 	; nope ... pass back to kernel
 	jsr $ee8e
@@ -184,7 +191,7 @@ myserout_loop
 	; Alternate entry point to write to serial bus
 myserout_alternate
 	lda $ba
-	cmp #$09
+	cmp drive_64net
 	beq myserout_entry
 	; not for us
 	jsr $ee97
@@ -205,7 +212,6 @@ myserout_alternate
 ;	; for us - do nothing
 ;	rts
 ;myclkdata_normal
-;	inc $0405
 ;	myclkloop
 ;	lda $dd00
 ;	cmp $dd00
@@ -224,7 +230,7 @@ myserout_alternate
 ;whichbus
 ;	; Present char on port
 ;	lda $ba
-;	cmp #$09 
+;	cmp drive_64net 
 ;	bne whichbusend
 ;	lda #$89
 ;	sta $a7
@@ -255,7 +261,6 @@ myserout_alternate
 ;	lda $a7
 ;	ora #$80 ; was and #$80 but then you won't get through all bmi checks! Tobias
 ;	sta $a7
-;	sta $0407
 ;	jmp serout-1
 
 ;---
@@ -295,3 +300,105 @@ myserout_alternate
 ;	jsr $e716
 ;	pla
 ;	rts
+
+; ------------------------------------------------------------
+; Kernel Start up & Hot-key hooks
+; ------------------------------------------------------------
+
+	.patch $e7ce
+	jmp hotkeys
+
+	.section
+
+hotkeys cmp #$04   ; CTRL-D = drive select
+        bne hk1
+	jmp hotkey_d
+hk1	; Splice back into kernel function
+	jsr $e8cb
+	jmp $e7d1
+
+hotkey_d ; Swap drive 8/9
+	 ; i.e. make 64net drive 8 or 9
+	 ; XXX - We should be able to patch the kernel so that
+	 ; we can actually swap the devices by changing the byte
+	 ; sent under attention - but for now just make it easy
+         ; to change the default drive for 64net.
+	lda #$08
+	cmp drive_64net
+	bne hke1
+	lda #$09	
+hke1    sta drive_64net
+	; display "64NET IS" message
+	tya
+	pha
+	ldy #$00
+hke2	lda msg_64net_is,y
+	beq hke3
+	jsr $ffd2
+	iny
+	bne hke2	
+hke3	; display drive number and new line
+	lda drive_64net
+	ora #$30
+	jsr $ffd2
+	lda #$0d
+	jsr $ffd2
+	pla
+	tay
+	lda #$04
+	jmp $ec44
+
+	.section
+
+msg_64net_is
+	.byte '6','4','N','E','T',$20,'I'
+	.byte 'S',$20,'D','E','V',$23,$00
+
+	.patch $E444
+
+	jmp init_64net
+
+	.section
+
+init_64net
+	; Set device # by calling CTRL-D hotkey function.
+	; This will also display the "64NET is device x" message
+	jsr hotkey_d
+	; Start up basic
+	jmp $a644
+
+; ---------------------------------------------------------------------
+; Patch Kernel LOAD routine to accept no filename if device is 64net
+; ---------------------------------------------------------------------
+	.patch $f4bc
+	jmp name_check
+
+	.section
+
+name_check
+	lda $ba
+	cmp drive_64net
+	beq nc1
+	; missing name error
+	jmp $f710
+nc1	; No name for 64net LOAD, so 
+	; load boot file
+	
+	; set file name	
+	ldx #<boot_file
+	ldy #>boot_file
+	lda #9
+	jsr $ffbd
+
+	; Return
+	ldy $b7
+	jmp $f4bf
+
+	.section
+
+boot_file
+	; 1:BOOT.64 for C64 booting
+	; 1:BOOT.65 for C65 etc...
+	.byte '1',':','B','O','O','T','.','6','4'
+boot_file_end
+	.byte $00

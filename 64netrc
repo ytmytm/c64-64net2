@@ -19,14 +19,14 @@ debug mode
 #ram 256
 
 # Uncomment the next line to enable fishload
-fishload
+# fishload
 
 # Uncomment the next line to enable fishsave
 # DON'T do it, fishsave is broken and will remain as such :(
 #fishsave
 
 # number of port polls before sleeping
-timeout 5000
+# timeout 5000
 
 # Define a drive number to be served with 
 #  3 partitions.

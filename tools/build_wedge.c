@@ -654,9 +654,9 @@ struct assembled_byte *parseValueOperand(FILE *f)
 
   /* Check for high byte/low byte angles */
   getNextToken(f);
-  if (token_type==T_RANGLE) { bytes=1; getNextToken(f); }
+  if (token_type==T_RANGLE) { bytes=2; getNextToken(f); }
   else
-    if (token_type==T_LANGLE) { bytes=2; getNextToken(f); }
+    if (token_type==T_LANGLE) { bytes=1; getNextToken(f); }
 
   switch(token_type)
     {
@@ -830,7 +830,8 @@ int assembleInstruction(FILE *f)
       if (!ab) return -1;
       /* Commit instruction */
       if (commitOpcode(inst,IM_IMM)) return -1;
-      ab->bytes=1;
+      /* Demote 16bit values to 8 if necessary */
+      if (ab->bytes==3) ab->bytes=1;
       return commitByte(ab);
     case T_NUMERIC:
     case T_LITERAL:
