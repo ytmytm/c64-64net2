@@ -1,6 +1,7 @@
 
 int fs_pathtofilesystem (fs64_filesystem * fs, uchar *path);
 int fs64_scratchfile_g (uchar *filespec);
+int fs64_unreadchar(fs64_file *f, uchar *c);
 int fs64_readchar (fs64_file * f, uchar *c);
 int fs64_writechar (fs64_file * f, uchar c);
 int fs64_writeblock (fs64_file * f);

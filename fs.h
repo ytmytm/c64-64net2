@@ -46,43 +46,48 @@ struct fs64_direntrystructure {
 
 /* 64NET file structure - fs64_openfile returns */
 struct fs64_filestructure {
-    int open; /* file open flag */
-    uchar fs64name[16]; /* C64 filename, 0xa0 padded */
-    uchar realname[MAX_FS_LEN];/* full pathname and filename of realfile/fs object */
-    int first_track;  /* First block of file in object */
-    int first_sector; /*                               */
-    long first_poss; /* first byte of real file which is the body of the file */
-    fs64_filesystem filesys;
-    int mode;  /* mode of openness - ie, is it read or write */
-    int curr_track;
-    int curr_sector;
-    long curr_poss;
-    long blocks;  /* # of blocks in the file */
-    long realsize; /* # of bytes in the real file which are part of the file */
-    int filetype;
-    
-    /* block buffer */
-    int bp; /* buffer pointer */
-    int be; /* buffer end, when bp==be, the buffer is empty */
-    int lastblock;
-    uchar buffer[256]; /* sector buffer */
-    
-    /* things for if it is a directory */
-    int isdir;
-    fs64_direntry de;
-    /* blocks free on filesystem */
-    long blocksfree;
-    
-    /* for if its a buffer */
-    int isbuff;
+  int open; /* file open flag */
+  
+  /* Queued character resulting from call to fs64_unreadchar() */
+  int char_queuedP;
+  int queued_char;
 
-    /* for network streams */
-    int socket;
-    int msocket;
-    int ip;
-    int port;
-    int sockmode;
-    struct sockaddr_in sockaddr;
+  uchar fs64name[16]; /* C64 filename, 0xa0 padded */
+  uchar realname[MAX_FS_LEN];/* full pathname and filename of realfile/fs object */
+  int first_track;  /* First block of file in object */
+  int first_sector; /*                               */
+  long first_poss; /* first byte of real file which is the body of the file */
+  fs64_filesystem filesys;
+  int mode;  /* mode of openness - ie, is it read or write */
+  int curr_track;
+  int curr_sector;
+  long curr_poss;
+  long blocks;  /* # of blocks in the file */
+  long realsize; /* # of bytes in the real file which are part of the file */
+  int filetype;
+  
+  /* block buffer */
+  int bp; /* buffer pointer */
+  int be; /* buffer end, when bp==be, the buffer is empty */
+  int lastblock;
+  uchar buffer[256]; /* sector buffer */
+  
+  /* things for if it is a directory */
+  int isdir;
+  fs64_direntry de;
+  /* blocks free on filesystem */
+  long blocksfree;
+  
+  /* for if its a buffer */
+  int isbuff;
+  
+  /* for network streams */
+  int socket;
+  int msocket;
+  int ip;
+  int port;
+  int sockmode;
+  struct sockaddr_in sockaddr;
 };
 #define fs64_file struct fs64_filestructure
 

@@ -149,10 +149,8 @@ int state=IEC_IDLE;
 int ATN=0;
 int inputlen=0;
 int inputpos=0;
-int outputlen=0;
 int outputpos=0;
 unsigned char* input_buffer;
-unsigned char* output_buffer;
 int lpt_fd;
 
 unsigned int iec_listen();
@@ -242,7 +240,7 @@ int start_server()
 #endif
 	// Write data which has been received
 	for(i=0;i<inputlen;i++)
-	  fs64_writechar (&logical_files[file_unit][SA&0xf], input_buffer[i]);
+	  fs64_writechar (&logical_files[last_unit][SA&0xf], input_buffer[i]);
 	printf("Wrote %d bytes to file.\n",i);
 
 	if(inputlen>0) free(input_buffer);
@@ -251,7 +249,6 @@ int start_server()
       if ((SA&0xf)==0xf)
 	{
 	  /* DOS command - so write it out */
-	  last_unit=file_unit;
 	  input_buffer[inputlen]=0;
 	  strncpy(dos_command[last_unit],input_buffer,255);
 	  dos_command[last_unit][255]=0;
@@ -263,7 +260,7 @@ int start_server()
       
     case IEC_TALK:
 #ifdef DEBUG_PIEC
-      printf("changed state: TALK\n");
+      printf("changed state: TALK on unit %d\n",last_unit);
 #endif
       temp=receive_byte(); 
       if((temp&0x100)==0) { change_state(IEC_IDLE); break; }
@@ -279,32 +276,13 @@ int start_server()
 	talklf=SA&0xf;
 	file_unit=last_unit;
 
-	output_buffer=malloc(1048576);
-	outputlen=0;
-	
-	if (talklf!=0xf)
-	  {
-	    while(!fs64_readchar(&logical_files[file_unit][talklf], 
-				 &output_buffer[outputlen]))
-	      outputlen++;
-	  }
-	else
-	  {
-	    /* Read DOS status */
-	    bcopy(dos_status[last_unit],output_buffer,dos_stat_len[last_unit]);
-	    outputlen=dos_stat_len[last_unit];
-	    set_error(0,0,0);
-	  }
       }
       else {
-	//output_buffer=execute_command(input_buffer);
-
 	//this data is not needed anymore
 	if(inputlen>0) free(input_buffer);
       }
       talk();
       change_state(IEC_IDLE);
-      if(outputlen>0) free(output_buffer);
       break;
       
     case IEC_UNLISTEN:
@@ -437,37 +415,60 @@ unsigned int talk() {
   unsigned int temp=0;
   outputpos=0;
 #ifdef DEBUG_PIEC
-  printf("Serving %d bytes of requested data...\n",outputlen);
+  printf("TALKing on lf#%d, file_unit=%d...\n",talklf,last_unit);
 #endif
 
-  /* Special case for if we are asked to send 0 bytes. */
-  if (outputlen<=0) 
+  while(1)
     {
-      send_eoi();
-      return 0;
-    }
+      if (talklf!=0xf)
+	{
+	  unsigned char c;
+	  if(!fs64_readchar(&logical_files[last_unit][talklf],&c))
+	    {
+	      // Send byte
+	      temp=send_byte(c);
+	      acknowledge();
 
-  while(outputpos<outputlen) {	
-    //send byte
-    temp=send_byte(output_buffer[outputpos]);
-    // Notify the C64 when we have sent the last byte
-    if(outputpos==outputlen-1) send_eoi();
-    else acknowledge();
-    
-    //Any problems during sending?
-    if(temp!=0) {
-      /* ATN went high during sending, quickly redraw from bus and wait
-	 for further instructions */
-      change_state(IEC_IDLE);
-      break;							
-    }
-    outputpos++;
-
+	      if (temp)
+		{
+		  /* XXX Don't consume this byte, since it didn't get send */
+		}
+	    }
+	  else
+	    {
+	      send_eoi();
+	      return 0;
+	    }
+	}
+      else
+	{
+	  /* Read DOS status */
+	  if (dos_stat_len[last_unit]<1) set_error(0,0,0);
 #ifdef DEBUG_PIEC
-  printf("  sent %d bytes\n",outputpos);
+	  printf("DOS Status = [%s]\n",dos_status[last_unit]);
+	  printf("Sending $%02x\n",dos_status[last_unit][0]);
 #endif
+	  temp=send_byte(dos_status[last_unit][0]);
+	  acknowledge();
 
-  }
+	  if (!temp)
+	    {
+	      /* Consume byte unless ATN was raised */
+	      bcopy(&dos_status[last_unit][1],&dos_status[last_unit][0],
+		    dos_stat_len[last_unit]);
+	      dos_stat_len[last_unit]--;
+	    }
+	}
+
+      //Any problems during sending?
+      if(temp!=0) {
+	/* ATN went high during sending, quickly redraw from
+	   bus and wait for further instructions */
+	change_state(IEC_IDLE);
+	break;							
+      }
+    }
+
   return temp;
 }
 
@@ -608,8 +609,8 @@ uchar change_state(unsigned int new_state)
 	    state=IEC_TALK;
 	    last_unit=unit;
 #ifdef DEBUG_PIEC
-	    printf("Received Talk command for device #%d\n",
-		   devices[last_unit]);
+	    printf("Received Talk command for device #%d (unit %d)\n",
+		   devices[last_unit],last_unit);
 #endif
 	    break;
 	  }
@@ -952,9 +953,7 @@ set_drive_status (uchar *string, int len)
   /* set the drive message */
   int d;
 
-  /* Only one drive at present */
-  /*   d=which_unit(last_drive); */
-  d = 0;
+  d = last_unit;
 
   if (d < 0)
     return (1);			/* no drive polled */

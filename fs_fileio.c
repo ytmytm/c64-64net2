@@ -462,6 +462,20 @@ fs64_direntry2block (fs64_file * f)
    fs64_readchar, fs64_writechar - file character io 
  */
 
+int fs64_unreadchar(fs64_file *f, uchar *c)
+{
+  /* push the character back onto the buffer.
+     This is only guaranteed to work for one char */
+
+  if (f->open != 1) return -1;
+  if (f->char_queuedP) return -1;
+
+  f->queued_char=*c;
+  f->char_queuedP=1;
+
+  return 0;
+}
+
 int
 fs64_readchar (fs64_file * f, uchar *c)
 {
@@ -474,6 +488,14 @@ fs64_readchar (fs64_file * f, uchar *c)
     *c = 199;
     return (-1);
   }
+
+  /* Re-send queued character */
+  if (f->char_queuedP) 
+    {
+      f->char_queuedP=0;
+      *c = f->queued_char;
+      return 0;
+    }
 
   if (f->isbuff)
   {
@@ -1038,6 +1060,7 @@ fs64_openfile (fs64_direntry * de, fs64_file * f)
   /* file not open until all things done */
   f->open = 0;
   f->isdir = 0;
+  f->char_queuedP=0;
 
   /* is de an active entry? */
   if (de->active != 1)
