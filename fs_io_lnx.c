@@ -6,10 +6,11 @@
 
  */
 
+#include "config.h"
 #include "fs.h"
 
 int
-fs_lnx_createfile (char *path, char *name, int t, fs64_file * f)
+fs_lnx_createfile (uchar *path, uchar *name, int t, fs64_file * f)
 {
   debug_msg ("lnx: Pretending to create file %s/%s [%d]\n",
 	     path, name, t);
@@ -80,7 +81,7 @@ fs_lnx_isblockfree (fs64_filesystem * fs, int track, int sector)
 }
 
 int
-fs_lnx_create_g (unsigned char *path, unsigned char *glob, fs64_file * f)
+fs_lnx_create_g (uchar *path, uchar *glob, fs64_file * f)
 {
   debug_msg ("Pretending to create (LNX) %s/%s\n", path, glob);
   return (-1);
@@ -136,7 +137,7 @@ fs_lnx_readblock (fs64_file * f)
 }
 
 int
-fs_lnx_headername (char *path, char *header, char *id, int par)
+fs_lnx_headername (uchar *path, uchar *header, uchar *id, int par)
 {
   /* use right 16 chars from path */
   int i, j;
@@ -161,7 +162,7 @@ fs_lnx_headername (char *path, char *header, char *id, int par)
   header[j] = 0;
   /* default */
   if ((!strcmp (path, "/")) || (header[0] == 0))
-    sprintf (header, "LYNX ARCHIVE");
+    sprintf ((char*)header, "LYNX ARCHIVE");
 
   strcpy (id, " LYNX");
 
@@ -169,10 +170,10 @@ fs_lnx_headername (char *path, char *header, char *id, int par)
 }
 
 int
-fs_lnx_openfind (fs64_direntry * de, char *path)
+fs_lnx_openfind (fs64_direntry * de, uchar *path)
 {
   int i, j;
-  unsigned char temp[16], c;
+  uchar temp[16], c;
 
   /* LYNX filesystem file */
   de->filesys.media = media_LNX;
@@ -297,7 +298,7 @@ int
 fs_lnx_getinfo (fs64_direntry * de)
 {
   int i;
-  unsigned char c, temp[20];
+  uchar c, temp[20];
 
   /* file will be visible */
   de->invisible = 0;

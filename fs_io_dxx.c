@@ -4,18 +4,16 @@
    (C)Copyright Paul Gardner-Stephen 1996
  */
 
+#include "config.h"
 #include "fs.h"
 #include "fs_func.h"
 #include "datestamp.h"
-#ifdef AMIGA
-#include <dos.h>
-#endif
 
 int 
 fs_dxx_getinfo (fs64_direntry * de)
 {
   long i;
-  unsigned char sectorbuffer[256];
+  uchar sectorbuffer[256];
 
   /* Read in the sector and sort the info there-in 
      if intcount =8 then link to next sector.
@@ -102,7 +100,7 @@ fs_dxx_findnext (fs64_direntry * de)
 }
 
 int 
-fs_dxx_format (fs64_filesystem * fs, char *name, char *id)
+fs_dxx_format (fs64_filesystem * fs, uchar *name, uchar *id)
 {
   switch (fs->media)
   {
@@ -141,7 +139,7 @@ fs_dxx_validate (fs64_filesystem * fs, int purgeflag)
 }
 
 int 
-fs_dxx_createfile (char *fsfilename, char *name, int ft, int rel_len, fs64_file * f, int dirtrack, int dirsect, int media)
+fs_dxx_createfile (uchar *fsfilename, uchar *name, int ft, int rel_len, fs64_file * f, int dirtrack, int dirsect, int media)
 {
 
 /* create a new file on a disk image */
@@ -155,7 +153,7 @@ fs_dxx_createfile (char *fsfilename, char *name, int ft, int rel_len, fs64_file 
      4) Alloc first block (?)
    */
 
-  unsigned char sectbuff[256];
+  uchar sectbuff[256];
   int t, s;
 
   /* Step 0 - Convert fsfilename to a 64net/2 file system */
@@ -508,7 +506,7 @@ fs_dxx_createfile (char *fsfilename, char *name, int ft, int rel_len, fs64_file 
 	      return (-1);
 	    }
 	  }
-	  printf ("REL file created and open\n");
+	  debug_msg ("REL file created and open\n");
 	  return (0);
 	}
       case cbm_DIR:
@@ -626,7 +624,7 @@ fs_dxx_createfile (char *fsfilename, char *name, int ft, int rel_len, fs64_file 
 }
 
 int 
-fs_dxx_finddirblock (char *path, int *dirtrack, int *dirsector, char *fname)
+fs_dxx_finddirblock (uchar *path, int *dirtrack, int *dirsector, uchar *fname)
 {
   /* find directory start track and sector (for a filesystem and subdirectories) */
 
@@ -666,7 +664,7 @@ fs_dxx_finddirblock (char *path, int *dirtrack, int *dirsector, char *fname)
       else
 	return (-1);
 #else
-      stat (path, &sb);
+      stat ((char*)path, &sb);
       if (sb.st_mode != S_IFREG)
 	path[i] = '/';
       else
@@ -682,7 +680,7 @@ fs_dxx_finddirblock (char *path, int *dirtrack, int *dirsector, char *fname)
 
   if (path[i + 1])
   {
-    char fspath[1024], glob[256], slag[256];
+    uchar fspath[1024], glob[256], slag[256];
     strcpy (fspath, path);
     strcpy (slag, &path[i + 1]);
 
@@ -699,16 +697,16 @@ fs_dxx_finddirblock (char *path, int *dirtrack, int *dirsector, char *fname)
 	if ((slag[i] == '/') || (slag[i] == 0))
 	{
 	  /* strip from slag */
-	  char temp[1024];
+	  uchar temp[1024];
 	  if (slag[i] == '/')
-	    sprintf (temp, "%s", &slag[i + 1]);
+	    sprintf ((char*)temp, "%s", &slag[i + 1]);
 	  else
 	    temp[0] = 0;
 	  strcpy (slag, temp);
 	  break;
 	}
 	else
-	  sprintf (glob, "%s%c", glob, slag[i]);
+	  sprintf ((char*)glob, "%s%c", glob, slag[i]);
       /* now fs64_findfirst it */
       if (fs64_findfirst_g (fspath, glob, &de, dirtrack, dirsector))
       {
@@ -839,7 +837,7 @@ fs_dxx_allocateblock (fs64_filesystem * fs, int track, int sector)
 }
 
 int 
-fs_dxx_openfind (fs64_direntry * de, char *path, int *dt, int *ds)
+fs_dxx_openfind (fs64_direntry * de, uchar *path, int *dt, int *ds)
 {
   /* Dxx filesystem block */
   de->filesys.media = fs64_mediatype (path);
@@ -890,9 +888,9 @@ fs_dxx_openfind (fs64_direntry * de, char *path, int *dt, int *ds)
 }
 
 int 
-fs_d47_headername (char *path, char *header, char *id, int par, fs64_file * f)
+fs_d47_headername (uchar *path, uchar *header, uchar *id, int par, fs64_file * f)
 {
-  unsigned char buff[256];
+  uchar buff[256];
   fs64_filesystem ff;
   int i;
   ff.fsfile = 0;
@@ -1085,7 +1083,7 @@ fs_dxx_scratchfile (fs64_direntry * de)
   /* de->intcount, de->track & de->sector reference 
      the directory entry */
 
-  unsigned char buffer[256];
+  uchar buffer[256];
 
   /* read in dir sector */
   debug_msg ("Scratching [%s]\n", de->fs64name);
@@ -1159,7 +1157,7 @@ fs_dxx_bamalloc (fs64_filesystem * fs, int t, int s, void *bam)
   case media_DHD:
     return (fs_dhd_bamalloc (t, s, bam));
   default:
-    printf ("fs_dxx_bamalloc: unsupported media\n");
+    debug_msg ("fs_dxx_bamalloc: unsupported media\n");
     set_error (38, 0, 0);
     return (-1);
   }
@@ -1371,7 +1369,7 @@ fs_dxx_validate_dir (fs64_filesystem * fs, int purgeflag, void *bam, int t, int 
 	  }
 	case cbm_REL:
 	  /* eeww... a REL file */
-	  printf ("Mangling some REL file\n");
+	  debug_msg ("Mangling some REL file\n");
 	}
 
       }

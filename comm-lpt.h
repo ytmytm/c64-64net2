@@ -34,22 +34,18 @@
 /* `File System Accelerator' commands */
 #define FSACCEL		'F'
 
-#ifndef NULL
-#define NULL 0
-#endif
-
 /* port addresses */
-extern int outport,inport;
+extern int portout,portin;
 
 /* function prototypes */
 int commune(void);
-int read_config (char *file);
+int read_config (uchar *file);
 int read_device (FILE * cf);
 int c64peek (long location);
 int c64poke (long location,int val);
-int c64print(char *text);
+int c64print(uchar *text);
 int c64jsr(int addr,int a,int x, int y);
-int set_drive_status (unsigned char *string, int len);
+int set_drive_status (uchar *string, int len);
 int which_unit (int);
 
 extern int talklf, lastlf, devnum;

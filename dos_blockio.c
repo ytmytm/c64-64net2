@@ -3,11 +3,12 @@
    (C)Copyright Paul Gardner-Stephen 1996, All rights reserved
  */
 
+#include "config.h"
 #include "fs.h"
 #include "dosemu.h"
 
 int
-dos_u1 (char *doscomm, int commlen, int lu)
+dos_u1 (uchar *doscomm, int commlen, int lu)
 {
   /* sector-read */
   int sa, pn, t, s;
@@ -40,8 +41,8 @@ dos_u1 (char *doscomm, int commlen, int lu)
     for (i = 0; i < 16; i++)
     {
       for (j = 0; j < 16; j++)
-	printf ("%02x ", logical_files[lu][sa].buffer[i * 16 + j]);
-      printf ("\n");
+	debug_msg ("%02x ", logical_files[lu][sa].buffer[i * 16 + j]);
+      debug_msg ("\n");
     }
   }
 
@@ -53,7 +54,7 @@ dos_u1 (char *doscomm, int commlen, int lu)
 }
 
 int
-parseu1 (char *doscomm, int commlen, int *a, int *b, int *c, int *d)
+parseu1 (uchar *doscomm, int commlen, int *a, int *b, int *c, int *d)
 {
   /* sector-read */
   int sa = 0, pn = 0, t = 0, s = 0;
@@ -260,7 +261,7 @@ dcu1_7:
       return (-1);
     }
 dcu1_8:
-  printf ("SA: %d PN: %d T%d S%d\n", sa, pn, t, s);
+  debug_msg ("SA: %d PN: %d T%d S%d\n", sa, pn, t, s);
 
   *a = sa;
   *b = pn;

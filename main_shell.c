@@ -3,35 +3,31 @@
    (C)Copyright Paul Gardner-Stephen 1995, 1996, 1998 All Rights Reserved
  */
 
-#include <stdio.h>
-#include <signal.h>
-
+#include "config.h"
 #include "fs.h"
 #include "dosemu.h"
 #include "misc_func.h"
 #include "comm-lpt.h"
+#include "version.h"
 
-
-int steal_parallel_port = 0;
-int no_net = 0;
+int no_net = NONET;
 #ifdef AMIGA
+int steal_parallel_port = 0;
 extern Library BSDBase;
 #endif
 
-int showlist(char *foo);
+int showlist(uchar *foo);
 
 int 
 main (int argc, char **argv)
 {
-    /*   signal(SIGINT, (void *)fatal_error("SIGINT caught")); */
-    /*   signal(SIGTERM, (void *)fatal_error("SIGTERM caught")); */
 
   debug_mode = 0;
 
 #ifdef DEBUG
   initDebug();
 #endif
-    
+
 #ifdef AMIGA
     while(argc > 1)
     {
@@ -60,13 +56,13 @@ main (int argc, char **argv)
 	printf("AmiTCP not loaded, network filesystem disabled.\n");
 	no_net = 1;
     }
-    
-    
+
+
 #endif
 
-    printf ("64NET/2 r0 pre-BETA\n");
+    printf ("64NET/2 server %s\n",server_version());
     /* read config info */
-    read_config ("./64netrc");
+    read_config ((uchar*)"./64netrc");
     /* initialize dos */
     init_dos ();
     /* all ready, be cute */
@@ -76,7 +72,7 @@ main (int argc, char **argv)
     
     while(1)
       {
-	char comm[1024];
+	uchar comm[1024];
 	last_unit=0;
 
 	/* Show dos status */
@@ -89,14 +85,14 @@ main (int argc, char **argv)
 
 	/* Read command */
 	printf("64net/2> "); fflush(stdout);
-	if (!fgets(comm,1024,stdin)) 
+	if (!fgets((char*)comm,1024,stdin)) 
 	  {
 	    printf("\n64net/2 DOS Shell terminated.\n");
 	    exit(0);
 	  }
 	if (strlen(comm)) comm[strlen(comm)-1]=0; /* strip NL */
 
-	if (!strcasecmp(comm,"help"))
+	if (!strcasecmp((char*)comm,"help"))
 	  {
 	    printf("64net/2 DOS Shell\n");
 	    printf("$[[nnn][/path]:][filespec]     - Display specified directory\n");
@@ -130,10 +126,10 @@ main (int argc, char **argv)
     return (0);
 }
 
-int showlist(char *dir)
+int showlist(uchar *dir)
 {
   int i;
-  unsigned char c;
+  uchar c;
   fs64_file f;
 
   /* prepare the 64net file system */

@@ -12,10 +12,11 @@
 
  */
 
+#include "config.h"
+
 #ifdef DEBUG
 
 #include "fs.h"
-#include "resman.h"
 
 /* fopen / fclose monitoring */
 

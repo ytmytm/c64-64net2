@@ -10,6 +10,6 @@ void do_ciout(int secaddr);
 void do_command(void);
 
 extern int fnlen;
-extern unsigned char filename[256];
+extern uchar filename[256];
 extern int dont_open;
 extern int allowFishLoad, allowFishSave;

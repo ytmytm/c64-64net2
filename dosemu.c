@@ -10,6 +10,7 @@
    either CBM or CMD.
  */
 
+#include "config.h"
 #include "fs.h"
 #include "fs_func.h"
 #include "dosemu.h"
@@ -17,7 +18,7 @@
 #include "misc_func.h"
 
 void
-set_current_dir (unsigned char *foo)
+set_current_dir (uchar *foo)
 {
   /* set current directory on current partition of current drive */
 
@@ -25,7 +26,7 @@ set_current_dir (unsigned char *foo)
   if (curr_dir[last_unit][curr_par[last_unit]])
     free (curr_dir[last_unit][curr_par[last_unit]]);
   /* set new one */
-  if (!(curr_dir[last_unit][curr_par[last_unit]] = (unsigned char *)
+  if (!(curr_dir[last_unit][curr_par[last_unit]] = (uchar *)
 	malloc (strlen (foo) + 1)))
     /* couldnt malloc */
     fatal_error ("Cannot allocate memory.");
@@ -90,9 +91,9 @@ do_dos_command (void)
   int i = last_unit, dt = -1, ds = -1;
   /* scratch vars */
   int j, k, par, rv;
-  char path[1024], partition[8];
-  char temp[1024];
-  char name[80], id[80];
+  uchar path[1024], partition[8];
+  uchar temp[1024];
+  uchar name[80], id[80];
   debug_msg ("DOS Command: [%s]\n", dos_command[i]);
   if (dos_comm_len[i] == 0)
     /* null command needs null action */
@@ -183,12 +184,12 @@ do_dos_command (void)
 	    dos_comm_len[i] = 0;
 	    return (-1);
 	  }
-	  printf ("Md: create [%s] in [%s]\n", lname, path);
+	  debug_msg ("Md: create [%s] in [%s]\n", lname, path);
 	  /* create a fs64_filesystem */
 	  if (fs_pathtofilesystem (&fs, path))
 	  {
 	    /* fs_pathtofilesystem() will have set the error */
-	    printf ("Could not make file system\n");
+	    debug_msg ("Could not make file system\n");
 	    return (-1);
 	  }
 	  /* ensure host media is suitable */
@@ -262,10 +263,11 @@ do_dos_command (void)
 	      dos_comm_len[i] = 0;
 	      return (-1);
 	    default:
+		  break;
 	    }
 	  strcpy (sname, lname);
-	  sprintf (path, "%s%s%s", path, sname, ext);
-	  printf ("Md: create [%s] of %d blocks\n", path, blocks);
+	  sprintf ((char*)path, "%s%s%s", path, sname, ext);
+	  debug_msg ("Md: create [%s] of %d blocks\n", path, blocks);
 	  /* create physical file */
 	  fs.media = media;
 	  if ((fs.fsfile = fopen (path, "r")) != NULL)
@@ -273,7 +275,7 @@ do_dos_command (void)
 	    /* already exists */
 	    fclose (fs.fsfile);
 	    fs.fsfile = 0;
-	    printf ("Dir exists\n");
+	    debug_msg ("Dir exists\n");
 	    set_error (63, 0, 0);
 	    dos_comm_len[i] = 0;
 	    return (-1);
@@ -281,7 +283,7 @@ do_dos_command (void)
 	  if ((fs.fsfile = fopen (path, "w+")) == NULL)
 	  {
 	    /* could not open new file system */
-	    printf ("Could not open new file system\n");
+	    debug_msg ("Could not open new file system\n");
 	    set_error (74, 0, 0);
 	    dos_comm_len[i] = 0;
 	    return (-1);
@@ -294,7 +296,7 @@ do_dos_command (void)
 	      uchar temp[256] =
 	      {0};
 	      int i;
-	      sprintf (temp, "DHD %02x TRACKS\nPRG [64NET/2 v00.01 ALPHA            ]\n%c%c",
+	      sprintf ((char*)temp, "DHD %02x TRACKS\nPRG [64NET/2 v00.01 ALPHA            ]\n%c%c",
 		       size, 4, size);
 	      for (i = 0; i < 256; i++)
 		fputc (temp[i], fs.fsfile);
@@ -317,8 +319,8 @@ do_dos_command (void)
 		return (-1);
 	      }
 	      /* format it! */
-	      printf ("Format please!\n");
-	      if (fs_dxx_format (&fs, lname, "01"))
+	      debug_msg ("Format please!\n");
+	      if (fs_dxx_format (&fs, lname, (uchar*)"01"))
 	      {
 		dos_comm_len[i] = 0;
 		fclose (fs.fsfile);
@@ -354,7 +356,7 @@ do_dos_command (void)
       /* get partition number (or `alidate' then partition #) */
       /* (j will contain the offset to the partition) */
       for (j = 1; dos_command[i][j] == valcmd[j]; j++);
-      printf ("Parsing [%s]\n", &dos_command[i][j]);
+      debug_msg ("Parsing [%s]\n", &dos_command[i][j]);
       /* Format a disk image or filesystem in general */
       for (k = j; k < dos_comm_len[i]; k++)
 	if (dos_command[i][k] == ':')
@@ -370,12 +372,12 @@ do_dos_command (void)
 	return (-1);
       }
       dos_command[i][k + 1] = l;
-      printf ("Format: Path [%s] par:%d\n", path, par);
+      debug_msg ("Format: Path [%s] par:%d\n", path, par);
       id[0] = 0;
       name[0] = 0;
       for (j = k + 1; j < dos_comm_len[i]; j++)
 	if (dos_command[i][j] != ',')
-	  sprintf (name, "%s%c", name, dos_command[i][j]);
+	  sprintf ((char*)name, "%s%c", name, dos_command[i][j]);
 	else
 	{
 	  dos_command[i][j + 3] = 0;
@@ -385,7 +387,7 @@ do_dos_command (void)
 	  break;
 	}
       name[16] = 0;
-      printf ("Name/id: [%s][%s]\n", name, id);
+      debug_msg ("Name/id: [%s][%s]\n", name, id);
 
       {
 	/* construct filesystem (or abort) */
@@ -462,7 +464,7 @@ do_dos_command (void)
       /* get partition number (or `alidate' then partition #) */
       /* (j will contain the offset to the partition) */
       for (j = 1; dos_command[i][j] == valcmd[j]; j++);
-      printf ("Parsing [%s]\n", &dos_command[i][j]);
+      debug_msg ("Parsing [%s]\n", &dos_command[i][j]);
       if (fs64_parse_path (&dos_command[i][j], path, &par, &dt, &ds))
       {
 	/* fs64_parse_filespec will have set the error */
@@ -470,7 +472,7 @@ do_dos_command (void)
 	return (-1);
       }
 
-      printf ("Validate: Path [%s] par:%d\n", path, par);
+      debug_msg ("Validate: Path [%s] par:%d\n", path, par);
 
       {
 	/* construct filesystem (or abort) */
@@ -545,7 +547,7 @@ do_dos_command (void)
       /* get partition number (or `alidate' then partition #) */
       /* (j will contain the offset to the partition) */
       for (j = 1; dos_command[i][j] == valcmd[j]; j++);
-      printf ("Parsing [%s]\n", &dos_command[i][j]);
+      debug_msg ("Parsing [%s]\n", &dos_command[i][j]);
       if (fs64_parse_path (&dos_command[i][j], path, &par, &dt, &ds))
       {
 	/* fs64_parse_filespec will have set the error */
@@ -553,7 +555,7 @@ do_dos_command (void)
 	return (-1);
       }
 
-      printf ("Validate: Path [%s] par:%d\n", path, par);
+      debug_msg ("Validate: Path [%s] par:%d\n", path, par);
 
       {
 	/* construct filesystem (or abort) */
@@ -730,7 +732,7 @@ do_dos_command (void)
 	  if (dos_comm_len[i] == 2)
 	  {
 	    /* return current dir in status */
-	    sprintf (temp, "%02d,%s,%02d,%02d",
+	    sprintf ((char*)temp, "%02d,%s,%02d,%02d",
 		     0, (char *) curr_dir[curr_par[i]], 0, 0);
 	    set_drive_status (temp, strlen (temp));
 	    dos_comm_len[i] = 0;
@@ -787,7 +789,7 @@ do_dos_command (void)
 
 	  /* step 2 - fs64_parse_partitions */
 	  strcpy (path, &dos_command[i][k]);
-	  sprintf (partition, "%d", par);
+	  sprintf ((char*)partition, "%d", par);
 	  if (fs64_resolve_partition (partition, path, &dt, &ds))
 	    /* parse_filespec will have set the error */
 	  {
@@ -799,7 +801,7 @@ do_dos_command (void)
 	  debug_msg ("Parsed path: [%d][%s]\n", par, path);
 	  if (curr_dir[i][par])
 	    free (curr_dir[i][par]);
-	  curr_dir[i][par] = (char *) malloc (strlen (path) + 1);
+	  curr_dir[i][par] = (uchar *) malloc (strlen (path) + 1);
 	  strcpy (curr_dir[i][par], path);
 	  /* and update dir block */
 	  curr_dirtracks[i][par] = dt;

@@ -1,3 +1,12 @@
+20.06.2001
+Information below is obsolete. 64net/2 currently compiles and works on Linux.
+Windows binary can be build without any major problems with Borland C++ 5.02,
+but with fs_net and fs_ufs commented-out. It is unusable due to fact that
+inpb/outb functions are not available to Windows target. This will be solved.
+
+Maciej 'YTM/Elysium' Witkowiak (ytm@elysium.pl)
+
+
 64NET/2 Documentation on ports to other platforms
 -----------------------------------------
 (C)Copyright Paul Gardner-Stephen, 1996

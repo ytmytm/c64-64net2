@@ -3,9 +3,7 @@
 
  */
 
-#include <stdio.h>
-
-#include "debug.h"
+#include "config.h"
 #include "comm-lpt.h"
 #include "client-comm.h"
 
@@ -14,7 +12,7 @@ set_error (int en, int t, int s)
 {
   /* display a DOS error message */
 
-  unsigned char temp[256];
+  uchar temp[256];
   char mesg[81][32] =
   {
     "OK",
@@ -76,7 +74,7 @@ set_error (int en, int t, int s)
   else
     client_error (1);
 
-  sprintf (temp, "%02d, %s,%02d,%02d\r", en, mesg[en], t, s);
+  sprintf ((char*)temp, "%02d, %s,%02d,%02d\r", en, mesg[en], t, s);
   debug_msg ("%s\n", temp);
 
   /* set the message into the real status variable */

@@ -3,15 +3,14 @@
    (C) Copyright Paul Gardner-Stephen 1996, All rights reserved 
  */
 
-#include <stdio.h>
-#include <errno.h>
+#include "config.h"
 
-FILE *f = 0;
-char fname[1024] =
+static FILE *f = 0;
+static uchar fname[MAX_FS_LEN] =
 {0};
 
 int 
-client_init (char *temp)
+client_init (uchar *temp)
 {
   if ((f = fopen (temp, "w")) == NULL)
   {

@@ -4,9 +4,10 @@
    64NET system, whether for unix, xx-DOS, or otherwise
  */
 
+#include "config.h"
 #include "fs.h"
 
-int no_net=1;
+int no_net=NONET;
 
 int 
 main (int argc, char **argv)
@@ -14,7 +15,7 @@ main (int argc, char **argv)
   int blub, bf;
   int i, qf = 0;
   int /* dt=-1, */ ds = -1;
-  char path[1024], glob[256];
+  uchar path[1024], glob[256];
 
   fs64_direntry de;
   de.dir = 0;
@@ -27,7 +28,7 @@ main (int argc, char **argv)
   if (argc > 2)
   {
     strcpy (glob, argv[2]);
-    strcat (glob, ",$");
+    strcat ((char*)glob, ",$");
   }
   else
     strcpy (glob, "*,$");
@@ -35,7 +36,7 @@ main (int argc, char **argv)
   /* ensure path ends in '/' */
   if (fs64_mediatype (path) == media_UFS)
     if (path[strlen (path) - 1] != '/')
-      strcat (path, "/");
+      strcat ((char*)path, "/");
 
   blub = fs64_findfirst_g (path, glob, &de, &ds, &ds);
 

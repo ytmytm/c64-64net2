@@ -15,9 +15,9 @@
 
 /* file open and close logging */
 
-FILE *res_fopen(char *a,char *b);
+FILE *res_fopen(uchar *a,char *b);
 int res_fclose(FILE *f);
-DIR *res_opendir(char *a);
+DIR *res_opendir(uchar *a);
 int res_closedir(DIR *d);
 
 #define fopen res_fopen

@@ -1,8 +1,8 @@
 
-int fs_accel (unsigned char command);
+int fs_accel (uchar command);
 
 extern int georam_size;
-extern unsigned char *georam;
+extern uchar *georam;
 
 #define FSA_READ_PAGE		'I'
 #define FSA_READ_MEMORY		'H'

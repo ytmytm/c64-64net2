@@ -4,6 +4,7 @@
    File open,close,read and write routines for 64net/2
  */
 
+#include "config.h"
 #include "fs.h"
 #include "fs_func.h"
 #include "client-comm.h"
@@ -12,10 +13,10 @@
 #include "comm-lpt.h"
 
 /* open file count */
-int of_count = 0;
+static int of_count = 0;
 
 int
-fs_pathtofilesystem (fs64_filesystem * fs, char *path)
+fs_pathtofilesystem (fs64_filesystem * fs, uchar *path)
 {
   /* construct filesystem (or abort) */
   int mt = fs64_mediatype (path);
@@ -96,10 +97,10 @@ fs_pathtofilesystem (fs64_filesystem * fs, char *path)
 }
 
 int
-fs64_create_g (unsigned char *path, unsigned char *glob, fs64_file * f, int *dirtrack, int *dirsect)
+fs64_create_g (uchar *path, uchar *glob, fs64_file * f, int *dirtrack, int *dirsect)
 {
   /* create a file for writing to */
-  unsigned char globs[17][32] =
+  uchar globs[17][32] =
   {
     {0}};
   int t, dt, ds;
@@ -130,7 +131,7 @@ fs64_create_g (unsigned char *path, unsigned char *glob, fs64_file * f, int *dir
   case media_D81:		/* return(fs_dxx_createfile(path,globs[1],t,f,40,0,media_D81)); */
   case media_DHD:		/* return(fs_dxx_createfile(path,globs[1],t,f,1,1,media_DHD)); */
     {
-      char fname[1024] =
+      uchar fname[1024] =
       {0};
       /* find directory track/sector */
       if (*dirtrack < 1)
@@ -189,11 +190,11 @@ fs64_scratchfile (fs64_direntry * de)
 }
 
 int
-fs64_scratchfile_g (unsigned char *filespec)
+fs64_scratchfile_g (uchar *filespec)
 {
   /* scratch a set of files */
   fs64_direntry de;
-  char path[1024], glob[256];
+  uchar path[1024], glob[256];
   int dirflag, mode, replace, par;
   int nf = 0, flag = 0, dt = -1, ds = -1;
   de.dir = 0;
@@ -273,7 +274,7 @@ fs64_dirtail (fs64_file * f)
 
 
 int
-fs64_dirheader (fs64_file * f, int par, char *label, char *id)
+fs64_dirheader (fs64_file * f, int par, uchar *label, uchar *id)
 {
   int i;
 
@@ -461,7 +462,7 @@ fs64_direntry2block (fs64_file * f)
  */
 
 int
-fs64_readchar (fs64_file * f, unsigned char *c)
+fs64_readchar (fs64_file * f, uchar *c)
 {
   /* read a character from the file */
 
@@ -526,7 +527,7 @@ fs64_readchar (fs64_file * f, unsigned char *c)
 }
 
 int
-fs64_writechar (fs64_file * f, unsigned char c)
+fs64_writechar (fs64_file * f, uchar c)
 {
   /* write a character to the file */
 
@@ -740,12 +741,12 @@ fs64_readblock (fs64_file * f)
  */
 
 int
-fs64_openfile_g (unsigned char *curdir, unsigned char *filespec, fs64_file * f)
+fs64_openfile_g (uchar *curdir, uchar *filespec, fs64_file * f)
 {
   fs64_direntry de;
   int dirflag, mode, replace, par, i, dirtrack = -1, dirsect = -1;
-  unsigned char path[1024], header[16];
-  unsigned char glob[256], id[5];
+  uchar path[1024], header[16];
+  uchar glob[256], id[5];
   de.dir = 0;
 
   /* INCOMPLETE - In the end this must have all 8 possible
@@ -928,7 +929,7 @@ fs64_openfile_g (unsigned char *curdir, unsigned char *filespec, fs64_file * f)
     /* setup de for search */
     debug_msg ("openfile_g: running openfind_g\n");
     debug_msg("Calling findfirst_g with: path=%s, glob=%s,$\n",path,glob);
-    if (fs64_openfind_g (path, strcat (glob, ",$"), &f->de, &dirtrack, &dirsect))
+    if (fs64_openfind_g (path, (uchar*)strcat ((char*)glob, ",$"), &f->de, &dirtrack, &dirsect))
     {
       /* cant open directory */
       /* error will have been set by findfirst */

@@ -3,6 +3,6 @@
   (C) Copyright Paul Gardner-Stephen 1996, All rights reserved 
   */
 
-int firsthighbit (unsigned char foo);
-int fatal_error (unsigned char *message);
-void asciitopetscii (unsigned char *message);
+int firsthighbit (uchar foo);
+int fatal_error (char *message);
+void asciitopetscii (uchar *message);

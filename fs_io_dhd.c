@@ -3,11 +3,12 @@
    (C) Copyright Paul Gardner-Stephen 1996, All rights reserved
  */
 
+#include "config.h"
 #include "fs.h"
 #include "fs_func.h"
 #include "misc_func.h"
 
-int bitsset[256] =
+static int bitsset[256] =
 {
   0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,	/* 0x */
   1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,	/* 1x */
@@ -241,7 +242,7 @@ fs_dhd_deallocateblock (fs64_filesystem * fs, int track, int sector)
 }
 
 int
-fs_dhd_format (fs64_filesystem * fs, char *name, char *id)
+fs_dhd_format (fs64_filesystem * fs, uchar *name, uchar *id)
 {
   /* format a D64 file */
   int t, s, num_tracks;
@@ -403,9 +404,9 @@ fs_dhd_makebam (uchar blocks[34][256], int num_tracks)
 }
 
 int
-fs_dhd_headername (char *path, char *header, char *id, int par, fs64_file * f)
+fs_dhd_headername (uchar *path, uchar *header, uchar *id, int par, fs64_file * f)
 {
-  unsigned char buff[256];
+  uchar buff[256];
   fs64_filesystem ff;
   int i;
   ff.fsfile = 0;

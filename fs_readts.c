@@ -5,9 +5,10 @@
    (including 64ls,64cp,64rm and the 64net programmes)
  */
 
+#include "config.h"
 #include "fs.h"
 
-int d64tracks[36] =
+static int d64tracks[36] =
 {-1,
 		   /* Tracks 1-18 */
  0, 0x1500, 0x2a00, 0x3f00, 0x5400, 0x6900, 0x7e00, 0x9e00, 0xa800,
@@ -20,7 +21,7 @@ int d64tracks[36] =
  0x26700, 0x27800, 0x28900, 0x29a00};
 
 int
-readts (fs64_filesystem * fs, int track, int sector, unsigned char *buffer)
+readts (fs64_filesystem * fs, int track, int sector, uchar *buffer)
 {
   /* Read a sector into a buffer (if possible) */
   long foo;
@@ -35,10 +36,6 @@ readts (fs64_filesystem * fs, int track, int sector, unsigned char *buffer)
     return (-1);
   }
 
-  /* printf("readts - about to call fs_resolve_ts(2)\n");
-     
-     foo = fs_resolve_ts (fs->media, track, sector); */
-
   /* printf("readts - about to call fseek\n"); */
 
   fseek (fs->fsfile, foo, SEEK_SET);	/* seek set */
@@ -51,7 +48,7 @@ readts (fs64_filesystem * fs, int track, int sector, unsigned char *buffer)
 }
 
 int
-writets (fs64_filesystem * fs, int track, int sector, unsigned char *buffer)
+writets (fs64_filesystem * fs, int track, int sector, uchar *buffer)
 {
   /* Read a sector from a buffer (if possible) */
   int i;

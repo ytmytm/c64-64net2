@@ -3,6 +3,7 @@
    (C)Copyright Paul Gardner-Stephen 1996, All rights reserved
  */
 
+#include "config.h"
 #include "fs.h"
 #include "fs_func.h"
 #include "misc_func.h"
@@ -61,7 +62,7 @@ fs_d71_validate (fs64_filesystem * fs, int purgeflag)
 int
 fs_d71_blocksfree (fs64_filesystem * fs)
 {
-  unsigned char sectorbuffer[256];
+  uchar sectorbuffer[256];
   int i, t = 0, blocks = 0;
 
   /* .D71 file */
@@ -158,7 +159,7 @@ fs_d71_makebam (uchar blocks[2][256])
 }
 
 int
-fs_d71_format (fs64_filesystem * fs, char *name, char *id)
+fs_d71_format (fs64_filesystem * fs, uchar *name, uchar *id)
 {
   /* format a D71 file */
   int t=1, s=21;
@@ -166,7 +167,7 @@ fs_d71_format (fs64_filesystem * fs, char *name, char *id)
   {
     {0}};
 
-  printf ("fs_d71_format\n()");
+  debug_msg ("fs_d71_format\n()");
 
   /* If id is non null then format each sector, otherwise
      only clear dir and BAM */
@@ -239,7 +240,7 @@ fs_d71_format (fs64_filesystem * fs, char *name, char *id)
 int
 fs_d71_deallocateblock (fs64_filesystem * fs, int track, int sector)
 {
-  unsigned char sectorbuffers[2][256];
+  uchar sectorbuffers[2][256];
   int ofs = 0, bit = 0;
 
 
@@ -439,7 +440,7 @@ fs_d71_findfreeblock (fs64_filesystem * fs, int *track, int *sector)
   {17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35};
   int i;
 
-  printf ("d71: findfreeblock\n");
+  debug_msg ("d71: findfreeblock\n");
 
   /* read bam */
   if (fs_d71_readbam (fs, blocks))
@@ -455,19 +456,19 @@ fs_d71_findfreeblock (fs64_filesystem * fs, int *track, int *sector)
 	if (blocks[0][4 * tl[i] + 1])
 	{
 	  *sector = firsthighbit (blocks[0][4 * tl[i] + 1]);
-	  printf ("Free block is T%d S%d\n", *track, *sector);
+	  debug_msg ("Free block is T%d S%d\n", *track, *sector);
 	  return (0);
 	}
 	if (blocks[0][4 * tl[i] + 2])
 	{
 	  *sector = 8 + firsthighbit (blocks[0][4 * tl[i] + 2]);
-	  printf ("Free block is T%d S%d\n", *track, *sector);
+	  debug_msg ("Free block is T%d S%d\n", *track, *sector);
 	  return (0);
 	}
 	if (blocks[0][4 * tl[i] + 3])
 	{
 	  *sector = 16 + firsthighbit (blocks[0][4 * tl[i] + 3]);
-	  printf ("Free block is T%d S%d\n", *track, *sector);
+	  debug_msg ("Free block is T%d S%d\n", *track, *sector);
 	  return (0);
 	}
       }
@@ -482,25 +483,25 @@ fs_d71_findfreeblock (fs64_filesystem * fs, int *track, int *sector)
 	if (blocks[1][4 * tl[i] + 1])
 	{
 	  *sector = firsthighbit (blocks[1][4 * tl[i] + 1]);
-	  printf ("Free block is T%d S%d\n", *track, *sector);
+	  debug_msg ("Free block is T%d S%d\n", *track, *sector);
 	  return (0);
 	}
 	if (blocks[1][4 * tl[i] + 2])
 	{
 	  *sector = 8 + firsthighbit (blocks[1][4 * tl[i] + 1]);
-	  printf ("Free block is T%d S%d\n", *track, *sector);
+	  debug_msg ("Free block is T%d S%d\n", *track, *sector);
 	  return (0);
 	}
 	if (blocks[1][4 * tl[i] + 3])
 	{
 	  *sector = 16 + firsthighbit (blocks[1][4 * tl[i] + 1]);
-	  printf ("Free block is T%d S%d\n", *track, *sector);
+	  debug_msg ("Free block is T%d S%d\n", *track, *sector);
 	  return (0);
 	}
       }
 
   /* no free block */
-  printf ("No free block found\n");
+  debug_msg ("No free block found\n");
   *track = -1;
   *sector = -1;
   return (-1);

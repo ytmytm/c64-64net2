@@ -5,8 +5,8 @@
 
 /* BUG: This module is incomplete and untested */
 
+#include "config.h"
 #include "fs.h"
-
 
 int
 fs_t64_getopenablename (fs64_file * f, fs64_direntry * de)
@@ -48,7 +48,7 @@ fs_t64_openfile (fs64_file * f)
 }
 
 int
-fs_t64_openfind (fs64_direntry * de, char *path)
+fs_t64_openfind (fs64_direntry * de, uchar *path)
 {
   /* D64 filesystem block */
   de->filesys.media = media_T64;
@@ -81,7 +81,7 @@ int
 fs_t64_getinfo (fs64_direntry * de)
 {
   long i;
-  unsigned char sectorbuffer[256];
+  uchar sectorbuffer[256];
 
   if (de->intcount >= de->track)
     return (-1);		/* end of directory */

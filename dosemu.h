@@ -4,10 +4,10 @@
    */
 
 /* DOS commands */
-int dos_u1(char *doscomm,int commlen,int lu);
+int dos_u1(uchar *doscomm,int commlen,int lu);
 
 /* back end routines */
-int parseu1(char *doscomm,int commlen,int *a,int *b,int *c,int *d);
+int parseu1(uchar *doscomm,int commlen,int *a,int *b,int *c,int *d);
 int do_dos_command(void);
 
 void init_dos(void);

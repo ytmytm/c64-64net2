@@ -14,9 +14,9 @@ XPROGS	= x/x64net.o
 
 AR =ar
 CC =gcc
-XFLAGS =$(CFLAGS) -L/usr/X11R6/lib -lX11 -DUNIX -DLINUX
+XFLAGS =$(CFLAGS) -L/usr/X11R6/lib -lX11
 LOPT=-L. -l64net2
-COPT=$(CFLAGS) -Wall -DUNIX -DLINUX 
+COPT=$(CFLAGS) -Wall -pedantic
 #-DUSE_LINUX_KERNEL_MODULE
 
 all:	64net2 64rm 64ls 64list 64cat 64shell x64net

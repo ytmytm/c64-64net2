@@ -4,15 +4,15 @@
 
  */
 
-#include <sys/types.h>
+#include "config.h"
 #include <time.h>
 #ifndef AMIGA
 #include <sys/timeb.h>
 #endif
 
 
-struct tm *t;
-time_t foo;
+static struct tm *t;
+static time_t foo;
 
 int
 gettimestamp (int *year, int *month, int *day, int *hour, int *minute, int *second)

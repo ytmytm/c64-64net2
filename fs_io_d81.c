@@ -3,6 +3,7 @@
    (C) Copyright Paul Gardner-Stephen 1996, All rights reserved 
  */
 
+#include "config.h"
 #include "fs.h"
 #include "fs_func.h"
 #include "misc_func.h"
@@ -68,7 +69,7 @@ fs_d81_bamblocksfree (uchar blocks[3][256])
   for (i = 41; i < 81; i++)
     bc += blocks[2][10 + (i - 40) * 6];
 
-  printf ("d81: %d bf\n", bc);
+  debug_msg ("d81: %d bf\n", bc);
   return (bc);
 }
 
@@ -131,12 +132,12 @@ fs_d81_bamalloc (int t, int s, uchar blocks[3][256])
     lt -= 40;
     b = 2;
   }
-  printf ("Bit: %02x Ofs: %d\n", bit, ofs);
-  printf ("blocks[%d][%d] = %d\n", b, 11 + lt * 6 + ofs, blocks[b][10 + lt * 6 + ofs] & bit);
+  debug_msg ("Bit: %02x Ofs: %d\n", bit, ofs);
+  debug_msg ("blocks[%d][%d] = %d\n", b, 11 + lt * 6 + ofs, blocks[b][10 + lt * 6 + ofs] & bit);
   if (blocks[b][11 + lt * 6 + ofs] & bit)
   {
     /* free */
-    printf ("d81: allocing T%d S%d\n", t, s);
+    debug_msg ("d81: allocing T%d S%d\n", t, s);
     blocks[b][11 + lt * 6 + ofs] &= (0xff - bit);
     blocks[b][10 + lt * 6]--;
     return (0);
@@ -144,7 +145,7 @@ fs_d81_bamalloc (int t, int s, uchar blocks[3][256])
   else
   {
     /* already alloc'd */
-    printf ("d81: T%d S%d already in use\n", t, s);
+    debug_msg ("d81: T%d S%d already in use\n", t, s);
     return (-1);
   }
 }
@@ -241,7 +242,7 @@ fs_d81_deallocateblock (fs64_filesystem * fs, int track, int sector)
 }
 
 int
-fs_d81_format (fs64_filesystem * fs, char *name, char *id)
+fs_d81_format (fs64_filesystem * fs, uchar *name, uchar *id)
 {
   /* format a D64 file */
   int t, s;
@@ -375,9 +376,9 @@ fs_d81_makebam (uchar blocks[3][256])
 }
 
 int
-fs_d81_headername (char *path, char *header, char *id, int par, fs64_file * f)
+fs_d81_headername (uchar *path, uchar *header, uchar *id, int par, fs64_file * f)
 {
-  unsigned char buff[256];
+  uchar buff[256];
   fs64_filesystem ff;
   int i;
   ff.fsfile = 0;

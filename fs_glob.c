@@ -3,6 +3,7 @@
    (C)opyright Paul Gardner-Stephen 1995, All Rights Reserved
  */
 
+#include "config.h"
 #include "fs.h"
 
 /* structure for glob match list generation */
@@ -15,13 +16,13 @@ typedef struct
 glob_record;
 
 int
-glob_comp (unsigned char *pattern, unsigned char *test, int filetype)
+glob_comp (uchar *pattern, uchar *test, int filetype)
 {
   /* do a glob comparison of the 16 byte string `test' to the pattern
      pattern is a string like "*cheese*,foo?blah*a,S,P,U" */
 
   int i;
-  unsigned char glob_array[17][32];
+  uchar glob_array[17][32];
 
   if (parse_glob (glob_array, pattern))
   {
@@ -52,7 +53,7 @@ glob_comp (unsigned char *pattern, unsigned char *test, int filetype)
 }
 
 int
-glob_p_comp (unsigned char glob_array[17][32], unsigned char *pattern)
+glob_p_comp (uchar glob_array[17][32], uchar *pattern)
 {
   /* glob the file (ignoring filetype obviously!) */
   int i;
@@ -75,7 +76,7 @@ glob_p_comp (unsigned char glob_array[17][32], unsigned char *pattern)
 }
 
 int
-glob_match (unsigned char *glob, unsigned char *pattern)
+glob_match (uchar *glob, uchar *pattern)
 {
   /* glob compare a single string (with 0xa0 padding in pattern) */
   glob_record globs[32];
@@ -169,7 +170,7 @@ glob_match (unsigned char *glob, unsigned char *pattern)
 
 
 int
-parse_glob (unsigned char glob_array[17][32], unsigned char *pattern)
+parse_glob (uchar glob_array[17][32], uchar *pattern)
 {
   /* BUGS: This procedure cant differentiate between a search glob and an
      open glob - this means at the moment you could quite happily load a 
@@ -177,7 +178,7 @@ parse_glob (unsigned char glob_array[17][32], unsigned char *pattern)
 
   /* parse a glob string into a form ready for happyness */
   int i, flag = 1, snum, sposs, dir_search = 0;
-  unsigned char fnord[1024];
+  uchar fnord[1024];
 
   /* work on a copy so we dont muck it up */
   strcpy (fnord, pattern);

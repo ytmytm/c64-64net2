@@ -1,3 +1,2 @@
 
-int shortname(unsigned char *path,unsigned char *lname,
-	      unsigned char *sname,unsigned char *ext);
+int shortname(uchar *path,uchar *lname,uchar *sname,uchar *ext);

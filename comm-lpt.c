@@ -14,7 +14,7 @@
    list.
  */
 
-#include <unistd.h>
+#include "config.h"
 
 #include "fs.h"
 #include "machdep.h"
@@ -27,8 +27,8 @@
 #define PADDING 1
 
 /* ports */
-int inport  = 0x3bd;
-int outport = 0x3bc;
+int portin  = DEF_INPORT;
+int portout = DEF_OUTPORT;
 
 /* Current talk & listen logical files */
 int talklf=-1;
@@ -37,24 +37,24 @@ int lastlf=-1;
 
 /* ** DRIVE and PARTITION resolution: */
 /* Partition base directories for each drive */
-unsigned char *partn_dirs[MAX_NET_DEVS][256];
+uchar *partn_dirs[MAX_NET_DEVS][256];
 
 /* ** CBM DOS emulation stuff: */
 /* DOS Statii */
-unsigned char dos_status[MAX_NET_DEVS][256];
+uchar dos_status[MAX_NET_DEVS][256];
 /* length of DOS statii */
-unsigned char dos_stat_len[MAX_NET_DEVS];
+uchar dos_stat_len[MAX_NET_DEVS];
 /* DOS commands */
-unsigned char dos_command[MAX_NET_DEVS][256];
+uchar dos_command[MAX_NET_DEVS][256];
 /* length of DOS command */
-unsigned char dos_comm_len[MAX_NET_DEVS]={0};
+uchar dos_comm_len[MAX_NET_DEVS]={0};
 
 /* ** current directories & partitions: */
 /* current partition on each drive */
 int curr_par[MAX_NET_DEVS];
 /* current subdirectory (absolute) for each partition on each
    drive */
-unsigned char *curr_dir[MAX_NET_DEVS][256];
+uchar *curr_dir[MAX_NET_DEVS][256];
 
 /* dir blocks for partitions */
 int partn_dirtracks[MAX_NET_DEVS][256];
@@ -73,23 +73,17 @@ int last_drive=-1; /* none */
 int last_unit=-1; /* none */
 
 /* number of times we should try to poll before snoozing */
+/* FIXME:!!! this should be exported to machdep !!!*/
 int max_tries=10;
 int tries;
 
 /* structures for redirected devices */
 int devices[MAX_NET_DEVS]={0};
-/* Config temporary stuff */
-/* device to communicate over */
-unsigned char port[256]={0};
-
-#ifdef UNIX
-/* file handler for chip-bash permissions */
-FILE *f;
-#endif /* UNIX */
 
 /* file that points to our communications device */
 fs64_file file;
 
+/* partition # that will be searched for programs, whatever this means, not used */
 int pathdir;
 
 int commune (void)
@@ -187,7 +181,8 @@ int commune (void)
 		case 0xf0:	/* name??? - shouldn't happen */
 		case 0xe0:	/* close */
 		case 0x60:	/* send some data - open a file */
-	    }
+	    	break;
+		}
 		
 	}
 	goto next;
@@ -290,8 +285,10 @@ int commune (void)
 	}			/* end UNTALK:		*/
     }				/* end switch(a)	*/
   next:
+  	;
   }				/* while(1)		*/
-
+/* will be never reached */
+	return 0;
 }				/* int commune()	*/
 
 /* These configuration reading routines really should be in another module,
@@ -299,19 +296,20 @@ int commune (void)
  */
 
 int 
-read_config (char *file)
+read_config (uchar *file)
 {
   /* Read in the 64netrc file */
 
   FILE *cf = 0;
-  unsigned char temp[256];
+  uchar temp[256];
+  uchar port[256]={0};
 
   if ((cf = fopen (file, "r")) == NULL)
     fatal_error ("Cannot read configuration file.");
 
   while (!feof (cf))
   {
-    fgets (temp, 256, cf);
+    fgets ((char*)temp, 256, cf);
     if ((temp[0] == '#') || (temp[0] == 0) || (temp[0] == '\n') || (temp[0] == '\r'))
     {
       /* its a comment or blank line */
@@ -332,7 +330,7 @@ read_config (char *file)
 	  if (georam_size > 0)
 	  {
 	    if (!(georam =
-		  (unsigned char *) malloc (georam_size * 256 + PADDING)))
+		  (uchar *) malloc (georam_size * 256 + PADDING)))
 	      /* couldnt malloc */
 	      fatal_error ("Cannot allocate memory for GEOS-RAM (try smaller size!).");
 	    printf ("INIT: GEOS-RAM created (%d pages = %dKB)\n", georam_size, georam_size / 4);
@@ -353,9 +351,9 @@ read_config (char *file)
 	strcpy (port, &temp[5]);
 	printf ("INIT: Communication port set to %s\n", port);
 	printf ("      (Port interpretted as hex addr for lpt)\n");
-	outport = strtol (port, NULL, 16);
-	inport = outport + 1;
-	printf ("INIT: Port now $%04x\n", outport);
+	portout = strtol ((char*)port, NULL, 16);
+	portin = portout + 1;
+	printf ("INIT: Port now $%04x\n", portout);
 #endif
       }
       else if (!strncmp ("path ", temp, 4))
@@ -381,7 +379,7 @@ read_config (char *file)
 	if (temp[strlen (temp) - 1] < ' ')
 	  temp[strlen (temp) - 1] = 0;
 	if (temp[7] < ' ')
-	  sprintf (&temp[7], " %s/.64net2.leds", getenv ("HOME"));
+	  sprintf ((char*)&temp[7], " %s/.64net2.leds", getenv ("HOME"));
 	client_init (&temp[8]);
 	client_activity (0);
 	client_error (0);
@@ -465,7 +463,7 @@ read_device (FILE * cf)
 	if (!strncmp ("number", temp, 6))
 	{
 	  /* device number */
-	  devices[dev_num] = (unsigned char) atol (&temp[6]);
+	  devices[dev_num] = (uchar) atol (&temp[6]);
 	  printf ("Networked device $%02x assigned to IEC device $%02x\n",
 		  dev_num, devices[dev_num]);
 	}
@@ -488,14 +486,14 @@ read_device (FILE * cf)
 	  {
 	    /* okey */
 	    partn_dirs[dev_num][pn] =
-	      (unsigned char *) malloc (strlen (&temp[i + 1]) + PADDING);
+	      (uchar *) malloc (strlen (&temp[i + 1]) + PADDING);
 	    if (!partn_dirs[dev_num][pn])
 	      /* couldnt malloc */
 	      fatal_error ("Cannot allocate memory.");
 	    else
 	    {
 	      /* strip newline */
-	      char partition[8], path[1024];
+	      uchar partition[8], path[1024];
 	      partition[0] = 'n';
 	      temp[strlen (temp) - 1] = 0;
 	      strcpy (partn_dirs[dev_num][pn], &temp[i + 1]);
@@ -522,7 +520,7 @@ read_device (FILE * cf)
 		partn_dirtracks[dev_num][pn], partn_dirsectors[dev_num][pn]);
 		free (partn_dirs[dev_num][pn]);
 		if (!(partn_dirs[dev_num][pn] =
-		    (unsigned char *) malloc (strlen (path) + 1 + PADDING)))
+		    (uchar *) malloc (strlen (path) + 1 + PADDING)))
 		  /* couldnt malloc */
 		  fatal_error ("Cannot allocate memory.");
 		strcpy (partn_dirs[dev_num][pn], path);
@@ -560,7 +558,7 @@ which_unit (int dev)
 }
 
 int 
-set_drive_status (unsigned char *string, int len)
+set_drive_status (uchar *string, int len)
 {
   /* set the drive message */
   int d;
@@ -612,7 +610,7 @@ c64poke (long location, int value)
 }
 
 int 
-c64print (char *text)
+c64print (uchar *text)
 {
 #ifdef USE_LINUX_KERNEL_MODULE
     sendchar (0xfd);

@@ -3,36 +3,42 @@
    (C)Copyright Paul Gardner-Stephen 1996
  */
 
+#include "config.h"
 #include "fs.h"
-#include <sys/param.h>
-#ifdef AMIGA
-#include <dos.h>
-#else
-#include <sys/mount.h>
-#endif
-#include <ctype.h>
+
 #ifdef SOLARIS
     #include <sys/statvfs.h>
 #endif
 
+#ifndef AMIGA
+#include <sys/mount.h>
+#ifndef LINUX
+#include <sys/filio.h>
+#else
+#include <sys/vfs.h>
+#endif
+#include <sys/wait.h>
+#include <varargs.h>
+#endif /* AMIGA */
+
 int
-fs_ufs_createfile (char *path, char *name, int t, int rel_len, fs64_file * f)
+fs_ufs_createfile (uchar *path, uchar *name, int t, int rel_len, fs64_file * f)
 {
-  char fname[1024], rname[32];
+  uchar fname[1024], rname[32];
   int i;
 
   debug_msg ("ufs: Trying to create file %s%s [%d]\n",
 	     path, name, t);
 
   /* get shortened name for file */
-  if (shortname (path, name, rname, ".n64"))
+  if (shortname (path, name, rname, (uchar*)".n64"))
   {
     /* disk full (or dir full etc..) */
     set_error (72, 0, 0);
     return (-1);
   }
 
-  sprintf (fname, "%s%s.n64", path, rname);
+  sprintf ((char*)fname, "%s%s.n64", path, rname);
   debug_msg ("ufs: rendered filename to: %s\n", fname);
 
   /* create file, and put vital info in */
@@ -163,9 +169,9 @@ fs_ufs_blocksfree (fs64_filesystem * fs)
   errno = 0;
 
 #ifndef SOLARIS
-  statfs (fs->fspath, &buf);
+  statfs ((char*)fs->fspath, &buf);
 #else
-  statvfs(fs->fspath,&buf);
+  statvfs((char*)fs->fspath,&buf);
 #endif
   if (!errno)
     return ((buf.f_bsize * buf.f_bavail) / 254);
@@ -298,7 +304,7 @@ fs_ufs_readblock (fs64_file * f)
 }
 
 int
-fs_ufs_headername (char *path, char *header, char *id, int par)
+fs_ufs_headername (uchar *path, uchar *header, uchar *id, int par)
 {
   /* use right 16 chars from path */
   int i, j;
@@ -327,7 +333,7 @@ fs_ufs_headername (char *path, char *header, char *id, int par)
   header[j] = 0;
   /* default */
   if ((!strcmp (path, "/")) || (header[0] == 0))
-    sprintf (header, "PARTITION %d", par);
+    sprintf ((char*)header, "PARTITION %d", par);
 
   strcpy (id, "64NET");
 
@@ -335,14 +341,14 @@ fs_ufs_headername (char *path, char *header, char *id, int par)
 }
 
 int
-fs_ufs_openfind (fs64_direntry * de, char *path)
+fs_ufs_openfind (fs64_direntry * de, uchar *path)
 {
   /* UNIX filesystem file */
   de->filesys.media = media_UFS;
   /* path in use */
   strcpy (de->fs, path);
   /* open a directory stream and check for first file */
-  de->dir = opendir (path);
+  de->dir = opendir ((char*)path);
 
   if (!de->dir)
   {
@@ -376,7 +382,7 @@ fs_ufs_findnext (fs64_direntry * de)
   {
     /* fill out thing */
     strcpy (de->realname, de->path);
-    strcat (de->realname, dirent->d_name);
+    strcat ((char*)de->realname, dirent->d_name);
     /* default filename */
     for (i = 0; i < 16; i++)
       if (i < strlen (dirent->d_name))
@@ -399,7 +405,7 @@ fs_ufs_findnext (fs64_direntry * de)
 int
 fs_ufs_getinfo (fs64_direntry * de)
 {
-  unsigned char tarr[1025];	/* buffer for first kb of file */
+  uchar tarr[1025];	/* buffer for first kb of file */
 #ifdef AMIGA
   BPTR filelock;
   struct FileInfoBlock myFIB;
@@ -466,7 +472,7 @@ fs_ufs_getinfo (fs64_direntry * de)
 	  return (-1);		/* Lock failed - something else has exclusive access? */
 #else
       /* find the size of the binary portion of a file */
-      stat (de->realname, &buf);
+      stat ((char*)de->realname, &buf);
       /* calculate the file binary size */
       de->realsize = buf.st_size;
       /* calculate the size in blocks */
@@ -563,7 +569,7 @@ fs_ufs_getinfo (fs64_direntry * de)
 	else
 	  return (-1);		/* Lock failed - something else has exclusive access? */
 #else
-      stat (de->realname, &buf);
+      stat ((char*)de->realname, &buf);
       de->realsize = buf.st_size;
       de->blocks = (long) ((de->realsize / 254) + ((de->realsize % 254) && 1));
       if (buf.st_mode & S_IFDIR)

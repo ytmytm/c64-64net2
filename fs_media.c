@@ -4,12 +4,12 @@
    This code is indended soley for use in the 64net/2 system.
  */
 
+#include "config.h"
 #include "fs.h"
 #include "fs_func.h"
-#include <ctype.h>
 
 int 
-fs64_mediatype (char *path)
+fs64_mediatype (uchar *path)
 {
   /* find out the media type for the path
      media_BAD will be returned if the path is bad
@@ -25,14 +25,13 @@ fs64_mediatype (char *path)
      disk/tape image */
 
 #ifdef AMIGA
-#include <dos.h>
   BPTR filelock;
   struct FileInfoBlock myFIB;
 #else
   struct stat buf;
 #endif
   int n;
-  unsigned char temp[1024];
+  uchar temp[1024];
 
   /* get file info */
 
@@ -63,7 +62,7 @@ fs64_mediatype (char *path)
     }
   }
 #else
-  if (stat (path, &buf))
+  if (stat ((char*)path, &buf))
   {
     /* try stripping the / off the end */
     if (path[strlen (path) - 1] == '/')
@@ -136,13 +135,13 @@ fs64_mediatype (char *path)
 }
 
 int 
-fs64_readts (fs64_filesystem * fs, int track, int sector, unsigned char *sb)
+fs64_readts (fs64_filesystem * fs, int track, int sector, uchar *sb)
 {
   return (readts (fs, track, sector, sb));
 }
 
 int 
-fs64_writets (fs64_filesystem * fs, int track, int sector, unsigned char *sb)
+fs64_writets (fs64_filesystem * fs, int track, int sector, uchar *sb)
 {
   return (writets (fs, track, sector, sb));
 }
@@ -244,7 +243,7 @@ fs64_blocksfree (fs64_filesystem * fs)
      Called by fs64_writeblock to determine if there is any free space,
      and by directory searches to provide the BLOCKS FREE line */
 
-  printf ("fs64_blocksfree(M=%d)\n", fs->media);
+  debug_msg ("fs64_blocksfree(M=%d)\n", fs->media);
 
   switch (fs->media)
   {

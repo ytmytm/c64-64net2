@@ -4,12 +4,10 @@
    (C)Copyright Paul Gardner-Stephen 1996, All rights reserved
  */
 
-#include <stdio.h>
-
+#include "config.h"
 #include "machdep.h"
 #include "comm-lpt.h"
 #include "clientdep.h"
-#include "debug.h"
 
 int 
 client_turbo_speed (void)

@@ -3,17 +3,17 @@
    (C)Copyright Paul Gardner-Stephen 1995, 1996, All Rights Reserved
  */
 
-#include <stdio.h>
-#include <signal.h>
+#include "config.h"
+//#include <signal.h>
 
 #include "dosemu.h"
-#include "debug.h"
 #include "misc_func.h"
 #include "comm-lpt.h"
+#include "version.h"
 
-int steal_parallel_port = 0;
-int no_net = 0;
+int no_net = NONET;
 #ifdef AMIGA
+int steal_parallel_port = 0;
 extern Library BSDBase;
 #endif
 
@@ -58,9 +58,9 @@ main (int argc, char **argv)
     
     
 #endif
-	printf ("64NET/2 r0 pre-BETA\n");
+	printf ("64NET/2 server %s\n",server_version());
 	/* read config info */
-	read_config ("./64netrc");
+	read_config ((uchar*)"./64netrc");
 	/* initialize dos */
 	init_dos ();
 	/* all ready, be cute */

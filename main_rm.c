@@ -1,9 +1,9 @@
 /* test programme for 64net/2 for testing bits and pieces */
 
-#include <stdio.h>
+#include "config.h"
 #include "fs.h"
 
-int no_net=1;
+int no_net=NONET;
 
 int 
 main (int argc, char **argv)
@@ -16,7 +16,7 @@ main (int argc, char **argv)
   }
 
   /* okay, scratch file */
-  if (!fs64_scratchfile_g (argv[1]))
+  if (!fs64_scratchfile_g ((uchar*)argv[1]))
   {
     printf ("All went well\n");
   }

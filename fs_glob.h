@@ -1,5 +1,5 @@
 
-int glob_comp(unsigned char *pattern,unsigned char *test,int filetype);
-int glob_p_comp(unsigned char glob_array[17][32],unsigned char *pattern);
-int glob_match(unsigned char *glob,unsigned char *pattern);
-int parse_glob(unsigned char glob_array[17][32],unsigned char *pattern);
+int glob_comp(uchar *pattern,uchar *test,int filetype);
+int glob_p_comp(uchar glob_array[17][32],uchar *pattern);
+int glob_match(uchar *glob,uchar *pattern);
+int parse_glob(uchar glob_array[17][32],uchar *pattern);

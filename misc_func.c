@@ -3,9 +3,9 @@
    (C) Copyright Paul Gardner-Stephen 1996, All rights reserved 
  */
 
-#include <stdio.h>
+#include "config.h"
 
-int firsthighbit (unsigned char foo) {
+int firsthighbit (uchar foo) {
 int i;
   /* return the number of the first high bit in the byte */
     if (!foo) return (-1);
@@ -17,7 +17,7 @@ int i;
 
 
 int 
-fatal_error (unsigned char *message)
+fatal_error (char *message)
 {
   /* fatal error */
 
@@ -29,7 +29,7 @@ fatal_error (unsigned char *message)
   exit (2);
 }
 
-void asciitopetscii (unsigned char *message)
+void asciitopetscii (uchar *message)
 {
     int i;
     

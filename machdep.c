@@ -1,7 +1,5 @@
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
 
+#include "config.h"
 #include "machdep.h"
 
 #ifdef USE_LINUX_KERNEL_MODULE

@@ -48,19 +48,13 @@
 
  */
 
+#include "config.h"
 #include "fs.h"
-#include <sys/types.h>
-#ifndef AMIGA
-#include <sys/uio.h>
-#endif
-#include <unistd.h>
+#include <fcntl.h>
+#include <arpa/inet.h>
 
 #ifdef AMIGA
 #include <bsdsocket.h>
-#include <netdb.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
 #include <pragmas/socket_pragmas.h>
 #include <proto/socket.h>
 #include <exec/exec.h>
@@ -68,12 +62,12 @@ struct Library BSDBase;
 int no_net;
 #endif
 
-int fs_net_dirtype (char *path);
+int fs_net_dirtype (uchar *path);
 
 /* --normal filesystem functions-------------------------------------- */
 
 int 
-fs_net_createfile (char *path, char *name, int t, fs64_file * f)
+fs_net_createfile (uchar *path, uchar *name, int t, fs64_file * f)
 {
     if(no_net != 1)
     {
@@ -102,7 +96,7 @@ fs_net_closefile (fs64_file * f)
 }
 
 int 
-fs_net_readchar (fs64_file * f, unsigned char *c)
+fs_net_readchar (fs64_file * f, uchar *c)
 {
   if(no_net != 1)
     {
@@ -112,7 +106,7 @@ fs_net_readchar (fs64_file * f, unsigned char *c)
 	    {
 	      int spare;
 	      /* listen with out a connection */
-	      f->socket = accept (f->msocket, (struct sockaddr *) &f->sockaddr, &spare);
+	      f->socket = accept (f->msocket, (struct sockaddr *) &f->sockaddr, (socklen_t*)&spare);
 	      if (f->socket > -1)
 		{
 		  /* woo hoo! connected! */
@@ -184,7 +178,7 @@ fs_net_readchar (fs64_file * f, unsigned char *c)
 }
 
 int 
-fs_net_writechar (fs64_file * f, unsigned char c)
+fs_net_writechar (fs64_file * f, uchar c)
 {
   if(no_net != 1)
     {
@@ -251,12 +245,12 @@ fs_net_openfile (fs64_file * f)
       else
 	{
 	  /* active connect */
-	  char temp[32];
+	  uchar temp[32];
 	  f->socket = socket (AF_INET, SOCK_STREAM, 0);
 	  f->sockaddr.sin_family = AF_INET;
-	  sprintf (temp, "%d.%d.%d.%d", ((f->ip >> 24) + 256) & 0xff, ((f->ip >> 16) + 256) & 0xff,
+	  sprintf ((char*)temp, "%d.%d.%d.%d", ((f->ip >> 24) + 256) & 0xff, ((f->ip >> 16) + 256) & 0xff,
 		   ((f->ip >> 8) + 256) & 0xff, ((f->ip & 0xff) + 256) & 0xff);
-	  f->sockaddr.sin_addr.s_addr = inet_addr (temp);
+	  f->sockaddr.sin_addr.s_addr = inet_addr ((char*)temp);
 	  f->sockaddr.sin_port = htons (f->port);
 	  if ((connect (f->socket, (struct sockaddr *) &f->sockaddr, sizeof (f->sockaddr))) == -1)
 	    {
@@ -281,10 +275,10 @@ fs_net_openfile (fs64_file * f)
 int 
 fs_net_getopenablename (fs64_file * f, fs64_direntry * de)
 {
-  char pe[8][17];
+  uchar pe[8][17];
   int pec = 0, pel = 0;
   int i;
-  char path[256];
+  uchar path[256];
 
   if(no_net != 1)
   {
@@ -307,9 +301,9 @@ fs_net_getopenablename (fs64_file * f, fs64_direntry * de)
     else
       pec--;
     
-    printf ("PEC: %d\n", pec);
+    debug_msg ("PEC: %d\n", pec);
     for (i = 0; i <= pec; i++)
-      printf ("PE %d [%s]\n", i, pe[i]);
+      debug_msg ("PE %d [%s]\n", i, pe[i]);
     
     f->sockmode = 1;		/* active */
     
@@ -396,7 +390,7 @@ fs_net_scratchfile (fs64_direntry * de)
 }
 
 int 
-fs_net_headername (char *path, char *header, char *id, int par)
+fs_net_headername (uchar *path, uchar *header, uchar *id, int par)
 {
   if(no_net != 1)
     {
@@ -423,7 +417,7 @@ fs_net_headername (char *path, char *header, char *id, int par)
       header[j] = 0;
       /* default */
       if ((!strcmp (path, "/")) || (header[0] == 0))
-	sprintf (header, "INTERNET");
+	sprintf ((char*)header, "INTERNET");
       
       strcpy (id, "TCPIP");
       
@@ -437,7 +431,7 @@ int
 fs_net_findnext (fs64_direntry * de)
 {
   int i;
-  char temp[255];
+  uchar temp[255];
 
   if(no_net != 1)
   {
@@ -462,7 +456,7 @@ fs_net_findnext (fs64_direntry * de)
 	      strcpy (de->fs64name, "LISTEN");
 	      break;
 	  default:
-	      sprintf (temp, "%d", de->intcount - 3);
+	      sprintf ((char*)temp, "%d", de->intcount - 3);
 	      strcpy (de->fs64name, temp);
 	  }
 	  if (de->intcount == 259)
@@ -471,7 +465,7 @@ fs_net_findnext (fs64_direntry * de)
 	      return (1);
 	  }
 	  de->intcount++;
-	  sprintf (de->realname, "%s%s/", de->filesys.fspath, de->fs64name);
+	  sprintf ((char*)de->realname, "%s%s/", de->filesys.fspath, de->fs64name);
 	  for (i = 0; i < 16; i++)
 	      if (de->fs64name[i] == 0)
 		  de->fs64name[i] = 0xa0;
@@ -504,7 +498,7 @@ fs_net_findnext (fs64_direntry * de)
 	  };
 	  }
 	  de->intcount++;
-	  sprintf (de->realname, "%s%s/", de->filesys.fspath, de->fs64name);
+	  sprintf ((char*)de->realname, "%s%s/", de->filesys.fspath, de->fs64name);
 	  for (i = 0; i < 16; i++)
 	      if (de->fs64name[i] == 0)
 		  de->fs64name[i] = 0xa0;
@@ -521,7 +515,7 @@ fs_net_findnext (fs64_direntry * de)
 	  switch (de->intcount)
 	  {
 	  default:
-	      sprintf (temp, "%d", de->intcount);
+	      sprintf ((char*)temp, "%d", de->intcount);
 	      strcpy (de->fs64name, temp);
 	  }
 	  if (de->intcount == 256)
@@ -530,7 +524,7 @@ fs_net_findnext (fs64_direntry * de)
 	      return (1);
 	  }
 	  de->intcount++;
-	  sprintf (de->realname, "%s%s/", de->filesys.fspath, de->fs64name);
+	  sprintf ((char*)de->realname, "%s%s/", de->filesys.fspath, de->fs64name);
 	  for (i = 0; i < 16; i++)
 	      if (de->fs64name[i] == 0)
 		  de->fs64name[i] = 0xa0;
@@ -547,7 +541,7 @@ fs_net_findnext (fs64_direntry * de)
 	  switch (de->intcount)
 	  {
 	  default:
-	      sprintf (temp, "%d", de->intcount);
+	      sprintf ((char*)temp, "%d", de->intcount);
 	      strcpy (de->fs64name, temp);
 	  }
 	  if (de->intcount == 256)
@@ -556,7 +550,7 @@ fs_net_findnext (fs64_direntry * de)
 	      return (1);
 	  }
 	  de->intcount++;
-	  sprintf (de->realname, "%s%s/", de->filesys.fspath, de->fs64name);
+	  sprintf ((char*)de->realname, "%s%s/", de->filesys.fspath, de->fs64name);
 	  for (i = 0; i < 16; i++)
 	      if (de->fs64name[i] == 0)
 		  de->fs64name[i] = 0xa0;
@@ -583,7 +577,7 @@ fs_net_findnext (fs64_direntry * de)
 	      int j;
 	      de->blocks = ntohs (se->s_port);
 	      de->filetype = cbm_NET | cbm_CLOSED | cbm_LOCKED;
-	      sprintf (temp, "%s", se->s_name);
+	      sprintf ((char*)temp, "%s", se->s_name);
 	      temp[16] = 0;
 	      for (j = 0; j < 16; j++)
 		  temp[j] = toupper (temp[j]);
@@ -597,7 +591,7 @@ fs_net_findnext (fs64_direntry * de)
 	  }
       }
 	  de->intcount++;
-	  sprintf (de->realname, "%s%s/", de->filesys.fspath, de->fs64name);
+	  sprintf ((char*)de->realname, "%s%s/", de->filesys.fspath, de->fs64name);
 	  for (i = 0; i < 16; i++)
 	      if (de->fs64name[i] == 0)
 		  de->fs64name[i] = 0xa0;
@@ -614,12 +608,12 @@ fs_net_findnext (fs64_direntry * de)
 }
 
 int 
-fs_net_openfind (fs64_direntry * de, char *path2)
+fs_net_openfind (fs64_direntry * de, uchar *path2)
 {
     /* Dir searches are easy in the net fs
        BUG: Doesnt allow for transparent FTP access yet */
     
-    char path[1024];
+    uchar path[1024];
     
     if(no_net != 1)
     {
@@ -675,15 +669,15 @@ fs_net_readblock (fs64_file * f)
 /* --Other routines (inet and filesystem support etc..)--------------- */
 
 int 
-fs_net_dirtype (char *path2)
+fs_net_dirtype (uchar *path2)
 {
     /* what type of synthesised directory is this? 
        BUG: Doesnt allow for transparent FTP access yet */
     
-    char pe[8][17];
+    uchar pe[8][17];
     int pec = 0, pel = 0;
     int i;
-    char path[256];
+    uchar path[256];
 
     if(no_net != 1)
     {
@@ -709,9 +703,9 @@ fs_net_dirtype (char *path2)
 	else
 	    pec--;
 	
-	printf ("PEC: %d\n", pec);
+	debug_msg ("PEC: %d\n", pec);
 	for (i = 0; i <= pec; i++)
-	    printf ("PE %d [%s]\n", i, pe[i]);
+	    debug_msg ("PE %d [%s]\n", i, pe[i]);
 	
 	/* work out the dir type */
 	if (!strcmp (pe[0], "HOSTS"))

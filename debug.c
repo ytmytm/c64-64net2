@@ -1,12 +1,11 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
+
+#include "config.h"
 
 /* debug messages flag */
 int debug_mode=0;
 
-int mallocList[128]={-1};
-int sizeList[128];
+static int mallocList[128]={-1};
+static int sizeList[128];
 
 int initDebug(void)
 {
@@ -20,7 +19,7 @@ int initDebug(void)
 void *trap_malloc(int size)
 {
   int i,j;
-  char *p;
+  uchar *p;
 
   for(i=0;i<128;i++)
     if (mallocList[i]==-1)
@@ -35,7 +34,7 @@ void *trap_malloc(int size)
   mallocList[i]=(int)malloc(size+32);
   sizeList[i]=size;
   
-  p=(char *)mallocList[i];
+  p=(uchar *)mallocList[i];
   for(j=0;j<16;j++) p[j]=0xbd;
   for(j=0;j<16;j++) p[size+16+j]=0xbd;
 
@@ -44,14 +43,14 @@ void *trap_malloc(int size)
   fflush(stdout);
   /* sleep(1); */
 
-  return((void *)mallocList[i]+16);
+  return((void *)((char *)mallocList[i]+16));
 
 }
 
 void trap_free(int addr)
 {
   int i,j;
-  unsigned char *p;
+  uchar *p;
 
   printf("free(%08x) called.\n",
 	 addr);
@@ -70,7 +69,7 @@ void trap_free(int addr)
     }
 
   /* test for corruption */
-  p=(void *)addr-16;
+  p=(void *)((char*)addr-16);
   for(j=0;j<16;j++)
     {
       if (p[j]!=0xbd)
@@ -87,7 +86,7 @@ void trap_free(int addr)
 
   sleep(1);
 
-  free((void*)addr-16);
+  free((void*)((char*)addr-16));
   return;
 }
 

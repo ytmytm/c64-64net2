@@ -3,13 +3,14 @@
    (C)Copyright Paul Gardner-Stephen 1995, 1996
  */
 
+#include "config.h"
 #include "fs.h"
 #include "fs_func.h"
 
 /* globbed searches */
 
 int
-fs64_findfirst_g (unsigned char *path, unsigned char *glob, fs64_direntry * de, int *dirtrack, int *dirsect)
+fs64_findfirst_g (uchar *path, uchar *glob, fs64_direntry * de, int *dirtrack, int *dirsect)
 {
   if (!fs64_openfind_g (path, glob, de, dirtrack, dirsect))
     return (fs64_findnext_g (de));
@@ -46,7 +47,7 @@ fs64_closefind_g (fs64_direntry * de)
 }
 
 int
-fs64_openfind_g (unsigned char *path, unsigned char *glob, fs64_direntry * de, int *dt, int *ds)
+fs64_openfind_g (uchar *path, uchar *glob, fs64_direntry * de, int *dt, int *ds)
 {
 /*   int i; */
 
@@ -153,7 +154,7 @@ fs64_findnext_g (fs64_direntry * de)
 /* Non-globbing directory searches */
 
 int
-fs64_findfirst (char *path, fs64_direntry * de, int *dirtrack, int *dirsect)
+fs64_findfirst (uchar *path, fs64_direntry * de, int *dirtrack, int *dirsect)
 {
   /* Find first file matching the spec, in file system object path
      also matching the commodore filetype in filetypemask */

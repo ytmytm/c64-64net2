@@ -4,7 +4,7 @@
 
  */
 
-
+#include "config.h"
 #include "fs.h"
 #include "machdep.h"
 #include "comm-lpt.h"
@@ -17,8 +17,8 @@
 /* 
    XXX - Linux doesnt seem to like fish save (fishload is fine)
 */
-int allowFishLoad=0;	/* 1 = on */
-int allowFishSave=0;
+int allowFishLoad=FISHLOAD;	/* 1 = on */
+int allowFishSave=FISHSAVE;
 
 
 /* Temporary variables used to store filenames and things for
@@ -199,7 +199,7 @@ void do_close(int secaddr)
 void do_save(void) {
 	int startaddr = 0xffff, endaddr = 0x0000, bc = 0, i = 0;
 	int s, ms;
-	char buff[256];
+	uchar buff[256];
 	fs64_file savefile;
 
 	/* we already have filename */
@@ -209,7 +209,7 @@ void do_save(void) {
 	dont_open=0;
 
 	/* print SAVING message */
-	c64print ("\rSAVING ");
+	c64print ((uchar*)"\rSAVING ");
 	c64print (filename);
 
 	client_turbo_speed();
@@ -222,7 +222,7 @@ void do_save(void) {
 	{
 	  /* file not found */
 	  /* postpend ",W" to the filename and try again */
-	  strcat (filename, ",W");
+	  strcat ((char*)filename, ",W");
 	  if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]],
 			       filename, &savefile))
 	  {
@@ -237,7 +237,7 @@ void do_save(void) {
 	{
 	  /* file exists */
 	  set_error (63, 0, 0);
-	  sprintf(buff,"\r%s",dos_status[last_unit]);
+	  sprintf((char*)buff,"\r%s",dos_status[last_unit]);
 	  c64print(buff);
 
 	  sendchar (254);
@@ -250,7 +250,7 @@ void do_save(void) {
 	endaddr = c64peek (0xae) + 256 * c64peek (0xaf);
 
 	/* be user friendly on C= side and print addresses */
-        sprintf(buff," $%04x $%04x",startaddr,endaddr);
+        sprintf((char*)buff," $%04x $%04x",startaddr,endaddr);
         c64print(buff);
 
 	/* write address link */
@@ -320,7 +320,7 @@ void do_load(void)
 	int s, ms, sa, mode;
 	uchar c;
 
-	char buff[256];
+	uchar buff[256];
 	fs64_file loadfile;
 
 	/* sec addr */
@@ -337,9 +337,9 @@ void do_load(void)
 	dont_open=0;
 
 	/* print SEARCHING message */
-	c64print ("\rSEARCHING FOR ");
+	c64print ((uchar*)"\rSEARCHING FOR ");
 	c64print (filename);
-	c64print ("\r");
+	c64print ((uchar*)"\r");
 	/* search for file */
 	last_unit = 0;
 	if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]],
@@ -351,11 +351,11 @@ void do_load(void)
 	    uchar foo[256] = {0};
 	    uchar *tmp;
 
-	    if ((tmp=strchr(filename,':'))!=NULL)
-		sprintf(foo, "%d%s", pathdir, tmp);
+	    if ((tmp=(uchar*)strchr((char*)filename,':'))!=NULL)
+		sprintf((char*)foo, "%d%s", pathdir, tmp);
 
 	    if (!foo[0])
-	      sprintf (foo, "%d:%s", pathdir, filename);
+	      sprintf ((char*)foo, "%d:%s", pathdir, filename);
 	    if (fs64_openfile_g (partn_dirs[last_unit][pathdir], foo, &loadfile))
 	    {
 	      /* file not found */
@@ -374,7 +374,7 @@ void do_load(void)
 	}
 
 	/* file found - so load */
-	c64print ("LOADING");
+	c64print ((uchar*)"LOADING");
 
 	gettimer (&s, &ms);
 	client_turbo_speed ();
@@ -410,7 +410,7 @@ void do_load(void)
 	    startaddr = filestart;
 
 	/* be user friendly on C= side and print addresses */
-        sprintf(buff," $%04x",startaddr);
+        sprintf((char*)buff," $%04x",startaddr);
         c64print(buff);
 
 	/* check whether to load or verify */
@@ -483,7 +483,7 @@ void do_load(void)
 	  bc = 0;
 	}
 	/* be user friendly on C= side and print addresses */
-        sprintf(buff," $%04x",startaddr);
+        sprintf((char*)buff," $%04x",startaddr);
         c64print(buff);
 
 #ifdef DEBUG
@@ -510,7 +510,7 @@ void do_load(void)
 	  }
 	  s = s2 - s;
 	  ms = ms2 - ms;
-	  printf ("Load time: %d.%d\n", s, ms);
+	  debug_msg ("Load time: %d.%d\n", s, ms);
 	}
 	c64poke (0xb2, startaddr & 0xff);
 	c64poke (0xb3, startaddr / 256);
@@ -528,11 +528,11 @@ void do_boot(void)
 	sendchar (devnum);
 
 	{
-	  char temp[80];
-	  sprintf (temp, "\r 64NET/2 SERVER %s", server_version ());
+	  uchar temp[80];
+	  sprintf ((char*)temp, "\r 64NET/2 SERVER %s", server_version ());
 	  c64print (temp);
 	}
-	c64print ("\r");
+	c64print ((uchar*)"\r");
 	sendchar (254);
 	sendchar (0);
 

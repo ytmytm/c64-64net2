@@ -12,11 +12,12 @@
     
 */
 
+#include "config.h"
 #include "fs.h"
 #include "fs_media.h"
 
 int
-fs64_rawdirheader (fs64_file * f, int par, char *label, char *id)
+fs64_rawdirheader (fs64_file * f, int par, uchar *label, uchar *id)
 {
     int i;
 /*    char buffer[256]; */

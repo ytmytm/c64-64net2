@@ -3,17 +3,18 @@
    (C)Copyright Paul Gardner-Stephen 1995, All rights reserved
  */
 
+#include "config.h"
 #include "fs.h"
 
 /* Re-written version of resolve partition, to allow globbing in paths in
    a proper manner */
 int
-fs64_resolve_partition (unsigned char *partition, unsigned char *path, int *dirtrack, int *dirsect)
+fs64_resolve_partition (uchar *partition, uchar *path, int *dirtrack, int *dirsect)
 {
   /* resolve the partition and path into a single path that points 
      to the right place */
 
-  unsigned char temp[1024];
+  uchar temp[1024];
 
   if (partition[0] == 0)
   {
@@ -74,7 +75,7 @@ fs64_resolve_partition (unsigned char *partition, unsigned char *path, int *dirt
       case media_DHD:
 	{
 	  fs64_filesystem fs;
-	  unsigned char block[256];
+	  uchar block[256];
 	  fs.fsfile = 0;
 
 	  if (fs_pathtofilesystem (&fs, temp))
@@ -234,9 +235,9 @@ fs64_resolve_partition (unsigned char *partition, unsigned char *path, int *dirt
 	    }
 	    else
 	    {
-	      char glob[1024];
+	      uchar glob[1024];
 	      /* match the glob */
-	      sprintf (glob, "%s,D", pathelement);
+	      sprintf ((char*)glob, "%s,D", pathelement);
 	      if (fs64_findfirst_g (temp, glob, &de, dirtrack, dirsect))
 	      {
 		/* dir not found */
@@ -279,7 +280,7 @@ fs64_resolve_partition (unsigned char *partition, unsigned char *path, int *dirt
 		/* make sure path ends in a "/" */
 		if ((temp[strlen (temp) - 1] != '/')
 		    && (fs64_mediatype (temp) == media_UFS))
-		  strcat (temp, "/");
+		  strcat ((char*)temp, "/");
 		if (strlen (path) > i)
 		  state = 1;
 		else
@@ -298,7 +299,7 @@ fs64_resolve_partition (unsigned char *partition, unsigned char *path, int *dirt
   /* make sure ends in '/' if needed */
   if ((temp[strlen (temp) - 1] != '/')
       && (fs64_mediatype (temp) == media_UFS))
-    strcat (temp, "/");
+    strcat ((char*)temp, "/");
 
   /* copy temp back into path */
   strcpy (path, temp);
@@ -308,8 +309,8 @@ fs64_resolve_partition (unsigned char *partition, unsigned char *path, int *dirt
 }
 
 int
-fs64_parse_filespec (unsigned char *filespec2, unsigned char *path,
-		     unsigned char *glob, int *dirflag, int *mode,
+fs64_parse_filespec (uchar *filespec2, uchar *path,
+		     uchar *glob, int *dirflag, int *mode,
 		     int *replace, int *par, int *dirtrack, int *dirsect)
 {
   /* take a file file reference string, and seperate it in to the path, glob
@@ -318,9 +319,9 @@ fs64_parse_filespec (unsigned char *filespec2, unsigned char *path,
      Also, glob the path part of this */
 
   int i, j;
-  unsigned char partition[256];
-  unsigned char filespec_snoz[1024];
-  unsigned char *filespec = filespec_snoz;
+  uchar partition[256];
+  uchar filespec_snoz[1024];
+  uchar *filespec = filespec_snoz;
 
   /* dont modify original */
   strcpy (filespec, filespec2);
@@ -412,7 +413,7 @@ fs64_parse_filespec (unsigned char *filespec2, unsigned char *path,
   {
     /* no partition reference */
     strcpy (partition, "0");
-    if (fs64_resolve_partition ("0", path, dirtrack, dirsect))
+    if (fs64_resolve_partition ((uchar*)"0", path, dirtrack, dirsect))
     {
       /* cant resolve default partition & path */
       /* resolve will have set error appropriately */
@@ -436,13 +437,13 @@ fs64_parse_filespec (unsigned char *filespec2, unsigned char *path,
   {
     if ((filespec[i] == ',') && (filespec[i + 1] == 'R'))
     {
-      printf ("read\n");
+      debug_msg ("read\n");
       *mode = mode_READ;
       break;
     }
     if ((filespec[i] == ',') && (filespec[i + 1] == 'W'))
     {
-      printf ("write\n");
+      debug_msg ("write\n");
       *mode = mode_WRITE;
       break;
     }
@@ -457,7 +458,7 @@ fs64_parse_filespec (unsigned char *filespec2, unsigned char *path,
 
 
 int
-fs64_parse_path (unsigned char *filespec2, unsigned char *path, int *par, int *dirtrack, int *dirsect)
+fs64_parse_path (uchar *filespec2, uchar *path, int *par, int *dirtrack, int *dirsect)
 {
   /* Take a path reference string, and resolve the absolute path & dirblock
      indicated by it.  The partition number is also returned for 
@@ -477,9 +478,9 @@ fs64_parse_path (unsigned char *filespec2, unsigned char *path, int *par, int *d
    */
 
   int i, j;
-  unsigned char partition[256];
-  unsigned char filespec_snoz[1024];
-  unsigned char *filespec = filespec_snoz;
+  uchar partition[256];
+  uchar filespec_snoz[1024];
+  uchar *filespec = filespec_snoz;
 
   /* dont modify original */
   strcpy (filespec, filespec2);

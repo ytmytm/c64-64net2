@@ -6,6 +6,7 @@
    as well as for fast whole disk copying 
  */
 
+#include "config.h"
 #include "fs.h"
 #include "machdep.h"
 #include "comm-work.h"
@@ -13,14 +14,14 @@
 
 /* simulated RAM expander */
 int georam_size=0;
-unsigned char *georam;
+uchar *georam;
 
 int
-fs_accel (unsigned char command)
+fs_accel (uchar command)
 {
   int p=0, t, s, i, n;
-  unsigned char buff[256];
-  unsigned char *page;
+  uchar buff[256];
+  uchar *page;
   fs64_filesystem filesys;
   filesys.fsfile = 0;
 

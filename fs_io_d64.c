@@ -3,16 +3,17 @@
    (C)Copyright Paul Gardner-Stephen 1996, All rights reserved
  */
 
+#include "config.h"
 #include "fs.h"
 #include "fs_func.h"
 
 int
 fs_d64_allocateblock (fs64_filesystem * fs, int track, int sector)
 {
-  unsigned char sectorbuffer[256];
+  uchar sectorbuffer[256];
   int t, s;
 
-  printf ("fs_d64_allocateblock\n");
+  debug_msg ("fs_d64_allocateblock\n");
 
   /* ensure its a valid track & sector */
   if (fs_resolve_ts (fs->media, track, sector) < 0)
@@ -71,7 +72,7 @@ fs_d64_allocateblock (fs64_filesystem * fs, int track, int sector)
 int
 fs_d64_deallocateblock (fs64_filesystem * fs, int track, int sector)
 {
-  unsigned char sectorbuffer[256];
+  uchar sectorbuffer[256];
   int ofs = 0, bit = 0;
 
 
@@ -128,7 +129,7 @@ fs_d64_deallocateblock (fs64_filesystem * fs, int track, int sector)
 int
 fs_d64_findfreeblock (fs64_filesystem * fs, int *track, int *sector)
 {
-  unsigned char sectorbuffer[256];
+  uchar sectorbuffer[256];
   int i, t = 0, ms=21, j;
   unsigned long trackbuf;
 
@@ -163,7 +164,7 @@ fs_d64_findfreeblock (fs64_filesystem * fs, int *track, int *sector)
 	{
 	  *track = t;
 	  *sector = j;
-	  printf ("Nominating T%d S%d as free block\n", *track, *sector);
+	  debug_msg ("Nominating T%d S%d as free block\n", *track, *sector);
 	  return (0);
 	}
 	else
@@ -189,7 +190,7 @@ fs_d64_findfreeblock (fs64_filesystem * fs, int *track, int *sector)
 int
 fs_d64_blocksfree (fs64_filesystem * fs)
 {
-  unsigned char sectorbuffer[256];
+  uchar sectorbuffer[256];
   int i, t = 0, blocks = 0;
 
   /* .D64 file */
@@ -299,7 +300,7 @@ fs_d64_bamalloc (int track, int sector, uchar sectorbuffer[256])
   bit = sector & 7;
   if (sectorbuffer[ofs] & (1 << bit))
   {
-    printf ("Allocing block T%d s%d\n", track, sector);
+    debug_msg ("Allocing block T%d s%d\n", track, sector);
     /* its free, but not for much longer.. */
     sectorbuffer[ofs] &= (0xff - (1 << bit));
     /* reduce free block count */
@@ -312,7 +313,7 @@ fs_d64_bamalloc (int track, int sector, uchar sectorbuffer[256])
 }
 
 int
-fs_d64_format (fs64_filesystem * fs, char *name, char *id)
+fs_d64_format (fs64_filesystem * fs, uchar *name, uchar *id)
 {
   /* format a D64 file */
   int t, s=21;

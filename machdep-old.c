@@ -1,7 +1,6 @@
 
 #include "misc_func.h"
 #include "comm-lpt.h"
-#include "debug.h"
 
 #ifdef BSD
 #include "bsd/cpufunc.h"
@@ -43,20 +42,20 @@ extern volatile struct CIA ciab;
 #define PARIN
 #define POUTHIGH
 #define POUTLOW
-#define PARR inb(outport)
-#define BUSY (inb(inport) & 0x80)
+#define PARR inb(portout)
+#define BUSY (inb(portin) & 0x80)
 #ifdef LINUX
-#define POUTRHIGH outb(0xa0, outport+2)
-#define POUTWHIGH outb(0x40, outport+2)
-#define POUTRLOW  outb(0xa1, outport+2)
-#define POUTWLOW  outb(0x41, outport+2)
-#define PARW(x) outb(x, outport)
+#define POUTRHIGH outb(0xa0, portout+2)
+#define POUTWHIGH outb(0x40, portout+2)
+#define POUTRLOW  outb(0xa1, portout+2)
+#define POUTWLOW  outb(0x41, portout+2)
+#define PARW(x) outb(x, portout)
 #else
-#define POUTRHIGH outb(outport+2, 0xa0)
-#define POUTWHIGH outb(outport+2, 0x40)
-#define POUTRLOW  outb(outport+2, 0xa1)
-#define POUTWLOW  outb(outport+2, 0x41)
-#define PARW(x) outb(outport, x)
+#define POUTRHIGH outb(portout+2, 0xa0)
+#define POUTWHIGH outb(portout+2, 0x40)
+#define POUTRLOW  outb(portout+2, 0xa1)
+#define POUTWLOW  outb(portout+2, 0x41)
+#define PARW(x) outb(portout, x)
 #endif /* LINUX */
 #endif /* AMIGA */
 
@@ -87,9 +86,9 @@ init_hw (void)
 #ifdef LINUX
  int a;
 
- /* Enable port access to the range [outport] to [outport+3] */
+ /* Enable port access to the range [portout] to [portout+3] */
  printf("LINUX: Asking for chip-bash privileges\n");
- a = ioperm(outport,3,3);
+ a = ioperm(portout,3,3);
  printf("ioperm returned = %i\n", a);
  if (a != 0)
   {
@@ -288,7 +287,7 @@ sendchar (int byte)
   POUTRHIGH;
   POUTRLOW;
   POUTRHIGH;
-/*  while(inb(outport)!=0xff) ; */
+/*  while(inb(portout)!=0xff) ; */
 #ifdef DEBUG2
   printf ("Sent\n");
 #endif

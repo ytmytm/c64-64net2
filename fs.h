@@ -5,68 +5,16 @@
     Modified 6 July 1996 (and later)
 */
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <dirent.h>
-#include <errno.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-
-#include "debug.h"
-
-#ifndef AMIGA
-#ifndef LINUX
-#include <sys/filio.h>
-#else
-#include <sys/vfs.h>
-#endif
-#include <sys/wait.h>
-#include <varargs.h>
-#endif /* AMIGA */
-
-#include <sys/param.h>
-#include <netdb.h>
-#include <errno.h>
-#include <netinet/in.h>
-#include <fcntl.h>
-#include <string.h>
-#include <signal.h>
-#include <arpa/inet.h>
-#include <ctype.h>
-
-/* for fseek */
-#define SEEK_SET 0
-
-/* save lots of typing */
-#define uchar unsigned char
-
 /* 64NET filesystem structure */
 struct fs64_filesystemstructure {
   int media;          /* type of filesystem */
   int arctype;        /* filesystem variant */
   FILE *fsfile;       /* file which hosts file system */
-  char fspath[1024];  /* full path & name of filesystem base */
+  uchar fspath[1024];  /* full path & name of filesystem base */
   int dirtrack;       /* track where directory starts */
   int dirsector;     /* sector where directory starts */
 };
 #define fs64_filesystem struct fs64_filesystemstructure
-
-/* the longest that a filename & path may be in characters.
-   This makes a significant impact on the amount of memory 64NET/2 requires
-   at runtime. 78 should be more than adequate under MS-DOS, and 256 should
-   be reasonable under UNIX & AMIGA-DOS, although 1024 would be preferable
-   (memory permitting)
-*/
-#define MAX_FS_LEN 256
-
-/* maximum number of 64net devices */
-/* anything over 32 is useless, as the IEC bus only handles 32 devices! */
-/* note also parallel versions (typically) only support one device, but 
-   can possibly handle 255 devices (if such support were implemented!) */
-#define MAX_NET_DEVS 1
 
 /* 64NET directory search structure */
 struct fs64_direntrystructure {
@@ -86,7 +34,7 @@ struct fs64_direntrystructure {
    long binbase;
    int first_track;
    int first_sector;
-   char fs[1024];  /* file system source for such types */
+   uchar fs[1024];  /* file system source for such types */
    int intcount; /* internal directory entry in sector for such types,
 		    or counter for "synthesised" directories, like the 
 		    internet file system ones */
@@ -205,7 +153,6 @@ extern fs64_file logical_files[MAX_NET_DEVS][16];
 #define mode_WRITE 2
 #define mode_BAD 0
 
-
 /* some commonly used functions */
 
 //these two don't exist...
@@ -224,11 +171,6 @@ extern fs64_file logical_files[MAX_NET_DEVS][16];
 #define net_SERVICE      6
 #define net_PORT         7
 #define net_PORTDIR      8
-
-/* resource manager defines */
-#ifdef DEBUG
-#include "resman.h"
-#endif /* #ifdef DEBUG */
 
 /* No net flag */
 extern int no_net;

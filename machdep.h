@@ -22,8 +22,6 @@
 
 #endif
 
-#define uchar unsigned char
-
 void init_hw(void);
 void starthw(void);
 

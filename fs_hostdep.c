@@ -3,17 +3,14 @@
    (C)Copyright Paul Gardner-Stephen 1996, All rights reserved
  */
 
-#include <stdio.h>
-#include <errno.h>
-#include <string.h>
-#include <ctype.h>
+#include "config.h"
 
 /* string used for filename `~xx' char selection */
-char *fchar = "0123456789abcdefghijklmnopqrstuvwxyz";
+static char *fchar = "0123456789abcdefghijklmnopqrstuvwxyz";
 
 int
-shortname (unsigned char *path, unsigned char *lname,
-	   unsigned char *sname, unsigned char *ext)
+shortname (uchar *path, uchar *lname,
+	   uchar *sname, uchar *ext)
 {
   /* derive a shortened name for a c64 file.
      Will give a unique shortened name for a file,
@@ -22,7 +19,7 @@ shortname (unsigned char *path, unsigned char *lname,
 
   FILE *f = 0;
   int i;
-  char temp[1024];
+  uchar temp[1024];
 #ifdef MS_DOS
   /* spit! caugh! etc.. */
   int maxlen = 8;
@@ -55,7 +52,7 @@ shortname (unsigned char *path, unsigned char *lname,
       case '~':
 	break;
       default:
-	sprintf (sname, "%s%c", sname, tolower (lname[i]));
+	sprintf ((char*)sname, "%s%c", sname, tolower (lname[i]));
 	break;
       }				/* end switch */
     }				/* end if */
@@ -77,7 +74,7 @@ shortname (unsigned char *path, unsigned char *lname,
   for (i = 0; i < (36 * 36); i++)
   {
     /* try to open it */
-    sprintf (temp, "%s%s%s", path, sname, ext);
+    sprintf ((char*)temp, "%s%s%s", path, sname, ext);
     errno = 0;
     f = fopen (temp, "r");
     switch (errno)
@@ -106,15 +103,15 @@ shortname (unsigned char *path, unsigned char *lname,
       sname[maxlen - 3] = 0;
       break;
 #ifndef AMIGA
-      strcat (sname, "~00");
+      strcat ((char*)sname, "~00");
 #else
-      strcat (sname, ".00");
+      strcat ((char*)sname, ".00");
 #endif
       break;
     default:
       sname[strlen (sname) - 3] = 0;
 #ifndef AMIGA
-      sprintf (sname, "%s~%c%c", sname, fchar[(i / 36)], fchar[i % 36]);
+      sprintf ((char*)sname, "%s~%c%c", sname, fchar[(i / 36)], fchar[i % 36]);
 #else
       sprintf (sname, "%s.%c%c", sname, fchar[(i / 36)], fchar[i % 36]);
 #endif
