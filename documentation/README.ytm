@@ -95,8 +95,9 @@ IDEAS:
 
 TODO
     * write code for VERIFY
-    * fix fishload/save (load often blocks on my C128)
+    * fix fishload/save (load often locks on my C128)
     * write GEOS wedge (was it disk driver or REU exp. handler replacement?)
+	- time&date settings (add lowlevel command for this purpose)
 	- REU replacement, i/o whole pages (should work for RAMdisk)
 	- true disk emulation via dhd or alike, with real disk driver code
 	  (still needs RAM exp. or patch REU functions to work as GEOS RAM via 64net2)

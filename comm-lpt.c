@@ -165,7 +165,7 @@ int commune (void)
 	    /* second system call, get secondary address after LISTEN, that is
 	       filenumber (channel) and mode (6x=data flow, ex=name, fx=close) */
 	    listenlf = charget();
-	    debug_msg ("Second call, sa=%i, channel=%i\n",listenlf & 0xf0,listenlf & 0x0f);
+	    debug_msg ("Second call, sa=$%02x, channel=%i\n",listenlf & 0xf0,listenlf & 0x0f);
 	    switch (listenlf & 0xf0) {
 		case 0xf0:	/* name incoming */
 		    fnlen = 0;
@@ -182,7 +182,7 @@ int commune (void)
 	    /* tksa system call, get secondary address after TALK, that is
 	       filenumber and mode, mode can be only 0x6x or 0xfx (data or close) */
 	    talklf = charget();
-	    debug_msg ("Tksa call, sa=%i, channel=%i\n",talklf & 0xf0,talklf & 0x0f);
+	    debug_msg ("Tksa call, sa=$%02x, channel=%i\n",talklf & 0xf0,talklf & 0x0f);
 	    switch (talklf & 0xf0) {
 		case 0xf0:	/* name??? - shouldn't happen */
 		case 0xe0:	/* close */

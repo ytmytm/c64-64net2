@@ -151,24 +151,25 @@ void do_open(int secaddr)
 
 	/* find the unit number */
 	file_unit = 0;			/* unit is always zero on 64net cable */
-	debug_msg ("Filename: \"%s\"\n", filename);
 	/* set the old OK message */
-	if (sa < 0x0f)
-	  set_error (0, 0, 0);
-	debug_msg ("Opening logical file on channel $%02x\n", sa);
+	if (sa < 0x0f) {
+	    if (filename[0]==',') { set_error(62,0,0); sendchar(0); return;}
+	    set_error (0, 0, 0);
+	}
+
 	/* if the channel is in use, then close it */
 	last_unit = 0;
 	if (logical_files[file_unit][sa].open == 1)
 	  fs64_closefile_g (&logical_files[last_unit][sa]);
-	printf("*** Opening [%s]\n",filename);
+	debug_msg ("*** Opening [%s] on channel $%02x\n",filename, sa);
 	if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]],
 			       filename, &logical_files[file_unit][sa]))
 	{
 	  /* open failed */
-	  sendchar (4);	/* file not found */
+//	  sendchar (4);	/* file not found */
+	  sendchar (0);
 	}
-	else
-	{
+	else {
 	  /* release c64 end */
 	  sendchar (0);
 	}
