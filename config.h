@@ -34,19 +34,16 @@
 
 /* default options */
 /* 1 - on, 0 - off */
-#define FISHLOAD 0
-#define FISHSAVE 0
 
 /* 1 - INET network off, 0 - INET network on */
 #define NONET 0
 
 /* default devices */
-#define DEF_INPORT	0x3bd
-#define DEF_OUTPORT	0x3bc
+#define LPT_DEVICE "/dev/ppi1"
 #define COMM_DEVICE	"/dev/ttyS0"
 
-#define VER_MAJ 0
-#define VER_MIN 9
+#define VER_MAJ 1
+#define VER_MIN 0
 #define VERSIONSTRING "V%02d.%02d ALPHA"
 
 #ifdef LINUX

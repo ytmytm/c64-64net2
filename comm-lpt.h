@@ -1,5 +1,5 @@
 /*
-   Commune.H for 64NET/2 (C)Copyright Paul Gardner-Stephen 1995,
+   Commune.H for 64NET/2 (C)Copyright Paul Gardner-Stephen 1995, 2004
    All rights reserved.
    
    Commune.H - Constants and structures for communicating to the C64/C65/C128
@@ -50,7 +50,7 @@
 /* port addresses */
 extern int portout,portin;
 extern int max_tries;
-extern uchar port[64];
+extern uchar port[1024];
 
 /* function prototypes */
 int commune(void);

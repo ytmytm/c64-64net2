@@ -34,53 +34,70 @@ void sigterm() {
 int 
 main (int argc, char **argv)
 {
-       signal(SIGINT, sigint);
-       signal(SIGTERM, sigterm); 
-
+  int ch;
+  char *config_file="64netrc";
+  
+  signal(SIGINT, sigint);
+  signal(SIGTERM, sigterm); 
+  
 #ifdef DEBUG
   initDebug();
 #endif
-    
+
+  while ((ch = getopt(argc, argv, "sc:")) != -1)
+    switch (ch) {
+    case 'c':
+      /* Select config file */
+      config_file=optarg;
+      break;
 #ifdef AMIGA
-    while(argc > 1)
-    {
-	switch(argv[argc][1])
-	{
-	case 's': /* Steal the parallel port, don't ask, just take it */
-	    steal_parallel_port = 1;
-	    break;
-
-	default:
-	    printf("Unknown argument %c\n", argv[argc][1]);
-	    break;
-	}
-	argc--;
-	
+    case 's': /* Steal the parallel port, don't ask, just take it */
+      steal_parallel_port = 1;
+      break;
+#endif
+    case '?':
+    default:
+      if ((ch!='h')&&(ch!='?'))
+	fprintf(stderr,"Illegal option: -'%c'\n",ch);
+      fprintf(stderr,"usage: 64net2 [-c config_file] [-s]\n");
+      fprintf(stderr,
+	      "  -c - Specify alternate config file (default is 64netrc)\n");
+      fprintf(stderr,
+	      "  -s - [AMIGA only] Steal parallel port without asking.\n");
+      fprintf(stderr,"\n");
+      exit(-1);
     }
+  argc -= optind;
+  argv += optind;
 
-    if (stacksize() < 99000)
+#ifdef AMIGA    
+  if (stacksize() < 99000)
     {
-	printf("Stack needs to be >= 100000 bytes!(%d)\n", stacksize());
-	exit(10);
+      printf("Stack needs to be >= 100000 bytes!(%d)\n", stacksize());
+      exit(10);
     }
-
-    if(BSDBase = OpenLibrary("bsdsocket.library", 0) == NULL)
+  
+  if(BSDBase = OpenLibrary("bsdsocket.library", 0) == NULL)
     {
 	printf("AmiTCP not loaded, network filesystem disabled.\n");
 	no_net = 1;
-    }
-    
-    
+    }    
 #endif
-	printf ("64NET/2 server %s\n",server_version());
-	/* read config info */
-	read_config ((uchar*)"./64netrc");
-	/* initialize dos */
-	init_dos ();
-	/* all ready, be cute */
-	printf ("Network started.\n");
-	/* do it man! */
-	parallel_iec_commune(0);
-	/* all done */
-	return (0);
+
+  printf ("64NET/2 server %s\n",server_version());
+
+  /* read config info */
+  read_config(config_file);
+
+  /* initialize dos */
+  init_dos ();
+
+  /* all ready, be cute */
+  printf ("Network started.\n");
+
+  /* do it man! */
+  parallel_iec_commune(0);
+
+  /* all done */
+  return (0);
 }

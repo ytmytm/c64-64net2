@@ -1,5 +1,5 @@
 # The LPT port address to communicate on
-port 278
+port /dev/ppi1
 
 # The CBM device number to primarily masquerade as
 devnum 9 
@@ -11,9 +11,6 @@ devnum 9
 # Uncomment the next line to display debugging messages
 debug mode
 
-# Create a 256 page GeoRAM emulation bank
-ram 256
-
 # Define a drive number to be served with 
 #  3 partitions.
 #  Partition 1 = TESTDIR/
@@ -24,8 +21,8 @@ ram 256
 device
 number 9
 #partition 1,TESTDIR/
-partition 1,/TMP/C64/NAME.D64
-partition 2,/HOME/MACIEK/
+partition 1,/TMP
+partition 2,/HOME/GARDNERS/
 partition 3,@/
 end
 

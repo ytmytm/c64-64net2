@@ -1,5 +1,4 @@
 /* chip-bash includes */
-#warning "FreeBSD I/O Code selected"
 
 #include <stdlib.h>
 #include <dev/ppbus/ppi.h> 
@@ -26,8 +25,10 @@ int bind_to_port (const char *name)
   
   lpt_fd = open (name, O_RDWR);
   if (lpt_fd == -1) {
+    fprintf(stderr,"Error openning communications device '%s'\n",
+	   name);
     perror ("open");
-    return 1;
+    exit(1);
   }
 
   /* Set "byte mode" - i.e. unbuffered PS/2 bidirectional mode */
@@ -41,7 +42,7 @@ int bind_to_port (const char *name)
   /*  outb(portout+0x402,0x80); */
 
   /* Clear EPP timeout bit */
-  /* outb(portout+1,0xfe); /* Status port */
+  /* outb(portout+1,0xfe); */
 
   set_datalines_input();
 

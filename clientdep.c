@@ -5,7 +5,6 @@
  */
 
 #include "config.h"
-#include "machdep.h"
 #include "comm-lpt.h"
 #include "clientdep.h"
 

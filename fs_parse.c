@@ -319,6 +319,7 @@ fs64_parse_filespec (uchar *filespec2, uchar *path,
      Also, glob the path part of this */
 
   int i, j;
+  uchar *tmp;
   uchar partition[256];
   uchar filespec_snoz[1024];
   uchar *filespec = filespec_snoz;
@@ -333,7 +334,6 @@ fs64_parse_filespec (uchar *filespec2, uchar *path,
 
   /* strip '0:' off the filespec completely as it confuses the filesearch */
 
-  uchar *tmp;
   tmp = strstr(filespec,"0:");
   if (tmp!=NULL) {
     strcpy (tmp, &tmp[2]);

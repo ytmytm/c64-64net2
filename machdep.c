@@ -3,6 +3,8 @@
 #include "machdep.h"
 #include "fs.h"
 
+#ifdef USE_OLD_LPT_ACCESS
+
 #ifdef USE_LINUX_KERNEL_MODULE
 #include "machdep-lin.c"
 #else
@@ -68,3 +70,5 @@ fastgetblock (int addr, int size, uchar * the_block)
   return (fishgetblock (254, the_block));
 
 }
+
+#endif

@@ -8,7 +8,6 @@
 
 #include "config.h"
 #include "fs.h"
-#include "machdep.h"
 #include "comm-work.h"
 #include "fs_accel.h"
 

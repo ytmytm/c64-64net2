@@ -6,7 +6,6 @@
 
 #include "config.h"
 #include "fs.h"
-#include "machdep.h"
 #include "comm-lpt.h"
 #include "clientdep.h"
 #include "version.h"
