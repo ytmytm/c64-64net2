@@ -14,20 +14,24 @@
 #include "dosemu.h"
 #include "comm-work.h"
 
+//#define DEBUG
 
 /* 
    XXX - Linux doesnt seem to like fish save (tho fishload is fine)
 */
-int allowFishLoad=0;	/* 1 = on */
+int allowFishLoad=1;	/* 1 = on */
 int allowFishSave=0;
 
 
-/* Temprary variables used to store filenames and things for
+/* Temporary variables used to store filenames and things for
    fs_openfile_g etc 
    */
 int fnlen;
-unsigned char filename[256];
+uchar filename[256];
 int file_unit;
+
+/* flag to use with OPEN and LOAD =0-> open file, =1->load file */
+int dont_open;
 
 void do_command(void) {
 
@@ -141,6 +145,10 @@ void do_open(int secaddr)
 {
     int sa;
 
+
+	/* don't open file before loading (only get name) */
+	if (dont_open==1) return;
+
 	sa = secaddr & 0x0f;
 
 	/* find the unit number */
@@ -191,37 +199,44 @@ void do_close(int secaddr)
 
 void do_save(void) {
 	int startaddr = 0xffff, endaddr = 0x0000, bc = 0, i = 0;
-	int s, ms, sa;
+	int s, ms;
 	char buff[256];
 	fs64_file savefile;
-	char fname[256];
 
 	debug_msg ("Save\n");
 
 	/* read filename */
+/*
 	fnlen = charget ();
 	for (i = 0; i < fnlen; i++)
 	  fname[i] = charget ();
 	fname[fnlen] = 0;
+*/
+
+	/* we already have filename */
+	debug_msg ("Filename is: %s\n",filename);
+
+	/* clear this flag */
+	dont_open=0;
 
 	/* read secondary address */
-	sa = charget ();
+//	sa = charget ();
 
 	/* print SAVING message */
 	c64print ("\rSAVING ");
-	c64print (fname);
+	c64print (filename);
 
 	/* search for file */
 	gettimer (&s, &ms);
 	last_unit = 0;
 	if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]],
-			     fname, &savefile))
+			     filename, &savefile))
 	{
 	  /* file not found */
 	  /* postpend ",W" to the filename and try again */
-	  strcat (fname, ",W");
+	  strcat (filename, ",W");
 	  if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]],
-			       fname, &savefile))
+			       filename, &savefile))
 	  {
 	    /* cannot open file for some reason */
 	    /* simply abort */
@@ -274,7 +289,7 @@ void do_save(void) {
 	  for (i = 0; i < bc; i++)
 	    if (fs64_writechar (&savefile, buff[i]))
 	    {
-	      printf ("Closing save file due to error\n");
+	      debug_msg ("Closing save file due to error\n");
 	      fs64_closefile_g (&savefile);
 	      sendchar (254);
 	      sendchar (0);
@@ -282,7 +297,7 @@ void do_save(void) {
 	    }
 	  startaddr += bc;
 	}
-	printf ("Closing save file\n");
+	debug_msg ("Closing save file\n");
 	fs64_closefile_g (&savefile);
 
 	{
@@ -295,7 +310,7 @@ void do_save(void) {
 	  }
 	  s = s2 - s;
 	  ms = ms2 - ms;
-	  printf ("Save time: %d.%d\n", s, ms);
+	  debug_msg ("Save time: %d.%d\n", s, ms);
 	}
 	sendchar (254);
 	sendchar (0);
@@ -304,32 +319,43 @@ void do_save(void) {
 void do_load(void)
 {
 	/* Load a file using highly optimised routines */
-	int startaddr, bc, n, l = 0, i = 0;
-	int filestart=0, kernstart;
-	int s, ms, sa;
-	unsigned char c;
+	int startaddr, bc, n, l = 0;
+	int filestart=0;
+	int s, ms, sa, mode;
+	uchar c;
 
 	char buff[256];
 	fs64_file loadfile;
 
-	char fname[256];
 	debug_msg ("Load\n");
 
+/*
 	fnlen = charget ();
 	for (i = 0; i < fnlen; i++)
 	  fname[i] = charget ();
 	fname[fnlen] = 0;
+*/
 	/* sec addr */
-	sa = charget ();
+	mode = charget ();
+	sa = lastlf & 0x0f;
+	
+	/* for correct directory handling */
+	talklf = lastlf;
+
+	/* we already have filename */
+	debug_msg ("Filename is: %s, sa=%i\n",filename,sa);
+
+	/* clear this flag */
+	dont_open=0;
 
 	/* print SEARCHING message */
 	c64print ("\rSEARCHING FOR ");
-	c64print (fname);
+	c64print (filename);
 	c64print ("\r");
 	/* search for file */
 	last_unit = 0;
 	if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]],
-			     fname, &loadfile))
+			     filename, &loadfile))
 	{
 	  if ((dos_status[last_unit][0] == '6') && (dos_status[last_unit][1] == '2'))
 	  {
@@ -337,11 +363,11 @@ void do_load(void)
 	    uchar foo[256] = {0};
 	    uchar *tmp;
 
-	    if ((tmp=strchr(fname,':'))!=NULL)
+	    if ((tmp=strchr(filename,':'))!=NULL)
 		sprintf(foo, "%d%s", pathdir, tmp);
 
 	    if (!foo[0])
-	      sprintf (foo, "%d:%s", pathdir, fname);
+	      sprintf (foo, "%d:%s", pathdir, filename);
 	    if (fs64_openfile_g (partn_dirs[last_unit][pathdir], foo, &loadfile))
 	    {
 	      /* file not found */
@@ -361,16 +387,14 @@ void do_load(void)
 
 	/* file found - so load */
 	c64print ("LOADING");
+	gettimer (&s, &ms);
 	client_turbo_speed ();
 #ifdef DEBUG
 	printf ("Done client_turbo_speed\n");
-#endif
-	gettimer (&s, &ms);
-	/* get load address - BUG: Will load at $0801 if ,n,0
-	   (ie will not load at the requested location */
-#ifdef DEBUG
 	printf ("About to run fs64_readchar\n");
 #endif
+
+	/* get load address */
 	if (fs64_readchar (&loadfile, &c))
 	{
 	  /* empty file */
@@ -388,21 +412,25 @@ void do_load(void)
 	else
 	  filestart += c * 256;
 
-	/* get start address from kernel */
-	kernstart = c64peek (0xc3) + 256 * c64peek (0xc4);
-
-	/* which one to use? */
+	/* which start address to use? */
 	if (!sa)
-	  startaddr = kernstart;
+	    /* kernel (provided by caller) */
+	    startaddr = c64peek (0xc3) + 256 * c64peek (0xc4);
 	else
-	  startaddr = filestart;
+	    /* or that one from file */
+	    startaddr = filestart;
 
-/*          debug_msg("KS $%04x, FS: $%04x, SA: $%04x\n",
-   kernstart,filestart,startaddr); */
+
+	/* check whether to load or verify */
+	if (mode==1) {
+	    debug_msg ("File verifying isn't supported yet, loading instead");
+	}    
 
 	bc = 0;
+
 #ifdef DEBUG
-	printf ("About to send file\n");
+	debug_msg("FS: $%04x, SA: $%04x\n, mode:%i",filestart,startaddr,mode);
+	debug_msg ("About to send file\n");
 #endif
 
 	while (!fs64_readchar (&loadfile, &c))
@@ -421,11 +449,14 @@ void do_load(void)
 		printf ("Sending block addr<0xcf00 (in while loop)\n");
 #endif
 		fastsendblock (startaddr, 254, buff);
+#ifdef DEBUG
+		printf ("Done.\n");
+#endif
 	      }
 	    else
 	      {
 #ifdef DEBUG
-		printf ("using raw sendchar(in while loop)");
+		printf ("using raw sendchar(in while loop)\n");
 #endif
 		sendchar (255);
 		sendchar (1);
@@ -434,12 +465,16 @@ void do_load(void)
 		sendchar (startaddr / 256);
 		for (n = 0; n < bc; n++)
 		  sendchar (buff[n]);
+
 	      }
 	    startaddr += bc;
 	    bc = 0;
 	  }
 	}
-	
+
+	/* BUG!!! this printf here is for small delay before protocol change */
+//	printf ("About to send last partial block\n");
+
 	/* final partial block */
 	if (bc)
 	{
@@ -450,7 +485,8 @@ void do_load(void)
 	  sendchar (startaddr & 0xff);
 	  sendchar (startaddr / 256);
 	  for (n = 0; n < bc; n++)
-	    sendchar (buff[n]);
+	    sendchar(buff[n]);
+
 	  startaddr += bc;
 	  bc = 0;
 	}
@@ -493,10 +529,9 @@ void do_load(void)
 void do_boot(void)
 {
 	/* boot sequence */
-	debug_msg ("Boot\n");
+	debug_msg ("\nBoot\n");
 
 	sendchar (devnum);
-	sendchar (0);
 
 	{
 	  char temp[80];
@@ -506,6 +541,7 @@ void do_boot(void)
 	c64print ("\r");
 	sendchar (254);
 	sendchar (0);
+	
 }
 
 

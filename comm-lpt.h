@@ -17,7 +17,7 @@
 //#define SAVE		'S'
 //#define DEVCHECK	'?'
 
-/* new, sane command enumeration */
+/* new, sane command enumeration, only few make sense, though */
 #define BOOT		'B'
 #define LOAD		'L'
 #define SAVE		'S'
@@ -30,6 +30,7 @@
 #define ACPTR		'H'
 #define UNLISTEN	'I'
 #define UNTALK		'J'
+#define OPENDISABLE	'K'
 /* `File System Accelerator' commands */
 #define FSACCEL		'F'
 
@@ -51,4 +52,4 @@ int c64jsr(int addr,int a,int x, int y);
 int set_drive_status (unsigned char *string, int len);
 int which_unit (int);
 
-extern int talklf, devnum;
+extern int talklf, lastlf, devnum;

@@ -14,22 +14,32 @@ BUGS:
 + possible bug in fs_ufs_getinfo - raw binary file recognizer doesn't check for 0x4001, but only
   0x0801, 0x1c01 and 0x2001 (where was that used?)
     (fixed)
++ in machdep-old.c: goto jump should point after setting /ACK line to prevent multiple toggle
+    (fixed)
++ possible bug in wedge chkin/chkout ("D"/"A") - $026d,y instead of $026d,x (X is parameter)
+    (obsolete with new wedge)
 + file "$" is special - if used with secondary address ==0 (or in LOAD) it returns BASIC-formatted
   output, otherwise it is opened as a file with t&s=(18,0), should work this way on 15x1
   (regarding that 1581 gets current partition), results from other media types are unpredictable
   (unless some kind of directory emulation on sector level is already implemented), returning
   EOF or error should be enough; for dxx there's fs_dxx_finddirblock
     (almost done, everything is regenerated now)
+~ new wedge Kernal emulation stuff is broken, luckily open1,1,15,"command" works...
+    (almost fixed)
 - fishsave doesn't work (as it is stated - on Linux), don't know, maybe whole
   fishsend is broken (original version)
-- possible bug in wedge chkin/chkout ("D"/"A") - $026d,y instead of $026d,x (X is parameter)
 - possible bug in fs_accel, read sector - if successful should send 0 (noerror) and then fishsend
   same for following write sector
 - if secondary address is >128 then file isn't really opened, just return w/o error, doing nothing;
   this is handled by Kernal, but worth knowing for wedge
+- opening "$name*" should show all files within current directory with 'name*' globbing
 - files created by LUnix CP are 1 byte larger than original - EOF should be asserted when reading
   last byte, one additional byte is 199 (as in error); probably CP has bug, not 64net/2, I'm not
   sure... (other apps writing disk e.g. uudecode are OK)
+- in new wedge error byte (199) is read as a valid one, possibly do SEC within wedge to fix it
+  (this should also fix the error above)
+- something connected with two above errors - $90 should be asserted _when_ last byte is sent,
+  not with next call IMO, but it is still unclear
 
 MODULE VERSION ISSUES
 - device and module name is 'fastpc' (ask me why :-), MAJOR number is dynamically
@@ -58,7 +68,12 @@ IDEAS:
       i/o, needs special treatment for fastblocksend/get
       (or throw it everything out, this is faster anyway)
     * support for gzipped files (.d64.gz, .n64.gz etc.)
+	(see VICE sources for inspiration)
+	(easy - make a temporary file, decompress data there and pass file handle via fopen wrapper,
+	 with fclose wrapper compression can be done upon closing the file)
     * make log option (redirect stdout to a file) in config file
+	(simple hook done in debug.h)
+    * replace all printf by macros and separate debug messages from log messages
     * make fishxxxx turned on/off in config file
     * use dynamically allocated memory for tables to reduce executables size
     + move fs stuff into static/shared library (local) and link executabels against it
@@ -67,29 +82,36 @@ IDEAS:
     + replace 'for' loops with byte copying by library functions (faster?)
 	(not much of them, 2 or 3 only in comm-xxx.c)
     * find all places where last_unit / last_device is used and replace by proper function
-      or dummy one
+      or dummy one, take devnum into account
+    * move as much functionality as possible from wedge into host (with c64peek/poke)
+	(do it when everything will work)
 
 TODO
-    * write new version of wedge (regarding listen/second etc)
-	- ROM patch (running in EPROM or copy in RAM)
-	- wedge (as now - ROM/RAM switch/vectors in $0340-$03ff, code in upper RAM)
-    * write c128 wedge
-	- put it somewhere at $1300
+    * write code for VERIFY
     * write GEOS wedge (was it disk driver or REU exp. handler replacement?)
 	- REU replacement, i/o whole pages (should work for RAMdisk)
 	- true disk emulation via dhd or alike, with real disk driver code
 	  (still needs RAM exp. or patch REU functions to work as GEOS RAM via 64net2)
     * write CP/M wedge
+	- patch system code
 	- simple filetransfer
 	- use of images
 	- device H: emulation (remote r/w via 2 byte sequences)
     * find out what EOF is ($90) - LUnix sez it's $80 while 64net/2 thinks $40 (that's
-      devnotpresent by LUnix)
+      devnotpresent by LUnix), CBM Kernal seems to recognize only 0 and !=0
     + strip some protocols from unneeded bytes (boot,jsr,peek,0xf6,0xf9)
     + fix "$" file handling - in fs_fileio.c in fs64_{dirtail,dirheader,direntry2block}
-      - if channel (pass it, or make global, talklf only, ensure for LOAD) ==0 translate into BASIC
-	(untested, should work)
+      + if channel (pass it, or make global, talklf only, ensure for LOAD) ==0 translate into BASIC
+    	    + tested, works
       - try to use native data (w/o recreating) on image filesystems
+    + update LOAD and SAVE code in server
+	+ check load (fishload can be broken)
+	- check save
+    + write new version of wedge (regarding listen/second etc)
+	+ wedge (as now - ROM/RAM switch/vectors in $0340-$03ff, code in upper RAM)
+	- ROM patch (running in EPROM or copy in RAM)
+	+ write c128 wedge (done in parallel with c64)
+	    + put it somewhere at $1300
 
 HOST FUNCTIONS LIST
 > (c64 send), < (c64 receive), | (back to command loop), X (eXit)
@@ -106,11 +128,14 @@ untalk	'J'	<status, X
 
 CUSTOM:
 boot	'B'	>fnlen, >fname[], >secaddr (all dropped), |	OLD
-boot	'B'	<devnum, <status, |				NEW
-load	'L'	>fnlen, >fname[], >secaddr, |
-save	'S'	>fnlen, >fname[], >secaddr, |
+boot	'B'	<devnum, |					NEW
+load	'L'	>fnlen, >fname[], >secaddr, |			OLD
+load	'L'	>secaddr, |					NEW
+save	'S'	>fnlen, >fname[], >secaddr, |			OLD
+save	'S'	|						NEW
 devcheck'?'	>devnum, <{0,1}, X
 fsaccel	'F'
+opendisable 'K'	X
 
 FS_ACCEL:
 read	'I'	>pagel, >pageh, <page[256]
@@ -128,7 +153,7 @@ CLIENT FUNCTIONS LIST (always return to command loop except 'error')
 0xf6	???			>$ffe4 (GETIN keyboard input) - cursor inv. never used		NEW
 				<?, >$ffe4 (GETIN keyboard input) - cursor inv. never used	OLD
 0xf7	client type query	>os_type
-0xf8	memory execute		<addyl, <addyh, <a, <x, <y				NEW
+0xf8	memory execute		<addyl, <addyh, <y, <x, <a				NEW
 				<addyl, <addyh, <a, <x, <y, <0				OLD
 0xf9	???			>$f157 (CHRIN $ffcf) - cursor visible, never used	NEW
 				<?, >$f157 (CHRIN $ffcf) - cursor visible, never used	OLD
@@ -224,3 +249,26 @@ CHANGES:
       from AR doesn't work)
       still synctolerance etc. stuff is ugly and present, but now it is adjustable in machdep.h;
       really should be set basing on CPU speed or real timing of those settings
+23.7.2000
+    * written new wedge
+    * small client protocol changes
+    * hook in debug.h for separate log and debug messages
+    * updated LOAD'n'SAVE code (check it)
+    * added OPENDISABLE 'K' client command, maybe should be connected somehow with files of sa>128
+      (see BUGS)
+    * LOAD finally can distinguish LOAD and VERIFY and address modes
+    * fixed multiple /ACK toggling in machdep-old.c (beware, this can break something)
+24.7.2000
+    * fixes in wedge, CBM Kernal stuff almost works now
+    * some changes in UNLISTEN, UNTALK stuff, check LUnix driver against it (should work)
+    * BOOT command now returns host to almost sane state
+25.7.2000
+    * added clrchn to wedge, but it seems unneeded anyway (still strange things happen)
+    * more fixes in wedge code - open/close stuff seems to be ok now
+    * fishload should work without any problems now
+    * sync_char() is similar to that before 23.7, it constantly toggles /ACK, but this is not
+      bad as client can connect at any time (version without toggling in loop locked with AR
+      after disk operation)
+30.7.2000
+    * synchronized with sourceforge CVS - license updates (documentation/README and comm-lpt.c)
+      and 64netrc cleaned up and commented

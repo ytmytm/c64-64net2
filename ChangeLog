@@ -1,3 +1,19 @@
+2000-07-25  
+
+	* more wedge fixes, open/close is fixed, fishload works
+
+2000-07-24  
+
+	* wedge fixes, untalk/unlisten change
+
+2000-07-24  
+
+	* new wedge updates, load and save stuff
+
+2000-07-20  
+
+	* docs update
+
 2000-06-15  
 
 	* Rewritten sync_char() stuff, transfer errors seem to be fixed now

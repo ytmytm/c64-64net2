@@ -159,12 +159,12 @@ syncchar (void)
   int value;
   long c,d;
 
+  PARIN;
 sync_loop:
+  POUTRHIGH;
 
   c = 0; d = 0;
   /* Set parallel port DDR = in, POUT=high */
-  PARIN;
-  POUTRHIGH;
 #ifdef DEBUG2
   printf ("syncchar - Waiting for 64 ACK (!BUSY)\n");
   fflush (stdout);

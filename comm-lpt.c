@@ -33,6 +33,7 @@ int outport = 0x3bc;
 /* Current talk & listen logical files */
 int talklf=-1;
 int listenlf=-1;
+int lastlf=-1;
 
 /* ** DRIVE and PARTITION resolution: */
 /* Partition base directories for each drive */
@@ -126,6 +127,9 @@ int commune (void)
 	fs_accel ();
       }
       break;
+    case OPENDISABLE:
+	dont_open=1;
+	goto next;
     case SAVE:
       do_save();
       goto next;
@@ -151,7 +155,12 @@ int commune (void)
       }
       goto next;
     case BOOT:
-      do_boot();
+      {
+	do_boot();
+	/* return to (almost) startup state */
+	listenlf = -1;
+	talklf = -1;
+      }
       goto next;
     case SECOND:
 	{
@@ -254,24 +263,24 @@ int commune (void)
     case UNLISTEN:
     case UNTALK:
 	{
-	    int devlf;
 	    /* untalk/unlisten system call, lower all talk flags, close files, (send error?) */
 	    /* ATN+0x5f */
-	    devlf = (a==UNLISTEN) ? listenlf : talklf;
+	    lastlf = (a==UNLISTEN) ? listenlf : talklf;
 //	    if (a==UNLISTEN) devlf=listenlf; else devlf=talklf; 
 	/* do_dos_command if after listen and channel 15 */
 	    if (a==UNLISTEN) listenlf = -1; else talklf = -1;
-	    if ((a==UNLISTEN) && ((devlf & 0x0f)==15)) {
+
+	    if ((a==UNLISTEN) && ((lastlf & 0x0f)==15) && (dos_comm_len[last_unit]!=0)) {
     		debug_msg ("Processing dos command\n");
 		do_command();
 		sendchar (0);	/* UN{TALK,LISTEN} always return status code OK, read status for more */
 	    } else {
-		switch(devlf & 0xf0) {
+		switch(lastlf & 0xf0) {
 		    case 0xf0:	/* got full name - open it */
-			do_open(devlf);
+			if ((lastlf & 0x0f)!=0x0f) do_open(lastlf);
 			break;
 		    case 0xe0:	/* close that file */
-			do_close(devlf);
+			if ((lastlf & 0x0f)!=0x0f) do_close(lastlf);
 			break;
 		    case 0x60:	/* err, what was that? flush buffers? anyway return no errors */
 			sendchar (128);	/* XXX EOF here? or 0 as OK? */
@@ -624,9 +633,9 @@ c64jsr (int addr, int a, int x, int y)
   sendchar (0xf8);
   sendchar (addr & 0xff);
   sendchar (addr >> 8);
-  sendchar (a & 0xff);
-  sendchar (x & 0xff);
   sendchar (y & 0xff);
+  sendchar (x & 0xff);
+  sendchar (a & 0xff);
 
   return (0);
 }

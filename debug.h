@@ -19,3 +19,6 @@ extern int debug_mode;
 /* its hacky, but it works fine :) */
 
 #define debug_msg if (debug_mode) printf
+
+/* same for log messages */
+#define log_msg printf
