@@ -94,7 +94,7 @@ fs64_file file;
 /* partition # that will be searched for programs, whatever this means, not used */
 int pathdir;
 
-#define DEBUG_PIEC
+/* #define DEBUG_PIEC */
 
 #include <fcntl.h>
 #include <stdio.h>
