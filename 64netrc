@@ -38,9 +38,11 @@ timeout 5000
 device
 number 9
 #partition 1,TESTDIR/
-partition 1,/OPT/C64/TEST.D64
+partition 1,/OPT/64NET2/CBIN/
+partition 2,/HOME/GARDNERS/
+#partition 1,/OPT/C64/TEST.D64
 #partition 1,/TMP/LUNIX64.D64
-partition 2,/HOME/MACIEK/
+#partition 2,/HOME/MACIEK/
 partition 3,@/
 end
 

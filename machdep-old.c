@@ -2,6 +2,8 @@
 #include "misc_func.h"
 #include "comm-lpt.h"
 
+#define DEBUG_PIEC 0
+
 #ifdef __FreeBSD__
 /* chip-bash includes */
 #include <machine/sysarch.h>
@@ -84,27 +86,34 @@ void outb(int port, int value) {
 #define PARR ciaa.ciaprb
 #define SETINITDDR ciab.ciaddra = (ciab.ciaddra & 0xF8) | 0x02
 #else
-#define PAROUT
-#define PARIN
 #define POUTHIGH
 #define POUTLOW
 #define PARR inb(portout)
 #define BUSY (inb(portin) & 0x80)
 #define ACK (inb(portin) & 0x40)
 #ifdef LINUX
+#define PAROUT 
+#define PARIN 
 #define POUTRHIGH outb(0xa0, portout+2)
 #define POUTWHIGH outb(0x40, portout+2)
 #define POUTRLOW  outb(0xa1, portout+2)
 #define POUTWLOW  outb(0x41, portout+2)
 #define PARW(x) outb(x, portout)
 #else
+#define PAROUT 
+#define PARIN 
 #define POUTRHIGH outb(portout+2, 0xa0)
 #define POUTWHIGH outb(portout+2, 0x40)
 #define POUTRLOW  outb(portout+2, 0xa1)
 #define POUTWLOW  outb(portout+2, 0x41)
+#define AUTOLFLOW outb(portout+2, inb(portout+2)&(255-2))
+#define AUTOLFHIGH outb(portout+2, inb(portout+2)|2)
 #define PARW(x) outb(portout, x)
 #endif /* LINUX */
 #endif /* AMIGA */
+
+int piec_lastresponse=0;
+int piec_delaycount=0;
 
 void
 init_hw (void)
@@ -130,6 +139,12 @@ init_hw (void)
     fatal_error ("Cannot get io space privilege. Please setsgid to kmem (or similar)\n");
     exit (1);
   }
+
+/* Enable EPP non-FIFO mode */
+ /* outb(portout+0x402,0x80); */
+
+ /* Clear EPP timeout bit */
+ outb(portout+1,0xfe); /* Status port */
 
  fflush(stdout);
 #endif /* FreeBSD */
@@ -432,4 +447,89 @@ fishgetblock (int size, uchar * block)
   usleep(5);
   return (0);
 
+}
+
+void piec_acknowledge()
+{
+  /* Acknowledge a char sent in parallel IEC mode */
+  POUTRHIGH;
+  POUTRLOW;
+  POUTRHIGH;
+  printf("(ack)\n"); 
+#if DEBUG_PIEC>2
+  {
+    char temp[1024];
+    printf("Hit Enter..."); fflush(stdout);
+    fgets(temp,1024,stdin);
+  }
+#endif
+  piec_lastresponse=1;
+  piec_delaycount=0;
+  return;
+}
+
+void piec_wacknowledge()
+{
+  /* Acknowledge a char sent in parallel IEC mode */
+  POUTWHIGH;
+  POUTWLOW;
+  POUTWHIGH;
+  printf("(wack)\n"); 
+#if DEBUG_PIEC>2
+  {
+    char temp[1024];
+    printf("Hit Enter..."); fflush(stdout);
+    fgets(temp,1024,stdin);
+  }
+#endif
+  piec_lastresponse=3;
+  piec_delaycount=0;
+  return;
+}
+
+void piec_repeatlastresponse()
+{
+  if (piec_lastresponse==1) 
+    piec_acknowledge();
+  else 
+    if (piec_lastresponse==3) 
+      piec_wacknowledge();
+    else 
+      if (piec_lastresponse==2) 
+	piec_eof();
+  
+}
+
+void piec_eof()
+{
+  int i;
+
+  /* Toggle pin14 (AutoLF) 8 times to trigger
+     EOF at c64 end */
+  for(i=0;i<8;i++)
+    {
+      AUTOLFHIGH; AUTOLFLOW;
+    }
+  piec_lastresponse=2;
+  piec_delaycount=0;
+}
+
+int piec_busy_status()
+{
+  /* Read busy status */
+  if (BUSY) return 1; else return 0;
+}
+
+int piec_readport()
+{
+  /* Read value from port, with ATN adding 0x100 */
+  PARIN; POUTRHIGH;
+  return PARR|(ACK ? 0 : 0x100);
+}
+
+void piec_presentbyte(int byte)
+{
+  POUTWHIGH;
+  /* Write byte */
+  PARW (byte);
 }

@@ -63,5 +63,10 @@ int c64jsr(int addr,int a,int x, int y);
 int set_drive_status (uchar *string, int len);
 int which_unit (int);
 
+int parallel_iec_commune(int a);
+int piec_busy_status();
+int piec_readport();
+void piec_acknowledge();
+
 extern int listenlf, talklf, lastlf, devnum;
 extern int client_type;

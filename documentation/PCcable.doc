@@ -40,7 +40,7 @@ the general cruftiness of most PC Parallel ports).  You may be
 fortunate enough to have longer runs function, however it is
 recommended that you do not.  If you *really* *really* have to, buy
 high quality cable (eg type 5 cable desgined for 100mbit networking,
-or for "think net").  Oxygen free copper is also a help.  It is
+or for "thick net").  Oxygen free copper is also a help.  It is
 usually a combination of interference and drop of signal (PC printer
 ports are usually pushed through a set of capacitors, which
 drastically limit current) which kills the connections.  Be aware that

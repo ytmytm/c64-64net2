@@ -1,0 +1,35 @@
+;
+; Spud file used to generate the rom copy code used
+; when outputting the wedge
+;
+
+	.space $1000 $2000
+
+	.section
+
+romcopy
+	; setup and copy basic rom
+	lda #$a0
+	sta $fe
+	ldy #$00
+	sty $fd
+r1	lda ($fd),y
+	sta ($fd),y
+	iny
+	bne r1
+	inc $fe
+	lda $fe
+	beq r3
+	cmp #$c0
+	bne r1
+
+	; switch to copy kernel
+	lda #$e0
+	sta $fe
+	bne r1
+	
+r3	; rom's copied
+	; bank out and return
+	lda #$53
+	sta $01
+	rts

@@ -320,8 +320,7 @@ fs_dhd_format (fs64_filesystem * fs, uchar *name, uchar *id)
 
 }
 
-int
-fs_dhd_readbam (fs64_filesystem * fs, uchar blocks[34][256])
+int fs_dhd_readbam (fs64_filesystem * fs, uchar blocks[34][256])
 {
   /* read a D81 bam */
   int i;

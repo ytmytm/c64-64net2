@@ -27,7 +27,7 @@ COPT=-O $(CFLAGS) -Wall
 .PHONY: all clean spotless depend dep
 
 ifeq (.depend,$(wildcard .depend))
-all : 	64net2 64rm 64ls 64list 64cat 64shell x64net
+all : 	64net2 64rm 64ls 64list 64cat 64shell x64net build_wedge
 include .depend
 else
 all:	depend
@@ -71,11 +71,14 @@ lib64net2.a: $(OBJECTS)
 x64net: x/15xx.xpm
 	$(CC) $(XFLAGS) -o x64net x/x64net.c
 
+build_wedge:	build_wedge.o
+	$(CC) build_wedge.o -o build_wedge $(LOPT)
+
 #
 # all modules
 #
 
-%.o:	%.c
+%.o:	%.c Makefile
 	$(CC) -c -o $@ $(COPT) $<
 
 #

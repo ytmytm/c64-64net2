@@ -80,7 +80,7 @@ main (int argc, char **argv)
 	/* all ready, be cute */
 	printf ("Network started.\n");
 	/* do it man! */
-	commune ();
+	parallel_iec_commune(0);
 	/* all done */
 	return (0);
 }

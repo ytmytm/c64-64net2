@@ -697,3 +697,82 @@ void do_chkinout(int type) {
     debug_msg("file not open for chkin/out\n");
     sendchar(254); sendchar(1);
 }
+
+/* 
+   Parallel IEC mode code 
+*/
+
+
+void do_piec_open(int character,int secaddr)
+{
+    int sa;
+    
+    /* don't open file before loading (only get name) */
+    if (dont_open==1) return;
+    
+    sa = secaddr & 0x0f;
+    
+    /* find the unit number */
+    file_unit = 0; /* unit is always zero on 64net cable */
+    /* set the old OK message */
+    if (sa < 0x0f) {
+      if (filename[0]==',') { set_error(62,0,0); return;}
+      set_error (0, 0, 0);
+    }
+    
+    /* if the channel is in use, then close it */
+    last_unit = 0;
+    if (logical_files[file_unit][sa].open == 1)
+      fs64_closefile_g (&logical_files[last_unit][sa]);
+    debug_msg ("*** PIEC Opening [%s] on channel $%02x\n",filename, sa);
+    fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]],
+		     filename, &logical_files[file_unit][sa]);
+    return;
+}
+
+void do_piec_close(int secaddr)
+{
+    int sa,i,j;
+
+    /* close a file */
+    i = 0;			/* unit is always 0 */
+    sa = secaddr & 0x0f;
+    debug_msg ("Closing logical file $%02x\n", sa);
+    fs64_closefile_g (&logical_files[i][sa]);
+    if (sa == 0xf)
+      {
+	/* Closing command channel forces all files shut on the
+	   drive */
+	for (j = 0; j < 15; j++)
+	  fs64_closefile_g (&logical_files[i][j]);
+      }
+    /* XXX close is always successfull? */
+    sendchar (0);
+}
+
+void do_piec_cout(int last_unit,int second)
+{
+  if (logical_files[last_unit][second].open == 1)
+    {
+      unsigned char c;
+      int result=fs64_readchar (&logical_files[last_unit][second], &c);      
+      if (result>-1)
+	{
+	  piec_presentbyte(c);
+	  piec_wacknowledge();
+	}
+      else
+	{
+	  /* End of file */
+	  piec_eof();
+	}
+      printf("Feeding C64 byte from unit %d, second %d\n",last_unit,second);
+      printf("That file is open. result=%d, char=%02x\n",result,c);      
+    }
+  else
+    {
+      piec_eof();
+      printf("That file is not open\n");
+    }
+  
+}

@@ -37,3 +37,9 @@ int fastsendblock(int addr,int size,uchar *the_block);
 int fastgetblock(int addr,int size,uchar *the_block);
 int fishgetblock (int size, uchar * block);
 int fishsendblock (int size, uchar * block);
+
+void piec_presentbyte(int byte);
+void piec_acknowledge();
+void piec_eof();
+int piec_busy_status();
+int piec_readport();

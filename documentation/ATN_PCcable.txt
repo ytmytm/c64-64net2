@@ -42,13 +42,18 @@ C64 originated ATN:
 This allows the C64 to call for attention on both busses
 simultaneously by:
 
-1. Set user port to output, write device number to $DD01
-2. Bring ATN low, and perform normal serial ATN sequence.
-3. Watch for FLAG2 line of CIA2 to indicate that 64NET/2 has
+1. Set user port to output, command and write device number to $DD01
+2. Assert ATN
+   Simultaneously bring userport pin M (PC BUSY) low
+   and perform normal serial ATN sequence.
+3. Watch for FLAG2 (PC STROBE) line of CIA2 to indicate that 64NET/2 has
    acknowledged the device as well as waiting for IEC serial
    to respond.
-4. Send command byte to device ...
-
+   Assert user port pin M (PC BUSY) regardless of whether
+   64NET/2 server answers.
+4. Record which bus the device is on
+   Send subsequent data to device via appropriate bus ...
+   
 The only caveat here is that the 64NET/2 server must respond in a
 certain time period.  Without kernel interrupt servicing of the ACK
 line (which is what ATN is connected to via the cable) a loaded server 
@@ -59,8 +64,8 @@ Talk-attention turn around:
 ---------------------------
 
 When 64NET/2 acknowledges the existence of a device, it 
-pulses STROBE and then returns to passive mode.  Hence talk-attention
-turn around is not necessary.
+pulses STROBE and then returns to passive listen mode.  
+Hence talk-attention turn around is not necessary.
 
 Talker EOI:
 -----------
@@ -81,9 +86,13 @@ and it will generate an interrupt on the C64 (set bit 3 of $DD0D).
 If CNT2 (user port 6) is tied to PB3 (user port pin F) then no
 additional wire is required.
 
-The only requirement is that before receiving a character that the
+The only requirement is that when the C64 performs a CHKIN the
 serial port be set to output and then input again to clear the partial 
-byte it thinks it has received.
+byte it thinks it has received.  
+
+This need not be performed once per character, since the PC will not 
+
+This is the method which 
 
 64NET/2 stops talking
 ---------------------

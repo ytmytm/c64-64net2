@@ -1,6 +1,6 @@
 /* 
    64NET/2 Commune module
-   (C)Copyright Paul Gardner-Stephen 1995, 1996, All Rights Reserved.
+   (C)Copyright Paul Gardner-Stephen 1995, 1996, 2003 All Rights Reserved.
 
    This module does all the C64 <--> Server communications
    Printer port version
@@ -14,6 +14,10 @@
    list.
  */
 
+/* Number of loops to wait before resending a response incase it is lost
+   on the cable.  This happens sometimes, and I don't really know why */
+#define PIEC_RERESPOND 1000
+
 #include "config.h"
 
 #include "fs.h"
@@ -24,6 +28,10 @@
 #include "misc_func.h"
 #include "comm-work.h"
 #include "datestamp.h"
+
+int parallel_iec_commune(int first_char);
+
+extern int piec_delaycount;
 
 #define PADDING 1
 
@@ -116,218 +124,391 @@ int commune (void)
     a = syncchar();
 
     if (a&0x100)
-      printf("Char under attention\n");
-
-    switch (a)
-    {
-    case FSACCEL:
-	/* File System Accelerator */
-	fs_accel (charget());
-	goto next;
-    case OPENDISABLE:
-	dont_open=1;
-	goto next;
-    case SAVE:
-      do_save();
-      goto next;
-    case LOAD:
-      do_load();
-      goto next;
-    case TIME:
       {
-        int i, timebuf[8];
-	current_time(&timebuf[0]);
-	for (i=0;i!=8;i++)
-	  sendchar(timebuf[i]);
+	/* We have received a character under attention,
+	   so switch to fast IEC mode */
+	printf("Char under attention: %02x\n",a&0xff);
+	parallel_iec_commune(a);
       }
-      goto next;
-    case TIMESTRING:
+    else
       {
-        int i;
-	char *text;
-	
-	text = current_time_string();
-	asciitopetscii(text);
-	for (i = 0; i < strlen (text); i++)
-	  sendchar (text[i]);
-	sendchar (0);
-      }
-      goto next;
-    case DEVCHECK:
-      {
-	/* check device, is it one we being maintained by 64net.
-	   This is used by the client to determine which buss to
-	   talk to */
-	debug_msg ("Device check\n");
-	if (which_unit (charget ()) > -1)
-	{
-	  /* 64net device */
-	  sendchar (1);
-	}
-	else
-	{
-	  /* non-64net device */
-	  sendchar (0);
-	}
-      }
-      goto next;
-    case BOOT:
-      {
-	do_boot();
-	/* return to (almost) startup state */
-	listenlf = -1;
-	talklf = -1;
-      }
-      goto next;
-    case OPEN:
-       do_open_small();
-       goto next;
-    case CLOSE:
-       do_close_small();
-       goto next;
-    case CHKIN:
-	do_chkinout(0);
-	goto next;
-    case CHKOUT:
-	do_chkinout(1);
-	goto next;
-    case SECOND:
-	{
-	    /* second system call, get secondary address after LISTEN, that is
-	       filenumber (channel) and mode (6x=data flow, ex=name, fx=close) */
-	    listenlf = charget();
-	    debug_msg ("Second call, sa=$%02x, channel=%i\n",listenlf & 0xf0,listenlf & 0x0f);
-	    switch (listenlf & 0xf0) {
-		case 0xf0:	/* name incoming */
-		    fnlen = 0;
-		    filename[fnlen]=0;
-		    break;
-		case 0xe0:	/* close a file */
-		case 0x60:	/* get some data - open a file */
-		    break;
+	switch (a)
+	  {
+	  case FSACCEL:
+	    /* File System Accelerator */
+	    fs_accel (charget());
+	    goto next;
+	  case OPENDISABLE:
+	    dont_open=1;
+	    goto next;
+	  case SAVE:
+	    do_save();
+	    goto next;
+	  case LOAD:
+	    do_load();
+	    goto next;
+	  case TIME:
+	    {
+	      int i, timebuf[8];
+	      current_time(&timebuf[0]);
+	      for (i=0;i!=8;i++)
+		sendchar(timebuf[i]);
 	    }
-	}
-	goto next;
-    case TKSA:
-	{
-	    /* tksa system call, get secondary address after TALK, that is
-	       filenumber and mode, mode can be only 0x6x or 0xfx (data or close) */
-	    talklf = charget();
-	    debug_msg ("Tksa call, sa=$%02x, channel=%i\n",talklf & 0xf0,talklf & 0x0f);
-	    switch (talklf & 0xf0) {
-		case 0xf0:	/* name??? - shouldn't happen */
-		case 0xe0:	/* close */
-		case 0x60:	/* send some data - open a file */
+	    goto next;
+	  case TIMESTRING:
+	    {
+	      int i;
+	      char *text;
+	      
+	      text = current_time_string();
+	      asciitopetscii(text);
+	      for (i = 0; i < strlen (text); i++)
+		sendchar (text[i]);
+	      sendchar (0);
+	    }
+	    goto next;
+	  case DEVCHECK:
+	    {
+	      /* check device, is it one we being maintained by 64net.
+		 This is used by the client to determine which buss to
+		 talk to */
+	      debug_msg ("Device check\n");
+	      if (which_unit (charget ()) > -1)
+		{
+		  /* 64net device */
+		  sendchar (1);
+		}
+	      else
+		{
+		  /* non-64net device */
+		  sendchar (0);
+		}
+	    }
+	    goto next;
+	  case BOOT:
+	    {
+	      do_boot();
+	      /* return to (almost) startup state */
+	      listenlf = -1;
+	      talklf = -1;
+	    }
+	    goto next;
+	  case OPEN:
+	    do_open_small();
+	    goto next;
+	  case CLOSE:
+	    do_close_small();
+	    goto next;
+	  case CHKIN:
+	    do_chkinout(0);
+	    goto next;
+	  case CHKOUT:
+	    do_chkinout(1);
+	    goto next;
+	  case SECOND:
+	    {
+	      /* second system call, get secondary address after LISTEN, that is
+		 filenumber (channel) and mode (6x=data flow, ex=name, fx=close) */
+	      listenlf = charget();
+	      debug_msg ("Second call, sa=$%02x, channel=%i\n",listenlf & 0xf0,listenlf & 0x0f);
+	      switch (listenlf & 0xf0) {
+	      case 0xf0:	/* name incoming */
+		fnlen = 0;
+		filename[fnlen]=0;
+		break;
+	      case 0xe0:	/* close a file */
+	      case 0x60:	/* get some data - open a file */
+		break;
+	      }
+	    }
+	    goto next;
+	  case TKSA:
+	    {
+	      /* tksa system call, get secondary address after TALK, that is
+		 filenumber and mode, mode can be only 0x6x or 0xfx (data or close) */
+	      talklf = charget();
+	      debug_msg ("Tksa call, sa=$%02x, channel=%i\n",talklf & 0xf0,talklf & 0x0f);
+	      switch (talklf & 0xf0) {
+	      case 0xf0:	/* name??? - shouldn't happen */
+	      case 0xe0:	/* close */
+	      case 0x60:	/* send some data - open a file */
 	    	break;
-		}
-		
-	}
-	goto next;
-    case LISTEN:
-    case TALK:
-	{
-	    int i;
-	    /* listen/talk system call, get device number and merely ignore it
-	       (multi-device mode not yet supported) */
-	    i = charget();
-	    if (a==LISTEN) debug_msg ("Listen call on device %i\n",i);
-	    if (a==TALK) debug_msg ("Talk call on device %i\n",i);
-	}
-	goto next;
-    case CIOUT:
-	{
-    	    /* ciout system call, receive something and store it */
-	    if (listenlf < 0)
+	      }
+	      
+	    }
+	    goto next;
+	  case LISTEN:
+	  case TALK:
 	    {
-		/* listening without a listener */
-		/* this one's for the bit bucket */
-		debug_msg ("Listen without listener: %i\n",charget());
-	    } else {
-		switch (listenlf & 0xf0) {
-		    case 0xf0:		/* fill in name buffer */
-			if ((listenlf & 0x0f) == 0x0f) {
-			    do_ciout(listenlf); }
-			else {
-			    filename[fnlen++]=charget();
-			    filename[fnlen]=0; }
-			break;
-		    case 0xe0:
-			charget();	/* illegal - drop it */
-			debug_msg ("Unneeded CIOUT call (on close)\n");
-			break;
-		    case 0x60:		/* do file stuff */
-			do_ciout(listenlf);
-			break;
+	      int i;
+	      /* listen/talk system call, get device number and merely ignore it
+		 (multi-device mode not yet supported) */
+	      i = charget();
+	      if (a==LISTEN) debug_msg ("Listen call on device %i\n",i);
+	      if (a==TALK) debug_msg ("Talk call on device %i\n",i);
+	    }
+	    goto next;
+	  case CIOUT:
+	    {
+	      /* ciout system call, receive something and store it */
+	      if (listenlf < 0)
+		{
+		  /* listening without a listener */
+		  /* this one's for the bit bucket */
+		  debug_msg ("Listen without listener: %i\n",charget());
+		  /* charget (); */
+		} else {
+		  switch (listenlf & 0xf0) {
+		  case 0xf0:		/* fill in name buffer */
+		    if ((listenlf & 0x0f) == 0x0f) {
+		      do_ciout(listenlf); }
+		    else {
+		      filename[fnlen++]=charget();
+		      filename[fnlen]=0; }
+		    break;
+		  case 0xe0:
+		    charget();	/* illegal - drop it */
+		    debug_msg ("Unneeded CIOUT call (on close)\n");
+		    break;
+		  case 0x60:		/* do file stuff */
+		    do_ciout(listenlf);
+		    break;
+		  }
 		}
 	    }
-	}
-	goto next;
-    case ACPTR:
-	{
-	    /* acptr system call, get something and send it */
-	    if (talklf < 0)
+	    goto next;
+	  case ACPTR:
 	    {
-		debug_msg ("talking without a talker\n");
-		/* talking without a talker */
-		/* send reply */
-		sendchar (128);
-		sendchar (199);
-		/* and set error */
-		set_error (70, 0, 0);
-	    } else {
-
-		switch (talklf & 0xf0) {
-		    case 0xf0:
-		    case 0xe0:
-			sendchar (128);	/* send kinda error */
-			sendchar (199);
-			break;
-		    case 0x60:		/* send file data */
-			do_acptr(talklf);
-			break;
+	      /* acptr system call, get something and send it */
+	      if (talklf < 0)
+		{
+		  debug_msg ("talking without a talker\n");
+		  /* talking without a talker */
+		  /* send reply */
+		  sendchar (128);
+		  sendchar (199);
+		  /* and set error */
+		  set_error (70, 0, 0);
+		} else {
+		  
+		  switch (talklf & 0xf0) {
+		  case 0xf0:
+		  case 0xe0:
+		    sendchar (128);	/* send kinda error */
+		    sendchar (199);
+		    break;
+		  case 0x60:		/* send file data */
+		    do_acptr(talklf);
+		    break;
+		  }
 		}
 	    }
-	}
-	goto next;
-    case UNLISTEN:
-    case UNTALK:
-	{
+	    goto next;
+	  case UNLISTEN:
+	  case UNTALK:
+	    {
 #ifdef DEBUG
-	    if (a==UNLISTEN) debug_msg ("Unlisten call on channel %i\n",listenlf & 0x0f);
-	    if (a==UNTALK) debug_msg ("Untalk call on channel %i\n",talklf & 0x0f);
+	      if (a==UNLISTEN) debug_msg ("Unlisten call on channel %i\n",listenlf & 0x0f);
+	      if (a==UNTALK) debug_msg ("Untalk call on channel %i\n",talklf & 0x0f);
 #endif
-	    /* untalk/unlisten system call, lower all talk flags, close files, (send error?) */
-	    lastlf = (a==UNLISTEN) ? listenlf : talklf;
-	    /* do_dos_command if after listen and channel 15 */
-	    if (a==UNLISTEN) listenlf = -1; else talklf = -1;
-
-	    if ((a==UNLISTEN) && ((lastlf & 0x0f)==15)) {
+	      /* untalk/unlisten system call, lower all talk flags, close files, (send error?) */
+	      lastlf = (a==UNLISTEN) ? listenlf : talklf;
+	      /* do_dos_command if after listen and channel 15 */
+	      if (a==UNLISTEN) listenlf = -1; else talklf = -1;
+	      
+	      if ((a==UNLISTEN) && ((lastlf & 0x0f)==15)) {
     		debug_msg ("Processing dos command\n");
 		if (dos_comm_len[last_unit]!=0) do_command();
 		sendchar (0);	/* UN{TALK,LISTEN} always return status code OK, read dos_status for more */
-	    } else {
+	      } else {
 		switch(lastlf & 0xf0) {
-		    case 0xf0:	/* got full name - open it */
-			if ((lastlf & 0x0f)!=0x0f) do_open(lastlf);
+		case 0xf0:	/* got full name - open it */
+		  if ((lastlf & 0x0f)!=0x0f) do_open(lastlf);
 #ifdef USE_SERIAL_DRIVER
-			sendchar(0);
+		  sendchar(0);
 #endif
-			break;
-		    case 0xe0:	/* close that file */
-			if ((lastlf & 0x0f)!=0x0f) do_close(lastlf);
-			break;
-		    case 0x60:	/* err, what was that? flush buffers? anyway return no errors */
-			sendchar (128);	/* XXX EOF here? or 0 as OK? */
+		  break;
+		case 0xe0:	/* close that file */
+		  if ((lastlf & 0x0f)!=0x0f) do_close(lastlf);
+		  break;
+		case 0x60:	/* err, what was that? flush buffers? anyway return no errors */
+		  sendchar (128);	/* XXX EOF here? or 0 as OK? */
 		}		/* end switch(devlf...	*/
-	    }			/* end else...		*/
-	}			/* end UNTALK:		*/
-    }				/* end switch(a)	*/
+	      }			/* end else...		*/
+	    }			/* end UNTALK:		*/
+	  }				/* end switch(a)	*/
+      }
   next:
-  	;
+    ;
   }				/* while(1)		*/
-/* will be never reached */
-	return 0;
+  /* will be never reached */
+  return 0;
 }				/* int commune()	*/
+
+int parallel_iec_commune(int a)
+{
+  /* Parallel IEC mode.
+     Characters are acknowledged or dispatched by C64 with only a flip
+     of the PC BUSY line.
+  */
+
+  int last_busy_value;
+  int iec_state=0;
+  int lastdevice=0;
+  int state=0;
+  int second=0;
+
+  piec_delaycount=PIEC_RERESPOND+1;
+
+  init_hw ();
+
+  /* Announce registration details */
+  printf ("64NET/2 is covered by the 64net/2 BSD license\n");
+  printf ("Operating in IEEE/IEC parallel mode.\n");
+
+  starthw();
+
+  last_busy_value=piec_busy_status();
+
+  while(1)
+    {     
+      if (a&0x100)
+	{
+	  /* Character under attention */
+	  switch(a&0x1f0)
+	    {
+	    case 0x120: case 0x130: /* Device query ? */
+	      lastdevice=a&0x1f;
+	      last_unit=which_unit(lastdevice);
+	      /* Acknowledge device if it is us */
+	      if (last_unit>-1) {
+		piec_acknowledge();
+		state=0;
+		printf("Answered device %d (which is unit %d)\n",
+		       lastdevice,last_unit);
+	      }
+	      if (a==0x13f)
+		{
+		  piec_acknowledge();
+		  printf("Char %02x is for us (dev=%d), acknowledge it\n",
+			 a&0xff,a&0x1f);
+		}
+	      break;
+	    case 0x1f0: /* Name incoming */
+	      if (a!=0x1ff)
+		{
+		  piec_acknowledge(); 
+		  second=a&0xf; 
+		  if (second!=0xf) 
+		    { 
+		      fnlen=0; 
+		      if (state!=1) printf("Incoming name\n");
+		      state=1; 
+		    } /* listen for name */
+		  else 
+		    {
+		      if (state!=3) printf("Incoming data\n");
+		      state=3; /* listen */
+		    }
+		}
+	      else
+		{
+		  do_piec_cout(last_unit,second);		  
+		}
+	      break;
+	    case 0x140: /* Talk? */
+	      piec_acknowledge();
+	      second=a&0xf;
+	      printf("Talk on unit %d, channel %d\n",last_unit,second);
+	      break;
+	    case 0x160: /* Open a file */
+	      piec_acknowledge(); 
+	      printf("Opening file\n");
+	      do_piec_open(a,second); 
+	      if (second!=0xf) 
+		{ 
+		  state=2; /* talk */ 
+		  printf("I think I am talking\n");
+		  piec_presentbyte(0);
+		}
+	      else 
+		{
+		  state=3; /* listen */
+		  printf("I think I am listening\n");
+		  piec_readport(0);
+		}
+	      break;
+	    case 0x1e0: /* Close a file */
+	      piec_acknowledge();
+	      do_piec_close(a);
+	      state=0; /* idle */
+	      printf("Special character %02x, acknowledge it\n",
+		     a&0xff);
+	      break;
+	    default:
+	      if (((a&0x1f)==0x1f)
+		  ||(which_unit(a&0x1f)>-1))
+		{
+		  printf("Char %02x is for us (dev=%d), acknowledge it\n",
+			 a&0xff,a&0x1f);
+		  piec_acknowledge();
+		}
+	      else
+		{
+		  printf("Char %02x is not for us (dev=%d), ignoring it\n",
+			 a&0xff,a&0x1f);
+		}
+	    }
+	}
+      else
+	{
+	  /* Regular character.
+	     Acknowledge and ignore for now */
+	  switch(state)
+	  {
+	    case 0: /* idle - shouldn't happen */
+	      piec_acknowledge();
+              printf("Unexpected regular char %02x\n",a);
+	      break;
+	    case 1: /* listen for filename */
+	      if (fnlen<32) {
+  	        filename[fnlen++]=a;
+	        filename[fnlen]=0; }
+	      printf("Filename now [%s]\n",filename);
+	      piec_acknowledge();
+	      break;
+	    case 2: /* C64 wants a char */
+              do_piec_cout(last_unit,second);
+	      break;
+	    case 3: /* C64 is sending a char */
+	      /* do_piec_cin(a); */
+	      piec_acknowledge();
+	      break;
+            default:
+	  }
+	}
+
+      printf("Last char was %03x, busy=%d\n",a,last_busy_value);
+
+      /* Wait for next flip */
+      while(piec_busy_status()==last_busy_value) 
+	{
+	  if (piec_delaycount<PIEC_RERESPOND)
+	    piec_delaycount++;
+	  else if (piec_delaycount==PIEC_RERESPOND)
+	    {
+	      piec_repeatlastresponse();
+	      piec_delaycount=PIEC_RERESPOND+1;
+	    }
+	  continue;
+	}
+      last_busy_value=piec_busy_status();
+      /* Read character */
+      a=piec_readport();
+      /* Don't acknowledge char yet, since it might be for an unknown
+         device */
+    }
+}
 
 /* These configuration reading routines really should be in another module,
    but that would entail global variables which i want to avoid.
