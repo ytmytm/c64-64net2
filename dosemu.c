@@ -782,7 +782,7 @@ do_dos_command (void)
 	  {
 	    /* return current dir in status */
 	    sprintf ((char*)temp, "%02d,%s,%02d,%02d",
-		     0, (char *) curr_dir[curr_par[i]], 0, 0);
+		     0, (char *) curr_dir[i][curr_par[i]], 0, 0);
 	    set_drive_status (temp, strlen (temp));
 	    dos_comm_len[i] = 0;
 	    return (0);
