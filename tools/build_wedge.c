@@ -183,8 +183,10 @@ struct instruction instruction_set[]=
 #define T_K_FREE 101
 #define T_K_SPACE 102
 #define T_K_SECTION 103
-#define T_K_BYTE 104
-#define T_K_WORD 105
+#define T_K_PRERELOCATE 104
+#define T_K_POSTRELOCATE 105
+#define T_K_BYTE 106
+#define T_K_WORD 107
 
 char inputfile[8192]="input";
 int linenum=0;
@@ -206,6 +208,20 @@ int section_count=0;
 /* most recent section and byte structures */
 struct assembled_byte *current_section=NULL;
 struct assembled_byte *current_byte=NULL;
+
+int special_section=NULL;
+
+struct assembled_byte *pre_relocate=NULL;
+int pre_relocate_address=0;
+int pre_relocate_length=0;
+struct assembled_byte *post_relocate=NULL;
+int post_relocate_address=0;
+int post_relocate_length=0;
+
+int load_address=0x0801;
+
+int wedge_next_address=0x0801;
+#define BASIC_HEADER_LENGTH 0x13
 
 int free_space_starts[256]={0};
 int free_space_ends[256]={-1};
@@ -255,6 +271,10 @@ int accumulatedToken()
     { token_type=T_K_SPACE; token_body_len=0; return 0; }
   if (!strcasecmp(token_body,".section")) 
     { token_type=T_K_SECTION; token_body_len=0; return 0; }
+  if (!strcasecmp(token_body,".prerelocate")) 
+    { token_type=T_K_PRERELOCATE; token_body_len=0; return 0; }
+  if (!strcasecmp(token_body,".postrelocate")) 
+    { token_type=T_K_POSTRELOCATE; token_body_len=0; return 0; }
   if (!strcasecmp(token_body,".byte")) 
     { token_type=T_K_BYTE; token_body_len=0; return 0; }
   if (!strcasecmp(token_body,".word")) 
@@ -283,10 +303,16 @@ int accumulatedToken()
 	  default:
 	    hex=0;
 	  }
-      if (!hex) return syntaxError("Bad character in hexadecimal value");
+      if (!hex) 
+	{
+	  token_body_len=0; 
+	  token_body[0]=0;
+	  return syntaxError("Bad character in hexadecimal value");
+	}
       token_value=strtol(&token_body[1],NULL,16);
       token_type=T_NUMERIC;
       token_body_len=0; 
+      token_body[0]=0;
       return 0;
     }
   if (token_body[0]=='%')
@@ -301,7 +327,12 @@ int accumulatedToken()
 	  default:
 	    hex=0;
 	  }
-      if (!hex) return syntaxError("Bad character in binary value");
+      if (!hex) 
+	{
+	  token_body_len=0; 
+	  token_body[0]=0;
+	  return syntaxError("Bad character in binary value");
+	}
       token_value=strtol(&token_body[1],NULL,2);
       token_type=T_NUMERIC;
       token_body_len=0; 
@@ -445,6 +476,7 @@ int parseFile(FILE *f)
 	    return syntaxError("Cannot label a PATCH directive");
 	  current_section=NULL;
 	  current_byte=NULL;
+	  special_section=NULL;
 	  getNextToken(f);
 	  if (token_type!=T_NUMERIC)
 	    return syntaxError("Expect $nnnn after .patch");
@@ -458,6 +490,25 @@ int parseFile(FILE *f)
 	    return syntaxError("Cannot label a SECTION directive");
 	  current_section=sections[section_count];
 	  current_byte=NULL;
+	  special_section=NULL;
+	  break;
+	case T_K_PRERELOCATE:
+	  if (pending_label)
+	    return syntaxError("Cannot label an PRERELOCATE directive");
+	  if (pre_relocate)
+	    return syntaxError("Cannot have multiple PRERELOCATE directives");
+	  current_section=pre_relocate;
+	  current_byte=NULL;
+	  special_section=T_K_PRERELOCATE;
+	  break;
+	case T_K_POSTRELOCATE:
+	  if (pending_label)
+	    return syntaxError("Cannot label an POSTRELOCATE directive");
+	  if (post_relocate)
+	    return syntaxError("Cannot have multiple POSTRELOCATE directives");
+	  current_section=post_relocate;
+	  current_byte=NULL;
+	  special_section=T_K_POSTRELOCATE;
 	  break;
 	case T_K_SPACE:
 	  getNextToken(f);
@@ -479,16 +530,14 @@ int parseFile(FILE *f)
 	     Record current file name and line number.
 	  */
 	  {
-	    int line;
-	    char file[8192];
 	    getNextToken(f);
 	    if (token_type!=T_NUMERIC)
 	      return syntaxError("Expect line number after #");
-	    line=token_value;
+	    linenum=token_value-1;
 	    getNextToken(f);
 	    if (token_type!=T_LITERAL)
 	      return syntaxError("Expect filename after '# linenumber '");
-	    strcpy(file,token_body);
+	    strcpy(inputfile,token_body);
 	  }
 	  break;
 	case T_EOF:
@@ -673,8 +722,8 @@ int assembleLabel(FILE *f)
       return assembleLineDregs(f);
     case T_SEMICOLON:
       /* label followed by a comment */
-      while((token_type!=T_EOL)&&(token_type!=T_EOF))
-	getNextToken(f);
+      token_queued=1;
+      assembleLineDregs(f);
       return 0;
     default:
       return syntaxError("Unexpected stuff after a label");      
@@ -689,8 +738,12 @@ int assembleLineDregs(FILE *f)
       switch(token_type)
 	{
 	case T_SEMICOLON:
+	  token_queued=0;
+	  linepos=linelen-1;
 	  while((token_type!=T_EOL)&&(token_type!=T_EOF))
-	    getNextToken(f);
+	    { 
+	      getNextToken(f);
+	    }
 	  return 0;
 	default:
 	  return syntaxError("Unexpected stuff at the end of the line");      
@@ -799,32 +852,70 @@ int commitByte(struct assembled_byte *ab)
 
   /* dumpSections(); */
 
-  if ((!current_section)) /* ||(!current_byte)) */
+  switch(special_section)
     {
-      /* Start first section */
-      sections[section_count++]=ab;
-      current_section=ab;
-      current_byte=ab;
-    }
-  else
-    {
-      current_byte->next=ab;
-      current_byte=ab;
+    case NULL:
+      if ((!current_section)) /* ||(!current_byte)) */
+	{
+	  /* Start first section */
+	  sections[section_count++]=ab;
+	  current_section=ab;
+	  current_byte=ab;
+	}
+      else
+	{
+	  current_byte->next=ab;
+	  current_byte=ab;
+	}
+      
+      /* Tally section lengths */
+      section_lengths[section_count-1]++;
+      if ((ab->bytes==3)&&(!ab->relativeP))
+	section_lengths[section_count-1]++;
+      
+      if (pending_label)
+	{
+	  /* Declare the pending label as being here */
+	  pending_label=0;
+	  if (!newLabel(pending_label_name,0,1,0,1,token_value,
+			current_section,current_byte,NULL))
+	    return -1;
+	}
+      break;
+    case T_K_PRERELOCATE:
+      if (!pre_relocate)
+	{ pre_relocate=ab; current_section=ab; current_byte=ab;}
+      else
+	{ current_byte->next=ab; current_byte=ab; }
+      pre_relocate_length++;
+      if ((ab->bytes==3)&&(!ab->relativeP)) pre_relocate_length++;
+      if (pending_label)
+	{
+	  /* Declare the pending label as being here */
+	  pending_label=0;
+	  if (!newLabel(pending_label_name,0,1,0,1,token_value,
+			current_section,current_byte,NULL))
+	    return -1;
+	}
+      break;
+    case T_K_POSTRELOCATE:
+      if (!post_relocate)
+	{ post_relocate=ab; current_section=ab; current_byte=ab;}
+      else
+	{ current_byte->next=ab; current_byte=ab; }
+      post_relocate_length++;      
+      if ((ab->bytes==3)&&(!ab->relativeP)) post_relocate_length++;
+      if (pending_label)
+	{
+	  /* Declare the pending label as being here */
+	  pending_label=0;
+	  if (!newLabel(pending_label_name,0,1,0,1,token_value,
+			current_section,current_byte,NULL))
+	    return -1;
+	} 
+      break;
     }
 
-  /* Tally section lengths */
-  section_lengths[section_count-1]++;
-  if ((ab->bytes==3)&&(!ab->relativeP))
-    section_lengths[section_count-1]++;
-
-  if (pending_label)
-    {
-      /* Declare the pending label as being here */
-      pending_label=0;
-      if (!newLabel(pending_label_name,0,1,0,1,token_value,
-		    current_section,current_byte,NULL))
-	return -1;
-    }
   return 0;
 }
 
@@ -838,6 +929,7 @@ int commitOpcode(char *inst,int mode)
     if ((!strcasecmp(inst,instruction_set[i].name))
 	&&(instruction_set[i].mode==mode))
       break;
+
   if (!instruction_set[i].name)
     {
       char temp[1024];
@@ -874,7 +966,11 @@ int assembleInstruction(FILE *f)
     {
     case T_A:
       return commitOpcode(inst,IM_ACC);
-    case T_EOL: case T_EOF: case T_SEMICOLON:
+    case T_SEMICOLON:
+      token_queued=1;
+      assembleLineDregs(f);
+      /* fall through */
+    case T_EOL: case T_EOF:
       token_queued=1;
       return commitOpcode(inst,IM_IMP);
     case T_HASH:
@@ -907,6 +1003,11 @@ int assembleInstruction(FILE *f)
 	      return syntaxError("Illegal index - expected X or Y");
 	    }
 	}
+      else 
+	{
+	  /* Wasn't a comma - so work out what to do with it */
+	  token_queued=1;
+	}
       /* Work out if we are using ABS or ZP.
 	 For now guess based on number of bytes specified by ab,
 	 or if ab refers to a literal value < 256 */
@@ -917,8 +1018,6 @@ int assembleInstruction(FILE *f)
 	{
 	  if (ab->label->resolvedP==1)
 	    {
-	      printf("Label '%s' claims to be resolved\n",
-		     ab->label->name);
 	      if (((ab->label->value+ab->label_offset)>=0)
 		  &&((ab->label->value+ab->label_offset)<256))
 		{ absP=0; ab->bytes=1; }
@@ -945,6 +1044,14 @@ int assembleInstruction(FILE *f)
 	  absP=0;
 	  ab->relativeP=1;	  
 	}
+
+      /* Promote ZP to ABS where necessary (i.e. JSR/JMP) */
+      if ((tolower(inst[0])=='j')&&(mode==IM_ZP))
+	{
+	  mode=IM_ABS;
+	  ab->bytes=3;
+	}
+
       /* Record instruction */
       if (commitOpcode(inst,mode)) return -1;
       return commitByte(ab);      
@@ -1044,6 +1151,13 @@ int dumpSections()
       printf("\nSection %d (%d bytes):\n-----------\n",i,section_lengths[i]);
       dumpBytes(sections[i]);
     }
+
+  printf("\nPre-relocate (%d bytes):\n-----------\n",pre_relocate_length);
+  dumpBytes(pre_relocate);
+
+  printf("\nPost-relocate (%d bytes):\n-----------\n",post_relocate_length);
+  dumpBytes(post_relocate);
+
   return 0;
 }
 
@@ -1101,6 +1215,22 @@ int placeSections()
 	     section_addresses[i]
 	     +section_lengths[i]-1);
     }
+
+  /* Now that we have placed sections, and know how many there are,
+     we can calculate the address for the post-relocate/entry routine */
+
+  /* Address of wedge after SYS statement */
+  pre_relocate_address=wedge_next_address+BASIC_HEADER_LENGTH;
+  /* The total length of all sections */
+  for(i=0;i<section_count;i++) pre_relocate_address+=section_lengths[i];
+
+  /* 13 bytes of relocation code for each section */
+  post_relocate_address=pre_relocate_address+pre_relocate_length;
+  post_relocate_address+=13*section_count;
+
+  printf("Pre-Entry point is $%04x\n",pre_relocate_address);
+  printf("Post-Entry point is $%04x\n",post_relocate_address);
+
   return 0;
 }
 
@@ -1115,8 +1245,18 @@ int resolveLabels()
 	{
 	  struct assembled_byte *b;
 	  int section_offset=0,section_num=-1;
+	  int section_address=0;
 	  for(section_num=0;section_num<section_count;section_num++)
 	    if (l->section==sections[section_num]) break;
+	  if (section_num>=section_count)
+	    {
+	      if (l->section==pre_relocate) 
+		section_address=pre_relocate_address;
+	      if (l->section==post_relocate) 
+		section_address=post_relocate_address;
+	    }
+	  else
+	    section_address=section_addresses[section_num];
 	  b=l->section;
 	  while(b&&(b!=l->first_byte))
 	    {
@@ -1129,7 +1269,7 @@ int resolveLabels()
 	      fprintf(stderr,"Could not resolve label [%s]\n",l->name);
 	      return -1;
 	    }
-	  l->value=section_addresses[section_num]+section_offset;
+	  l->value=section_address+section_offset;
 	  l->resolvedP=1;
 	  c+=strlen(l->name)+7;
 	  if (c>79) { printf("\n"); c=strlen(l->name)+7; }
@@ -1145,6 +1285,44 @@ int resolveLabels()
   return 0;
 }
 
+int resolveSectionValues(struct assembled_byte *b,
+			 int section_address)
+{
+  int section_offset=0;
+  while(b)
+    {
+      if (!b->valueP)
+	{
+	  b->valueP=1;
+	  if (!b->label->resolvedP) 
+	    {
+	      fprintf(stderr,"Label '%s' could not be resolved.\n",
+		      b->label->name);
+	      return -1;
+	    }
+	  b->value=b->label->value+b->label_offset;
+	  if (b->relativeP)
+	    {
+	      b->value-=section_address+section_offset+1;
+	      b->bytes=1;
+	      if ((b->value<-128)||(b->value>127))
+		{
+		  fprintf(stderr,"Branch out of range branching to %s\n",
+			  b->label->name);
+		  return -1;
+		}
+	      b->relativeP=0;
+	    }
+	}
+      
+      section_offset++;
+      if ((b->bytes==3)&&(!b->relativeP)) section_offset++;
+      
+      b=b->next;
+    }
+  return 0;
+}
+
 int resolveValues()
 {
   int s;
@@ -1152,34 +1330,13 @@ int resolveValues()
   
   for(s=0;s<section_count;s++)
     {
-      int section_offset=0;
       b=sections[s];
-      while(b)
-	{
-	  if (!b->valueP)
-	    {
-	      b->valueP=1;
-	      b->value=b->label->value+b->label_offset;
-	      if (b->relativeP)
-		{
-		  b->value-=(section_addresses[s]+section_offset+1);
-		  b->bytes=1;
-		  if ((b->value<-128)||(b->value>127))
-		    {
-		      fprintf(stderr,"Branch out of range branching to %s\n",
-			      b->label->name);
-		      return -1;
-		    }
-		  b->relativeP=0;
-		}
-	    }
-	  
-	  section_offset++;
-	  if ((b->bytes==3)&&(!b->relativeP)) section_offset++;
-	  
-	  b=b->next;
-	}
+      resolveSectionValues(b,section_addresses[s]);
     }
+
+  resolveSectionValues(pre_relocate,pre_relocate_address);
+  resolveSectionValues(post_relocate,post_relocate_address);
+
   return 0;
 }
 
@@ -1188,26 +1345,25 @@ int writeWedge(char *file)
   /* Write out a c64 wedge */
   FILE *f;
   int i;
-  int total_section_size=0;
-  int section_address=2068;
 
   f=fopen(file,"w");
   if (!f)
     return fprintf(stderr,"Could not open wedge file '%s' for write\n",file);
 
-  for(i=0;i<section_count;i++)
-    total_section_size+=section_lengths[i];
+  wedge_next_address=load_address;
 
   /* Output BASIC sys jump start */ 
   fprintf(f,"%c%c%c%c%c%c%c%05d,$%04X%c%c%c",
-	  0x01,0x08,
-	  0x12,0x08,
-	  2003&0xff,2003>>8,
+	  wedge_next_address&0xff,(wedge_next_address>>8),
+	  (wedge_next_address+BASIC_HEADER_LENGTH-2)&0xff,
+	  ((wedge_next_address+BASIC_HEADER_LENGTH-2)>>8),
+	  2004&0xff,2004>>8,
 	  0x9e,
-	  section_address+total_section_size,
-	  section_address+total_section_size,
+	  pre_relocate_address,
+	  pre_relocate_address,
 	  0,0,0);
   printf("File offset after BASIC header: %ld\n",ftell(f));
+  wedge_next_address+=BASIC_HEADER_LENGTH;
 
   /* output code sections */
   for(i=0;i<section_count;i++)
@@ -1223,25 +1379,61 @@ int writeWedge(char *file)
     }
 
   printf("File offset at entry point: %ld (i.e. $%04lX)\n",
-	 ftell(f),ftell(f)+0x7ff);
+	 ftell(f),ftell(f)+load_address-2);
 
   /* Output ROM copy code */
-  for(i=0;romcopycode[i]!=0x1000;i++)
-    fprintf(f,"%c",romcopycode[i]);
-  printf("Output %d bytes of ROM copy code\n",i);
+  /* for(i=0;romcopycode[i]!=0x1000;i++)
+     fprintf(f,"%c",romcopycode[i]);
+     printf("Output %d bytes of ROM copy code\n",i); */
+
+  /* output pre-relocate code */
+  printf("Next address is $%04x\n",wedge_next_address);
+
+  printf("File offset at pre-relocation entry point: %ld (i.e. $%04lX)\n",
+	 ftell(f),ftell(f)+load_address-2);
+     
+  {
+    struct assembled_byte *b;
+    b=pre_relocate;
+    while(b)
+      {
+	if (b->bytes&1) fputc(b->value&0xff,f);
+	if (b->bytes&2) fputc((b->value>>8)&0xff,f);
+	b=b->next;
+      }
+  }
 
   /* output section copy code */
   for(i=0;i<section_count;i++)
     {
       fprintf(f,"%c%c%c%c%c%c%c%c%c%c%c%c%c",
 	      0xa2,0x00,
-	      0xbd,section_address&0xff,section_address>>8,
+	      0xbd,wedge_next_address&0xff,wedge_next_address>>8,
 	      0x9d,section_addresses[i]&0xff,section_addresses[i]>>8,
 	      0xe8,
 	      0xe0,section_lengths[i],
 	      0xd0,0xf5);
-      section_address+=section_lengths[i];
+      wedge_next_address+=section_lengths[i];
     }
+
+  wedge_next_address+=13*section_count;
+
+  /* output post-relocate code */
+  printf("Next address is $%04x\n",wedge_next_address);
+
+  printf("File offset at post-relocation entry point: %ld (i.e. $%04lX)\n",
+	 ftell(f),ftell(f)+load_address-2);
+
+  {
+    struct assembled_byte *b;
+    b=post_relocate;
+    while(b)
+      {
+	if (b->bytes&1) fputc(b->value&0xff,f);
+	if (b->bytes&2) fputc((b->value>>8)&0xff,f);
+	b=b->next;
+      }
+  }
 
   /* RTS at end of wedge */
   fprintf(f,"%c",0x60);
