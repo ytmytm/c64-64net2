@@ -88,7 +88,6 @@
 #include <sys/stat.h>
 
 #ifdef UNIX
-#define HAS_FTIME
 #include <netdb.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -106,7 +105,6 @@
 #endif
 
 #ifdef WINDOWS
-#define HAS_FTIME
 #include <winsock.h>
 #define socklen_t int
 #define usleep(x) sleep(x/1000)

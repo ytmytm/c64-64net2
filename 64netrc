@@ -1,6 +1,6 @@
 
 # The LPT port address to communicate on (interpreted as hex number)
-port 278
+port 378
 
 # or if you are using serial cable place correct device below
 # port /dev/ttyS1

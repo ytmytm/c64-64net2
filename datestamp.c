@@ -6,6 +6,7 @@
 
 #include "config.h"
 #include <time.h>
+#include <sys/time.h>
 #ifdef BSD
 #include <sys/types.h>
 #endif
@@ -33,24 +34,13 @@ gettimestamp (int *year, int *month, int *day, int *hour, int *minute, int *seco
   return (0);
 }
 
-int
-gettimer (int *second, int *ms)
+void gettimer (int *second, int *ms)
 {
-#ifdef HAS_FTIME
-    struct timeb tb;
-    ftime(&tb);
-    *ms=tb.millitm;
-#else
-/* does it work on Amiga? */
-  unsigned int clock[2];
+    struct timeval tv;
 
-  timer (clock);
-  *ms = clock[1] * 1000;
-#endif
-  /* KLUGE: same arg is okay, as second gets assigned last */
-  gettimestamp (second, second, second, second, second, second);
-
-  return (0);
+    gettimeofday(&tv,NULL);
+    *second = tv.tv_sec;
+    *ms  = tv.tv_usec;
 }
 
 void current_time (int *timebuf[]) {

@@ -297,7 +297,7 @@ void do_save(void) {
 	  gettimer (&s2, &ms2);
 	  if (ms > ms2)
 	  {
-	    ms2 += 1000;
+	    ms2 += 1000000;
 	    s2--;
 	  }
 	  s = s2 - s;

@@ -116,7 +116,7 @@ IDEAS:
 TODO
     * make wedge ROMable (it won't change much, all functionality is there)
     + merge wedge and wedge-ser
-    * replace ftime call in datestamp.c by gettimeofday - ftime is obsoleted in BSD for some reason
+    + replace ftime call in datestamp.c by gettimeofday - ftime is obsoleted in BSD for some reason
     + move wedge functionality into server side with peeks and pokes
 	+ remember about machine issues when writing wedge for C128 (FILETABLE,SATABLE...)
 	- update clientdep_tables for C65 native
