@@ -5,14 +5,14 @@
 ; Reclaim some space in the kernel
 ; -----------------------------------------------------------------------
 
-	.space $c000 $cfff	
+;	.space $c000 $cfff	
 
 	; was RS232 routines
-;	.space $eebb $ef38
-;	.space $ef4a $f0a3
+	.space $eebb $ef38
+	.space $ef4a $f0a3
 
 	; was open RS232
-;	.space $f409 $f49d
+	.space $f409 $f49d
 
 	; RS232 NMI
 	; .space $fed6 $ff06
@@ -25,10 +25,10 @@
 ; -----------------------------------------------------------------------
 
 
-	; Value for $01
-        value_01 = $05 ; $e7 for ROM, $05 for RAM
-        .patch $fdd6
-        .byte value_01
+;	; Value for $01
+;        value_01 = $05 ; $e7 for ROM, $05 for RAM
+;        .patch $fdd6
+;        .byte value_01
 
 	; byte indicates the default drive for 64net
 	drive_64net = $a7
