@@ -81,6 +81,8 @@ BUGS:
 - networking: name resolving: /www.someserver.com/ should be detected
   (>3 bytes for top level and unknown string) and passed to system DNS resolver
 - LNG ls shows some files or none (can't see pattern here)
+    this depends on disk image? one shows only REL, other - OK
+- under LNG 'ls' and 'lsmod' give the same
 
 IDEAS:
     + add time&date low level commands

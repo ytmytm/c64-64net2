@@ -39,6 +39,7 @@ device
 number 9
 #partition 1,TESTDIR/
 partition 1,/OPT/C64/TEST.D64
+#partition 1,/TMP/LUNIX64.D64
 partition 2,/HOME/MACIEK/
 partition 3,@/
 end
