@@ -71,6 +71,12 @@ fs_t64_openfind (fs64_direntry * de, uchar *path)
   /* get file count */
   fseek (de->filesys.fsfile, 0x24, SEEK_SET);
   de->track = fgetc (de->filesys.fsfile);
+  if (de->track==0)
+    {
+      /* Empty tape files are not necessarily really empty.
+	 Lie and say we have one file */
+      de->track=1;
+    }
   de->sector = 1;
   de->intcount = 0;
   de->active = 1;

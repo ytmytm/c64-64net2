@@ -2,10 +2,10 @@
 #include "misc_func.h"
 #include "comm-lpt.h"
 
-#ifdef BSD
-#include <machine/cpufunc.h>
-/* for new ioperm scheme */
+#ifdef __FreeBSD__
+/* chip-bash includes */
 #include <machine/sysarch.h>
+#include <machine/cpufunc.h>
 #endif
 
 #ifdef LINUX
@@ -108,7 +108,7 @@ void outb(int port, int value) {
 void
 init_hw (void)
 {
-#ifdef BSD
+#ifdef __FreeBSD__
 /* This is old privilege scheme, maybe it works - test it */
 /*
  FILE *f;
@@ -131,7 +131,7 @@ init_hw (void)
   }
 
  fflush(stdout);
-#endif /* BSD */
+#endif /* FreeBSD */
 
 #ifdef BEOS
   debug_msg("Opening ioport device to access parallel ports.\n");

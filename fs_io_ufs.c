@@ -11,7 +11,7 @@
 #define EDQUOT 0
 #include <sys/statvfs.h>
 #else
-#ifdef BSD
+#ifdef __FreeBSD__
 #include <sys/param.h>
 #include <sys/mount.h>
 #else

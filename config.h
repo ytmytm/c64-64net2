@@ -7,12 +7,16 @@
 
 /* target architecture */
 
+#ifndef __FreeBSD__
 #define LINUX
 //#define BSD
 //#define SOLARIS
 //#define BEOS
 //#define WINDOWS
 //#define AMIGA
+#else
+#define UNIX
+#endif
 
 /* do not define this - debug stuff is buggy (it's not a joke) */
 /* #define DEBUG */
