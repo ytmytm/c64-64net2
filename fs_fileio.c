@@ -1050,7 +1050,7 @@ fs64_openfile (fs64_direntry * de, fs64_file * f)
   {
     /* its a bad'un! */
     /* 64,FILE TYPE MISMATCH,00,00 */
-    debug_msg("Error reason: TRied to open a cbm_DIR or cbm_CBM file\n");
+    debug_msg("Error reason: Tried to open a cbm_DIR or cbm_CBM file\n");
     set_error (64, 0, 0);
     return (-2);		/* references an `unopenable' */
   }
