@@ -272,3 +272,6 @@ CHANGES:
 30.7.2000
     * synchronized with sourceforge CVS - license updates (documentation/README and comm-lpt.c)
       and 64netrc cleaned up and commented
+04.8.2000
+    * commited changes to sourceforge, we're in perfect sync now
+    
