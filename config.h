@@ -17,7 +17,10 @@
 /* do not define this - debug stuff is buggy (it's not a joke) */
 /* #define DEBUG */
 
-/* LINUX target features */
+/* resource debugging (file stuff) */
+/* #define DEBUG_RES */
+
+/* LINUX target features, don't use it */
 /* #define USE_LINUX_KERNEL_MODULE */
 
 /* 1 - on, 0 - off */
@@ -90,11 +93,6 @@
 #include <dos.h>
 #endif
 
-#include "debug.h"
-#ifdef DEBUG
-#include "resman.h"
-#endif
-
 /* save lots of typing */
 #define uchar unsigned char
 
@@ -108,9 +106,11 @@
 #undef atoi
 #define atoi(x) atoi((char*)x)
 
-#undef fopen
-#define fopen(x,y) fopen((char*)x,y)
-
 #ifndef NULL
 #define NULL 0
+#endif
+
+#include "debug.h"
+#ifdef DEBUG_RES
+#include "resman.h"
 #endif

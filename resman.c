@@ -14,33 +14,28 @@
 
 #include "config.h"
 
-#ifdef DEBUG
-
-#include "fs.h"
+#ifdef DEBUG_RES
 
 /* fopen / fclose monitoring */
 
 #undef fopen
 #undef fclose
 
-int fopenlist[1000] =
-{0};
+int fopenlist[1000] = {0};
 int fopencount = 0;
-char fopennames[1000][80] =
-{
-  {0}};
+char fopennames[1000][80] = { {0} };
 
 int show_resource (int i);
 
 FILE *
-res_fopen (char *fn, char *mode)
+res_fopen (uchar *fn, uchar *mode)
 {
   FILE *ff = 0;
-  printf ("`%s' opened (mode `%s')\n", fn, mode);
+  printf ("`%s' opened (mode `%s')::", fn, mode);
   ff = fopen (fn, mode);
   if ((int) ff)
   {
-    printf ("fopen returned %d\n", (int) ff);
+    printf ("fopen returned $%x::", (int) ff);
     strcpy (fopennames[fopencount], fn);
     fopenlist[fopencount++] = (int) ff;
     printf ("%d open files\n", fopencount);
@@ -53,17 +48,17 @@ res_fclose (FILE * f)
 {
   int i, j;
 
-  printf ("fclosing %d\n", (int) f);
+  printf ("fclosing $%x::", (int) f);
   for (i = 0; i < fopencount; i++)
     if (fopenlist[i] == (int) f)
     {
-      printf ("Closing: [%s] (%d)\n", fopennames[i], (int) f);
+      printf ("closing: [%s] ($%x)::", fopennames[i], (int) f);
       for (j = i; j < fopencount; j++)
 	fopenlist[j] = fopenlist[j + 1];
       fopencount--;
       break;
     }
-  printf ("%d open files (c)\n", fopencount);
+  printf ("%d open files\n", fopencount);
   return (fclose (f));
 }
 
@@ -71,19 +66,18 @@ res_fclose (FILE * f)
 #undef opendir
 #undef closedir
 
-int opendirlist[1000] =
-{0};
+int opendirlist[1000] = {0};
 int opendircount = 0;
 
 DIR *
-res_opendir (char *fn)
+res_opendir (uchar *fn)
 {
   DIR *df;
-  printf ("`%s' opened\n", fn);
+  printf ("`%s' opened::", fn);
   df = opendir (fn);
   if ((int) df)
   {
-    printf ("opendir returned %d\n", (int) df);
+    printf ("opendir returned $%x::", (int) df);
     opendirlist[opendircount++] = (int) df;
     printf ("%d open dirs\n", opendircount);
   }
@@ -95,7 +89,7 @@ res_closedir (DIR * d)
 {
   int i, j;
 
-  printf ("closdiring %d\n", (int) d);
+  printf ("closdiring $%x::", (int) d);
   for (i = 0; i < opendircount; i++)
     if (opendirlist[i] == (int) d)
     {
@@ -103,7 +97,7 @@ res_closedir (DIR * d)
 	opendirlist[j] = opendirlist[j + 1];
       opendircount--;
     }
-  printf ("%d open dirs (c)\n", opendircount);
+  printf ("%d open dirs\n", opendircount);
   closedir (d);
   d = 0;
   return (0);
@@ -118,7 +112,7 @@ int restypes[MAX_RES_COUNT] =
 int rescount = 0;
 
 int 
-register_resource (int rt, char *source, char *desc)
+register_resource (int rt, uchar *source, uchar *desc)
 {
   /* register a resource from some function (source), with a *short*
      description (desc), of resource type rt.  Returns a resource handle.
@@ -172,4 +166,4 @@ show_resource (int rn)
   return (-1);
 }
 
-#endif /* DEBUG */
+#endif /* DEBUG_RES */

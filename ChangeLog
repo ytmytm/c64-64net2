@@ -1,3 +1,10 @@
+2001-09-18  
+	* cleaned up resman.c, some update notes
+
+2001-09-16  
+	* cleanups in target-depended stuff
+	* prepared Win32 port, added inpout32.dll (all for MingW)
+
 2001-06-16  
 
 	* more cleanups in fs_func.h, maybe common, unified access to filesystem will

@@ -1,6 +1,6 @@
 
-Maciej 'YTM/Alliance' Witkowiak
-<ytm@friko.onet.pl>
+Maciej 'YTM/Elysium' Witkowiak
+<ytm@elysium.pl>
 
 Win32 can be built with MINGW (www.mingw.org), copy inpout32.dll from inpout32/ to directory
 with executables.
@@ -30,21 +30,21 @@ BUGS:
 + possible bug in fs_accel, read sector - if successful should send 0 (noerror) and then fishsend
   same for following write sector, if not successful - only send errorcode
     (fixed)
-~ new wedge Kernal emulation stuff is broken, luckily open1,1,15,"command" works...
-    (almost fixed, move almost all into server side)
++ new wedge Kernal emulation stuff is broken, luckily open1,1,15,"command" works...
+    (fixed, just need to use IEC space number)
 - fishsave doesn't work (as it is stated - on Linux), don't know, maybe whole
-  fishsend is broken (original version), fishload seems to be buggy on my c128
+  fishsend is broken (original version)
+- fishload sometimes hang on start of first block
 - if secondary address is >128 then file isn't really opened, just return w/o error, doing nothing;
   this is handled by Kernal, but worth knowing for wedge
 - opening "$name*" should show all files within current directory with 'name*' globbing
 - files created by LUnix CP are 1 byte larger than original - EOF should be asserted when reading
-  last byte, one additional byte is 199 (as in error); probably CP has bug, not 64net/2, I'm not
-  sure... (other apps writing disk e.g. uudecode are OK)
-- in new wedge error byte (199) is read as a valid one, possibly do SEC within wedge to fix it
-  (this should also fix the error above)
+  last byte
 - something connected with two above errors - $90 should be asserted _when_ last byte is sent,
   not with next call IMO, but it is still unclear
-- endaddress seems to be wrong when saving from within active Action Replay, don't know why
+- EOF state in $90 is $40, not $80 - fix both 64net/2 and LNG
+- seems that untalk shouldn't send $90 or remember last one as it overwrites EOF from acptr
+- endaddress is wrong when saving from within active Action Replay, don't know why
 - WINDOWS target has problems with ufs (names), BLOCKS FREE is unimplemented
 - WINDOWS target needs checking network stuff, WSAStartup needs to be called
 
@@ -83,7 +83,7 @@ IDEAS:
     * make log option (redirect stdout to a file) in config file
 	(simple hook done in debug.h)
     * replace all printf by macros and separate debug messages from log messages
-    * make fishxxxx turned on/off in config file
+    * make fishxxxx turned on/off in config file (on runtime)
     * use dynamically allocated memory for tables
     + move fs stuff into static/shared library (local) and link executabels against it
     + wedge works as device #1, should get it from server upon boot
@@ -97,8 +97,10 @@ IDEAS:
 	are utilized by LNG 64net/2 driver
     * C= needs only a small wedge that will send 'B'oot command and receive the correct
       (whole) wedge e.g. with features or detected architecture
+    * server must remember client architecture type - sent only once, when registering in
 
 TODO
+    * move wedge functionality into server side with peeks and pokes
     * write code for VERIFY
     * fix fishload/save (load often locks on my C128)
     * write GEOS wedge (was it disk driver or REU exp. handler replacement?)
