@@ -1,5 +1,8 @@
 2003-07-21  
 	* replaced obsolete ftime function by gettimeofday
+	* improved compatibility with unit # filespec and directory handling
+	* fixed CD to work as PWD
+	* wedge doesn't use sendname if secaddr>128 or namelen==0
 
 2003-07-20  
 	* fixed bug that caused *L files be saved as REL

@@ -233,7 +233,7 @@ sync_loop:
 	if (c > max_tries) {
 
 	c=0;
-	debug_msg ("z"); fflush (stdout);
+//	debug_msg ("z"); fflush (stdout);
 	usleep (snooz_time);	/* dont hog cpu  */
 	}
   }

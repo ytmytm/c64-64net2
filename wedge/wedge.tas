@@ -166,15 +166,18 @@ _64net2_untalk	lda #"J"
 check_devnum	lda $ba				; not allowed to change X'n'Y
 check_devnum2					; jsr here with device # in A
 		cmp devnum
-		rts
+.snexit		rts
 
-sendname	lda $ba				; similar to C64 $f3d5
+sendname					; similar to C64 $f3d5
+		lda $b9
+		bmi .snexit
+		lda $b7
+		beq .snexit
+		lda $ba				
 		jsr _64net2_listen
 		lda $b9
 		ora #$f0
 		jsr _64net2_second
-		lda $b7
-		beq .nosend
 		ldy #0
 .sendnamelp	
 !if (machine=64) {
@@ -189,7 +192,7 @@ sendname	lda $ba				; similar to C64 $f3d5
 		iny
 		cpy $b7
 		bne .sendnamelp
-.nosend		jmp _64net2_unlisten
+		jmp _64net2_unlisten
 
 getadrnum	jsr get_byte
 		sta $10

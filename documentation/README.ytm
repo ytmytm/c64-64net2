@@ -65,9 +65,9 @@ BUGS:
     (it does it: $*TE works, also e.g. $2:RO*,UFS)
 + serial driver drops bytes during doing c64print, avoid scrolling screens!
     (this is warning, not a bug)
-- why is STATUS ignored in wedge UNLISTEN? File Not Found for OPEN cannot be reported because of that
-- if secondary address is >128 then file isn't really opened, just return w/o error, doing nothing;
++ if secondary address is >128 then file isn't really opened, just return w/o error, doing nothing;
   this is handled by Kernal, but worth knowing for wedge
+- why is STATUS ignored in wedge UNLISTEN? File Not Found for OPEN cannot be reported because of that
 - networking: there must be support for blocking/non-blocking sockets (secondary address in OPEN
   can serve as indicator whether local driver should block or non-block and return status in $90)
 - need to check M-[RW] commands, perhaps setup first 8k with some values, and last 16k with ROM image
