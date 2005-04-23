@@ -4,8 +4,9 @@
 #include <linux/ppdev.h>
 #include <linux/ioctl.h>
 
+/* XXX we chould move those to another include file probably? TB */
 #define VALID_OUT	PARPORT_CONTROL_STROBE
-#define ERROR_OUT	PARPORT_CONTROL_SELECT
+//#define ERROR_OUT	PARPORT_CONTROL_SELECT
 #define REQUEST_IN	PARPORT_STATUS_BUSY
 #define ATN_IN		PARPORT_STATUS_ACK 
 #define ERROR		PARPORT_CONTROL_AUTOFD
@@ -13,9 +14,11 @@
 static int DDR_READ =	0x1;
 static int DDR_WRITE =	0x0;
 
+int lpt_fd;
+
 void set_lpt_control(int status)
 {
-  ioctl(lpd_fd,PPWCONTROL,&status);
+  ioctl(lpt_fd,PPWCONTROL,&status);
 }
 
 void acknowledge() {
@@ -24,7 +27,7 @@ void acknowledge() {
 }
 
 void write_data(uchar data) {
-  ioctl(fd,PPWDATA,&data);
+  ioctl(lpt_fd,PPWDATA,&data);
 #ifdef DEBUG_PIEC
   printf("Presenting data: $%X\n",(unsigned char)data);
 #endif
@@ -33,7 +36,7 @@ void write_data(uchar data) {
 
 int read_data() {
   int data;
-  ioctl(fd,PPRDATA,&data);
+  ioctl(lpt_fd,PPRDATA,&data);
 #ifdef DEBUG_PIEC
   printf("Receiving data: $%X\n",(unsigned char)data);
 #endif
@@ -42,39 +45,32 @@ int read_data() {
 
 int get_status() {
   int status;
-  ioctl(fd,PPRSTATUS,&status);
+  ioctl(lpt_fd,PPRSTATUS,&status);
   return status;
 }
 
-int get_ATN() {
-  int status;
-  ioctl(fd,PPRSTATUS,&status);
-  if((status&ATN_IN) == ATN_IN) { return 0; }
-  else { return 1; }
-}
-
 void set_datalines_output() {
-  ioctl(fd,PPDATADIR,&DDR_WRITE);                 //set datalines to outputmode
+  ioctl(lpt_fd,PPDATADIR,&DDR_WRITE);                 //set datalines to outputmode
   return;		
 }
 
 void set_datalines_input() {
-  ioctl(fd,PPDATADIR,&DDR_READ);                 //set datalines to outputmode
+  ioctl(lpt_fd,PPDATADIR,&DDR_READ);                 //set datalines to outputmode
   return;		
 }
 
 int bind_to_port (const char *name) {
-  int fd;
-  fd = open (name, O_RDWR);
-  if (fd == -1) {
+  int lpt_fd;
+  lpt_fd = open (name, O_RDWR);
+  if (lpt_fd == -1) {
     perror ("open");
-    return 1;
+    exit(1);
   }
-  if (ioctl (fd, PPCLAIM)) {
+  if (ioctl (lpt_fd, PPCLAIM)) {
     perror ("PPCLAIM");
-    close (fd);
-    return 1;
+    close (lpt_fd);
+    exit(1);
   }
-  return fd;
+  return lpt_fd;
 }
 
