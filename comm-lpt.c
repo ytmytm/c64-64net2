@@ -15,7 +15,6 @@
  */
 
 #include "config.h"
-
 #include "fs.h"
 #include "comm-lpt.h"
 #include "client-comm.h"
@@ -23,6 +22,7 @@
 #include "misc_func.h"
 #include "comm-work.h"
 #include "datestamp.h"
+#include "dosemu.h"
 
 int parallel_iec_commune(int first_char);
 
@@ -34,7 +34,7 @@ extern int piec_delaycount;
 #ifdef USE_SERIAL_DRIVER
 uchar port[1024] = COMM_DEVICE;
 #else
-uchar port[1024] = LPT_DEVICE;
+uchar port[1024] = "/dev/par0"; // LPT_DEVICE;
 #endif
 
 /* Current talk & listen logical files */
@@ -51,6 +51,8 @@ uchar *partn_dirs[MAX_NET_DEVS][256];
 uchar dos_status[MAX_NET_DEVS][256];
 /* length of DOS statii */
 uchar dos_stat_len[MAX_NET_DEVS];
+/* position of char we actually talking */
+uchar dos_stat_pos[MAX_NET_DEVS];
 /* DOS commands */
 uchar dos_command[MAX_NET_DEVS][256];
 /* length of DOS command */
@@ -94,7 +96,11 @@ fs64_file file;
 /* partition # that will be searched for programs, whatever this means, not used */
 int pathdir;
 
+/* our lpt device filedescriptor */
+int lpt_fd;
+
 /* #define DEBUG_PIEC */
+//#define DEBUG_PIEC
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -134,525 +140,511 @@ inb_t inb;
 #define IEC_TALK		0x40
 #define IEC_LISTEN		0x20
 #define IEC_UNTALK		0x5f
-#define IEC_UNLISTEN	0x3f
-#define IEC_IDENTIFY	0xff
+#define IEC_UNLISTEN		0x3f
+#define IEC_IDENTIFY		0xff
 
 //special SAs for LOAD/SAVE
 #define IEC_LOAD		0x60
 #define IEC_SAVE		0x61
+#define IEC_OPEN		0xf0
+#define IEC_CLOSE		0xe0
+#define ERROR_EOI		0x40
+#define ERROR_FILE_NOT_FOUND	0x02
+#define ERROR_FILE_EXISTS	0x03
 #define uchar		unsigned char
 
 unsigned char request;
 int devicenumber=9;
 uchar SA;
 int state=IEC_IDLE;
-int ATN=0;
-int inputlen=0;
-int inputpos=0;
-int outputpos=0;
-unsigned char* input_buffer;
-int lpt_fd;
+int myfilenamelen=0;
+unsigned char* myfilename;
 
 unsigned int iec_listen();
-unsigned int talk();
+unsigned int iec_talk();
+void iec_unlisten();
+void iec_untalk();
+void iec_idle();
 unsigned char change_state(unsigned int);
 int send_byte(unsigned char data);
 int receive_byte();
-int send_eoi();
+int end_error(unsigned char err);
+int trigger_cnt();
 int start_server();
+int send_error(unsigned char err);
 
 //todo: maybe we add also the resetpin? If the c64 resets also the 64net/2 can
 // reset and get into IDLE mode again. 
 
-int parallel_iec_commune(int unused) 
-{
-
-  lpt_fd=bind_to_port(port);
-  if (lpt_fd<0)
-    {
-      fprintf(stderr,"Failed to open parallel port.\n");
-      perror("open_lptport");
-    }
-
-  set_datalines_input();
-  set_lpt_control(0); // drop strobe
-
-  /* Allow answering of queued request */
-  request=(get_status()&REQUEST_IN)^REQUEST_IN;
-
-  while(start_server()==-1);
-
-  return 0;
+int parallel_iec_commune(int unused) {
+	lpt_fd=bind_to_port("/dev/parport0"); /*doesn't soemhow work with the port variable form above*/
+	if (lpt_fd<0) {
+		fprintf(stderr,"Failed to open parallel port.\n");
+		perror("open_lptport");
+	}
+	last_unit=0; file_unit=0;
+	set_datalines_input();
+	set_lpt_control(0); // drop strobe
+	request=get_status()&REQUEST_IN; //get initial state of PA2 from C64
+	while(start_server()==-1);
+	return 0;
 }
 
-int start_server() 
-{
-  int i;
-#ifdef DEBUG_PIEC
-  int a;
-#endif
+int start_server() {
+	for(;;) {
+		switch(state) {
+			case IEC_IDLE:
+				#ifdef DEBUG_PIEC
+				printf("changed state: IDLE\n");
+				#endif
+      				iec_idle();
+			break;
 
-  unsigned int temp;
-  for(;;) {
-    switch(state) {
-    case IEC_IDLE:
-#ifdef DEBUG_PIEC
-      printf("changed state: IDLE\n");
-      printf("request=%d\n",request);
-#endif
-      temp=receive_byte(); 
-      if (temp==0xff)
-	{
-	  /* 0xff received unsolicited is possibly a case of both sides
-	     thinking they are reading.  Send an EOI to prevent infinite
-	     reading by C64 */
-	  send_eoi();
+			case IEC_LISTEN:
+				#ifdef DEBUG_PIEC
+				printf("changed state: LISTEN\n");
+				#endif
+				iec_listen();
+			break;
+      
+			case IEC_TALK:
+				#ifdef DEBUG_PIEC
+				printf("changed state: TALK\n");
+				#endif
+				iec_talk();
+			break;
+      
+			case IEC_UNLISTEN:
+				#ifdef DEBUG_PIEC
+				printf("changed state: UNLISTEN\n");
+				#endif
+      				iec_unlisten();
+			break;
+      
+			case IEC_UNTALK:
+				#ifdef DEBUG_PIEC
+				printf("changed state: UNTALK\n");
+				#endif
+				iec_untalk();
+			break;
+			
+			case IEC_IDENTIFY:
+				#ifdef DEBUG_PIEC
+				printf("changed state: IDENTIFY\n");
+				#endif
+				//iec_identify();
+			break;
+		}
 	}
-      else
-	{
-	  if((temp&0x100)==0) { change_state(IEC_IDLE); break; }
-	  change_state(temp);
-	}
-      break;
-      
-    case IEC_LISTEN:
-#ifdef DEBUG_PIEC
-      printf("changed state: LISTEN\n");
-#endif
-      temp=receive_byte(); 
-      if((temp&0x100)==0) { change_state(IEC_IDLE); break; }
-      SA=temp;
-#ifdef DEBUG_PIEC
-      printf("SA=%d\n",(uchar)SA);
-#endif
-      iec_listen();
-#ifdef DEBUG_PIEC
-      //print received data for debug
-      for(a=0;a<inputlen;a++) 
-	{ printf("$%X ",(uchar)input_buffer[a]); } 
-      printf("\n");
-#endif
-      
-      if((SA&0xf)==1) {
-	//received data will be saved to disk
-#ifdef DEBUG_PIEC
-	printf("I think I am saving\n");
-#endif
-	// Write data which has been received
-	for(i=0;i<inputlen;i++)
-	  fs64_writechar (&logical_files[last_unit][SA&0xf], input_buffer[i]);
-	printf("Wrote %d bytes to file.\n",i);
+	return -1;
+}
 
-	if(inputlen>0) free(input_buffer);
-	inputlen=0;
-      }
-      if ((SA&0xf)==0xf)
-	{
-	  /* DOS command - so write it out */
-	  input_buffer[inputlen]=0;
-	  strncpy(dos_command[last_unit],input_buffer,255);
-	  dos_command[last_unit][255]=0;
-	  dos_comm_len[last_unit]=(inputlen<256) ? inputlen : 255;
-	  do_dos_command();
-	}
+void iec_idle() {
+	int temp;
+	temp=receive_byte(); 
+	acknowledge();
+	if((temp&0x100)!=0) change_state(temp);
+	return;
+}
 
-      break;
-      
-    case IEC_TALK:
-#ifdef DEBUG_PIEC
-      printf("changed state: TALK on unit %d\n",last_unit);
-#endif
-      temp=receive_byte(); 
-      if((temp&0x100)==0) { change_state(IEC_IDLE); break; }
-      SA=temp;
-#ifdef DEBUG_PIEC
-      printf("SA=%d\n",(uchar)SA);
-#endif
-      if((SA&0xf0)==IEC_LOAD) {
-	/* Read all data in current file, and then send it.
-	   XXX - Should use a more interactive talk routine 
-	   which doesn't spend the time pre-reading the file
-	   before sending it. */
-	talklf=SA&0xf;
-	file_unit=last_unit;
-
-      }
-      else {
-	//this data is not needed anymore
-	if(inputlen>0) free(input_buffer);
-      }
-      talk();
-      change_state(IEC_IDLE);
-      break;
-      
-    case IEC_UNLISTEN:
-      //what to do here actually? The transfer is stoped, so all done
-#ifdef DEBUG_PIEC
-      printf("changed state: UNLISTEN\n");
-#endif
-      //and we can fall into IDLE state to wait for new challanges.
-      change_state(IEC_IDLE);
-      break;
-      
-    case IEC_UNTALK:
-      //what to do here actually? Guess same as in UNLISTEN case
-#ifdef DEBUG_PIEC
-      printf("changed state: UNTALK\n");
-#endif
-      change_state(IEC_IDLE);
-      break;
-      
-    case IEC_IDENTIFY:
-#ifdef DEBUG_PIEC
-      printf("changed state: IDENTIFY\n");
-#endif
-      /* we are asked to idenitfy ourself, so present the deviceumber under
+void iec_identify() {
+	/* we are asked to idenitfy ourself, so present the deviceumber under
 	 which we listen. */
-      send_byte(devicenumber);				
-      change_state(IEC_IDLE);
-      break;
-    }
-  }
-  return -1;
+	change_state(IEC_IDLE);
+	send_byte(devicenumber);				
+	return;
+}
+
+void iec_untalk() {
+	/* all we should do si stop talking, and that we do anyway as
+	 * atn came high. So we just fall into idle mode and wait
+	 * for new commands */
+	change_state(IEC_IDLE);
+	return;
+}
+
+void iec_unlisten() {
+	change_state(IEC_IDLE);
+	//now we can clear the pos, as we closed the file anyway
+	dos_stat_pos[file_unit]=0;
+	//now we can fall into IDLE state to wait for new challanges.
+	return;
 }
 
 unsigned int iec_listen() {
-  unsigned int temp;
-  int maxcount=1024;
-  inputlen=0;
-  input_buffer=malloc(maxcount);
-
-  /* Record file number for listen */
-  listenlf=SA&0xf;
-
-#ifdef DEBUG_PIEC
-  printf("Receiving data...\n");
-#endif
-  while(1) {
-    /* receive a byte */
-    temp=receive_byte();
-    //check if under ATN
-    if((temp&0x100)!=0) {
-      //yes: abort transfer and change to new state
-      change_state(temp);
-      break; 
-    }
-    // byte not under attention: store in input buffer
-    input_buffer[inputlen]=temp;
-    inputlen++;
-    if(inputlen>=maxcount) 
-      { 
-	maxcount+=1024; 
-	input_buffer=realloc(input_buffer,maxcount); 
-      }
-  }
-  /* We have received all data - so crop array to correct size and return */
-  input_buffer=realloc(input_buffer,inputlen+1+2 /* for ,R or ,W */);
-  input_buffer[inputlen]=0;
-
-  /* Having received data, decide what to do with it */
-  switch (SA&0xf0)
-    {
-    case 0xf0: /* OPEN */
-      /* Data received was a filename to open */
-      
-      /* Add ,W to logical file 1 (save) and ,R to logical file 0 (load) */
-      if ((SA&0xf)==1) strcat(input_buffer,",W");
-      if ((SA&0xf)==0) strcat(input_buffer,",R");
-
-#ifdef DEBUG_PIEC
-      printf("Received filename \"%s\" for logical file %d\n",
-	     input_buffer,listenlf);
-#endif
-
-      file_unit=last_unit;
-
-      if (logical_files[file_unit][listenlf].open == 1)
-	fs64_closefile_g (&logical_files[last_unit][listenlf]);
-      debug_msg ("*** Opening [%s] on channel $%02x\n",input_buffer, listenlf);
-
-      if (listenlf==15)
-	{
-	  /* filename is DOS command */
-	  input_buffer[inputlen]=0;
-	  strncpy(dos_command[last_unit],input_buffer,255);
-	  dos_command[last_unit][255]=0;
-	  dos_comm_len[last_unit]=(inputlen<256) ? inputlen : 255;
-	  do_dos_command();
-	}
-      else
-	if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]],
-			     input_buffer, &logical_files[file_unit][listenlf]))
-	  {
-	    /* open failed
-	       XXX - What do we do here to signal file not found?
-	       How about send an EOI? */
-	    send_eoi();
-	  }
-	else 
-	  {
-	    /* open succeeded.
-	       XXX - What do we do here? nothing I suppose */
-	  }
-      free(input_buffer); inputlen=0;
-      break;
-    case 0xe0: /* CLOSE */
-      /* Close file from SA */
-#ifdef DEBUG_PIEC
-      printf("Closing logical file %d\n",listenlf);
-#endif
-      fs64_closefile_g (&logical_files[last_unit][listenlf]);
-
-      break;
-    case 0x60: /* Unknown, seems to get called when opening files. */
-      break;
-    }
-
-  return 0;
-}
-
-unsigned int talk() {
-  unsigned int temp=0;
-  outputpos=0;
-#ifdef DEBUG_PIEC
-  printf("TALKing on lf#%d, file_unit=%d...\n",talklf,last_unit);
-#endif
-
-  while(1)
-    {
-      if (talklf!=0xf)
-	{
-	  unsigned char c;
-	  if(!fs64_readchar(&logical_files[last_unit][talklf],&c))
-	    {
-	      // Send byte
-	      temp=send_byte(c);
-	      acknowledge();
-
-	      if (temp)
-		{
-		  /* XXX Don't consume this byte, since it didn't get send */
-		}
-	    }
-	  else
-	    {
-	      send_eoi();
-	      return 0;
-	    }
-	}
-      else
-	{
-	  /* Read DOS status */
-	  if (dos_stat_len[last_unit]<1) set_error(0,0,0);
-#ifdef DEBUG_PIEC
-	  printf("DOS Status = [%s]\n",dos_status[last_unit]);
-	  printf("Sending $%02x\n",dos_status[last_unit][0]);
-#endif
-	  temp=send_byte(dos_status[last_unit][0]);
-	  acknowledge();
-
-	  if (!temp)
-	    {
-	      /* Consume byte unless ATN was raised */
-	      bcopy(&dos_status[last_unit][1],&dos_status[last_unit][0],
-		    dos_stat_len[last_unit]);
-	      dos_stat_len[last_unit]--;
-	    }
-	}
-
-      //Any problems during sending?
-      if(temp!=0) {
-	/* ATN went high during sending, quickly redraw from
-	   bus and wait for further instructions */
+	unsigned int temp;
+	int maxcount=1024;
 	change_state(IEC_IDLE);
-	break;							
-      }
-    }
+	temp=receive_byte(); 
+	acknowledge();
+	/* we expect a SA coming under ATN high, if something is suspect we fall back to idle */
+	if((temp&0x100)==0) return -1;
+	SA=temp;
+#ifdef DEBUG_PIEC
+	printf("SA=$%X\n",(uchar)SA);
+#endif
+	/* Record file number for listen */
+	listenlf=SA&0xf;
 
-  return temp;
+	/* the data we'll receive should be saved, so we prepare for that */
+	if(SA==IEC_SAVE) {
+		//is there some file open? if not we probably need to create a new file
+		//XXX somehow the data i want to save doesn't get into the f**king file :-/ 
+		/* so try to open/create teh file we should save */
+		if (logical_files[file_unit][listenlf].open != 1) {
+			if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], myfilename, &logical_files[file_unit][listenlf])) {
+				/* file not found */
+				/* postpend ",W" to the filename and try again */
+				strcat ((char*)myfilename, ",W");
+				if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], myfilename, &logical_files[file_unit][listenlf])) {
+					/* cannot open file for some reason */
+					/* simply abort */
+					printf("Error: file exists\n");
+					temp=receive_byte();
+					//unsure about the next line, but should be there for savety
+					if((temp&0x100)!=0) { change_state(temp); return -1; }
+					send_error(ERROR_FILE_EXISTS);
+					return -1;
+				}
+			}
+		}
+		else {
+			/* then pour all data into that file we opened until finished or ATN gets high */
+			#ifdef DEBUG_PIEC
+				printf("Now receiving data...\n");
+			#endif
+			while(1) {
+				/* receive a byte */
+				temp=receive_byte();
+				//printf("Got byte\n");
+				acknowledge();
+				/* check if data received under ATN high */
+				if((temp&0x100)!=0) { change_state(temp); return -1; }
+				printf("Got byte $%x\n",temp);
+				fs64_writechar (&logical_files[file_unit][listenlf], temp);
+			}
+		}
+	}
+	else {
+		switch (SA&0xf0) {
+			case IEC_OPEN: /* OPEN */
+				myfilenamelen=0;
+				myfilename=malloc(maxcount);
+				#ifdef DEBUG_PIEC
+					printf("Now receiving data...\n");
+				#endif
+				while(1) {
+					/* receive a byte */
+					temp=receive_byte();
+					acknowledge();
+					if((temp&0x100)!=0) break;
+					/* byte not under attention: store in input buffer */
+					myfilename[myfilenamelen]=(uchar)temp;
+					myfilenamelen++;
+					if(myfilenamelen>=maxcount) { 
+						maxcount+=1024; 
+						myfilename=realloc(myfilename,maxcount); 
+					}
+				}
+				myfilename=realloc(myfilename,myfilenamelen+1);
+				myfilename[myfilenamelen]=0;
+
+				/* Data received was a filename to open */
+				#ifdef DEBUG_PIEC
+					printf("Received filename \"%s\" for logical file %d %d\n", myfilename,listenlf,myfilenamelen);
+				#endif
+				/* we are commanded to open, either a file or a command, lets store it first */
+				if(listenlf==0x0f) {
+					strcpy(dos_command[last_unit],myfilename);
+					dos_comm_len[last_unit]=myfilenamelen;
+					do_dos_command();
+					if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; } 
+				}
+				else {
+					//if (logical_files[file_unit][listenlf].open == 1) fs64_closefile_g (&logical_files[last_unit][listenlf]);
+					debug_msg ("*** Opening [%s] on channel $%02x\n", myfilename, listenlf);
+					fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], myfilename, &logical_files[file_unit][listenlf]);
+				}
+			break;
+			case IEC_CLOSE: /* CLOSE */
+				if (logical_files[file_unit][listenlf].open == 1) fs64_closefile_g (&logical_files[last_unit][listenlf]);
+				/* Close file from SA */
+				#ifdef DEBUG_PIEC
+					printf("Closing logical file %d\n",listenlf);
+				#endif
+				/* do nothing except cleaning up */
+				if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; }
+			break;
+		}
+	}
+	return 0;
 }
 
-int send_byte(unsigned char data) 
-{
-  /* only send char if there is no ATN!
-     If attention is high, wait until it goes low again */
-  while(get_ATN()!=0);
-  ATN=0;
-
-  //let c64 prepare things first (#$00 -> $dd03)	
-  while((get_status()&REQUEST_IN)==request) {
-    if(get_ATN()==1) {
-      set_datalines_input();
+unsigned int iec_talk() {
+	/* Some strange things happen when i first receive the dos_status and then load the dir. Seems like you miss out cleaning up some array or like having some wrong position or such? */
+	unsigned int temp=0;
+	unsigned char data=0;
+	change_state(IEC_IDLE);
+	temp=receive_byte(); 
+	acknowledge();
+	/* we expect a SA coming under ATN high, if something is suspect we fall back to idle */
+	if((temp&0x100)==0) return -1;
+	SA=temp;
 #ifdef DEBUG_PIEC
-      printf("ATN changed!\n");
+	printf("SA=$%X\n",(uchar)SA);
 #endif
-      ATN=1;
-      /* ATN went high, we better stop! */
-      return -1;
-    }
-  }
-  request^=REQUEST_IN;
-#ifdef DEBUG_PIEC
-  printf("Request toggled\n");
-#endif
+	#ifdef DEBUG_PIEC
+		printf("Waiting for ATN going low first...\n");
+	#endif
+	/* don't start talking while atn is high, as this is really not good for our CIA
+	 * and will bring us seriously out of sync too :-) */	
+	while((get_status()&ATN_IN)!=ATN_IN) {
+	#ifdef DEBUG_PIEC
+		printf(".");
+	#endif
+	}
+	#ifdef DEBUG_PIEC
+		printf("ATN is low now, so serving requested data...\n");
+	#endif
 
-  //set datalines to outputmode
-  set_datalines_output();
+	talklf=SA&0xf;
+	if(talklf!=0x0f) {
+		if((SA&0xf0)==IEC_LOAD) {
+			if (logical_files[file_unit][listenlf].open != 1) {
+				/* File not found, now signal it with sending a dummy char followed by a timeout */
+				temp=send_byte(0);
+				if(temp!=0) return -1;
+				send_error(ERROR_FILE_NOT_FOUND);
+			}
+			else {
+				/* start sending bytes until finished or ATN high */
+				while(1) {	
+					if(!fs64_readchar(&logical_files[file_unit][talklf],&data)) {
+						temp=send_byte(data);
+						if(temp!=0) break;
+						acknowledge();
+					}
+					/* last char to send, signal with EOI */
+					else {
+						temp=send_byte(data);
+						if(temp!=0) break; 
+						send_error(ERROR_EOI);
+						break;
+					}  
+				}
+				if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; }
+			}
+		}		
+	}
+	if(talklf==0x0f) {
+		/* we got a command, so do command and store result in output_buffer */
+		#ifdef DEBUG_PIEC
+			printf("Sending status...\n");
+			printf("Status: %s", dos_status[last_unit]);
+		#endif
+		while(1) {
+			data=dos_status[last_unit][dos_stat_pos[last_unit]];
+			//printf("pos: %d\n",dos_stat_pos[last_unit]);
+			if(data!=0) {
+				temp=send_byte(data);
+				if(temp!=0) break; 
+				acknowledge();
+				dos_stat_pos[last_unit]++;
+			}
+			else {
+				temp=send_byte(data);
+				if(temp!=0) break;
+				send_error(ERROR_EOI);
+				break;
+			}  
+		}
+	}
+	return temp;
+}
 
-  //write data
-  write_data((data&0xff));
+int send_byte(unsigned char data) {
+	unsigned char temp;
 
-  /* When we send a byte, we do not immediately provide an ACK signal to the 
-     C64.  This is to allow for the calling routine to decide when the data
-     has been completely sent, and so if we need to assert EOI instead of 
-     ACK. */
+	/* we have to make a decision here out of a single look
+	 * on the status. If we do two checks we read the status 
+	 * twice and probably do a check on two different values 
+	 * of status! This teh decision might be faulty and we 
+	 * get into big troubles! */
+	while(1) {
+		temp=get_status();
+		if((temp&ATN_IN)!=ATN_IN) {
+			set_datalines_input();
+			#ifdef DEBUG_PIEC
+				printf("ATN changed!\n");
+			#endif
+			/* ATN went high, we better stop! */
+			return -1;
+		}
+		if((temp&REQUEST_IN)!=request) break;
+	}
+//	while((get_status()&REQUEST_IN)==request && get_ATN!=1) {
+//	}
+	/* now check if it was atn? if so, cancel */
+//	if(get_ATN()==1) {
+//		set_datalines_input();
+//		#ifdef DEBUG_PIEC
+//			printf("ATN changed!\n");
+//		#endif
+//		/* ATN went high, we better stop! */
+//		return -1;
+//	}
+	request^=REQUEST_IN;
+	#ifdef DEBUG_PIEC
+		printf("Request toggled $%x $%x\n",get_status(),request);
+	#endif
+	//set datalines to outputmode
+	set_datalines_output();
+	//write data
+	write_data((data&0xff));
 
-  return 0;
+	/* When we send a byte, we do not immediately provide an ACK signal to the 
+	 * C64.  This is to allow for the calling routine to decide when the data
+	 * has been completely sent, and so if we need to assert EOI instead of 
+	 * ACK. */
+	return 0;
 }
 
 int receive_byte() {
-  int data=0;
+	int data=0;
 
-  //set datalines to inputmode
-  set_datalines_input();
+	#ifdef DEBUG_PIEC
+	printf("Receiving data...\n");
+	#endif
+	//set datalines to inputmode
+	set_datalines_input();
+	//let c64 prepare things first and wait (#$00 -> $dd03)
+	#ifdef DEBUG_PIEC
+	printf("Waiting for request to toggle...\n");
+	#endif
+	while((get_status()&REQUEST_IN)==request);
+	#ifdef DEBUG_PIEC
+	printf("Request toggled r\n");
+	#endif
   
-  //let c64 prepare things first (#$00 -> $dd03)
-  while((get_status()&REQUEST_IN)==request);
-
-  request^=REQUEST_IN;
-#ifdef DEBUG_PIEC
-  printf("Request toggled r\n");
-#endif
-  
-  /* Check if the byte was received under attention.
-     If so, OR the read byte with $100, so that we know it was received 
-     under attention. */
-  if(get_ATN()==1) 
-    { 
-#ifdef DEBUG_PIEC
-      printf("data received under ATN\n");
-#endif
-      data|=0x100; ATN=1; 
-    }
-  else { ATN=0; }
-  data|=(read_data()&0xff);
-  acknowledge();								//we are finished, c64 can go off the bus again		
-  return data;
+	/* Check if the byte was received under attention. 
+	 * This is always in sync as the C64 can't change ATN in that situation 
+	 * as it is polling for cnt or flag coming high from our acknowledge.
+	 * If ATN high, OR the read byte with $100, so that we know it was received 
+	 * under attention. */
+	if((get_status()&ATN_IN)!=ATN_IN) { 
+		#ifdef DEBUG_PIEC
+		printf("data received under ATN\n");
+		#endif
+		data|=0x100; 
+	}
+	request^=REQUEST_IN;
+	data|=(read_data()&0xff);
+	return data;
 }
 
-int send_eoi() 
-{ 
-  //tested: works! :-) Connect pin 14 on lpt to CNT pin on userport
+int trigger_cnt() { 
+	/* tested: works on c64 at least, but seems like a C128 needs 16 toggles :-/
+	* Connect pin 14 on lpt to CNT pin on userport to make this work at all. 
+	* To indicate an EOI, we toggle the c64's cnt pin 8 times.
+	* This causes a shift register byte received notification, which
+	* sets bit 3 in $dd0d, which the 64net/2 wedge can see */
+	int status;
+	int a;
+	#ifdef DEBUG_PIEC
+	printf("Triggering CNT...\n");
+	#endif
 
-  int status;
-  int a;
-#ifdef DEBUG_PIEC
-  printf("Sending eoi...\n");
-#endif
-
-  /* To indicate an EOI, we toggle the c64's cnt pin 8 times.
-     This causes a shift register byte received notification, which
-     sets bit 3 in $dd0d, which the 64net/2 wedge can see */
-
-  status=0x00;
-  ioctl(lpt_fd,PPISECR,&status);
-
-  status=0;
-  set_lpt_control(status);
-  /* XXX My C128D seems to need 16 toggles, even though the documentation
-     suggests 8 should be enough. */
-  for(a=0;a<16;a++) {
-    status|=ERROR;					
-    set_lpt_control(status);
-    status^=ERROR;					
-    set_lpt_control(status);
-  }
-
-  status=0x00;
-  ioctl(lpt_fd,PPISECR,&status);
-
-  return 0;
+	status=0x00;
+	/* XXX My C128D seems to need 16 toggles, even though the documentation
+	 * suggests 8 should be enough. */
+	/* XXX unfortunatedly when toggling 16 times the c64 + 64net hangs (guess some
+	 * double triggered error :-( */
+	for(a=0;a<8;a++) {
+		status|=ERROR;					
+		set_lpt_control(status);
+		status^=ERROR;					
+		set_lpt_control(status);
+	}
+	return 0;
 }
 
-uchar change_state(unsigned int new_state)
-{
-  /* Change TALK/LISTEN state based on character received under attention. */
-  new_state=(new_state&0xff);
-  if((new_state&0xf0)==IEC_LISTEN) 
-    {
-      int unit;    
-      for(unit=0;unit<MAX_NET_DEVS;unit++)
-	if ((new_state&0x1f)==devices[unit]) 
-	  {
-	    state=IEC_LISTEN;
-	    last_unit=unit;
-#ifdef DEBUG_PIEC
-	    printf("Received Listen command for device #%d\n",
-		   devices[last_unit]);
-#endif
-	    break;
-	  }
-    
-	if (unit==MAX_NET_DEVS) {
-#ifdef DEBUG_PIEC
-	  printf("Received Listen, but for different device.\n");
-#endif
-	}
+int send_error(unsigned char err) {
+	int temp;
+	trigger_cnt();
+	temp=send_byte(err);
+	/* we need to check if atn got high and redraw from bus in case! 
+	 * we really shouldn't acknowledge further more or we end up in 
+	 * some strange state! Sometimes we manage to get through our error, 
+	 * though the c64 doesn't want to it, as it goes atn high anyway. 
+	 * But in any case it doesn't hurt */
+	if(temp!=0) return -1;
+	acknowledge();
 	return 0;
-    }
-  else if((new_state&0xf0)==IEC_TALK) 
-    {
-      int unit;    
-      for(unit=0;unit<MAX_NET_DEVS;unit++)
-	if ((new_state&0x1f)==devices[unit]) 
-	  {
-	    state=IEC_TALK;
-	    last_unit=unit;
-#ifdef DEBUG_PIEC
-	    printf("Received Talk command for device #%d (unit %d)\n",
-		   devices[last_unit],last_unit);
-#endif
-	    break;
-	  }
-	if (unit==MAX_NET_DEVS) {
-#ifdef DEBUG_PIEC
-	  printf("Received Talk, but for different device\n");
-#endif
+}
+
+uchar change_state(unsigned int new_state) {
+	/* Change TALK/LISTEN/UNLISTEN/UNTALK/IDENTIFY state based on character received under attention. */
+	new_state=(new_state&0xff);
+		if((new_state&0xf0)==IEC_LISTEN) {
+			if(devicenumber==(new_state&0x0f)) {
+				state=IEC_LISTEN;
+				#ifdef DEBUG_PIEC
+				printf("Received Listen command\n");
+				#endif
+    			}
+			else {
+				#ifdef DEBUG_PIEC
+				printf("Received Listen, but for different device.\n");
+				#endif
+			}
+			return 0;
+		}
+		else if((new_state&0xf0)==IEC_TALK) {
+			if(devicenumber==(new_state&0x0f)) {
+				state=IEC_TALK;
+				#ifdef DEBUG_PIEC
+				printf("Received Talk command\n");
+				#endif
+			}
+			else {
+				#ifdef DEBUG_PIEC
+				printf("Received Talk, but for different device\n");
+				#endif
+			}
+			return 0;
+		}
+		else if((new_state&0xff)==IEC_UNLISTEN) {
+			state=IEC_UNLISTEN;
+			#ifdef DEBUG_PIEC
+			printf("Received Unlisten command\n");
+			#endif
+			return 0;
+		}	
+		else if((new_state&0xff)==IEC_UNTALK) {
+			state=IEC_UNTALK;
+			#ifdef DEBUG_PIEC
+			printf("Received Untalk command\n");
+			#endif
+			return 0;
+		}
+
+		else if((new_state&0xff)==IEC_IDLE) {
+			state=IEC_IDLE;
+			#ifdef DEBUG_PIEC
+			printf("Going into IDLE mode...\n");
+			#endif
+			return 0;
+		}
+		else {
+		/* Some unknown command has been received, so lets go back to IDLE,
+		 * and wait for the next command char */
+		#ifdef DEBUG_PIEC
+		printf("Received unknown char: 0x%X\n", new_state);
+		#endif
+		state=IEC_IDLE;
+		return -1;
 	}
-	return 0;
-    }
-  else if((new_state&0xff)==IEC_UNLISTEN) {
-    state=IEC_UNLISTEN;
-#ifdef DEBUG_PIEC
-    printf("Received Unlisten command\n");
-#endif
-    return 0;
-  }	
-  else if((new_state&0xff)==IEC_UNTALK) {
-    state=IEC_UNTALK;
-#ifdef DEBUG_PIEC
-    printf("Received Untalk command\n");
-#endif
-    return 0;
-  }
-
-  else if((new_state&0xff)==IEC_IDLE) {
-    state=IEC_IDLE;
-#ifdef DEBUG_PIEC
-    printf("Going into IDLE mode...\n");
-#endif
-    return 0;
-  }
-
-  else {
-    /* Some unknown command has been received, so lets go back to IDLE,
-       and wait for the next command char */
-#ifdef DEBUG_PIEC
-    printf("Received unknown char: 0x%X\n", new_state);
-#endif
-    state=IEC_IDLE;
-    return -1;
-  }
+	return -1;
 }
 
 /* These configuration reading routines really should be in another module,
@@ -953,7 +945,9 @@ set_drive_status (uchar *string, int len)
   /* set the drive message */
   int d;
 
-  d = last_unit;
+  /* Only one drive at present */
+  /*   d=which_unit(last_drive); */
+  d = 0;
 
   if (d < 0)
     return (1);			/* no drive polled */
