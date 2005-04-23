@@ -863,75 +863,67 @@ int commitByte(struct assembled_byte *ab)
 
   /* dumpSections(); */
 
-  switch(special_section)
-    {
-    case NULL:
-      if ((!current_section)) /* ||(!current_byte)) */
-	{
-	  /* Start first section */
-	  sections[section_count++]=ab;
-	  current_section=ab;
-	  current_byte=ab;
-	}
-      else
-	{
-	  current_byte->next=ab;
-	  current_byte=ab;
-	}
+	if(special_section==NULL) {
+		if ((!current_section)) { /* ||(!current_byte)) */
+			/* Start first section */
+			sections[section_count++]=ab;
+			current_section=ab;
+			current_byte=ab;
+		}
+		else {
+			current_byte->next=ab;
+			current_byte=ab;
+		}
       
-      /* Tally section lengths */
-      section_lengths[section_count-1]++;
-      if ((ab->bytes==3)&&(!ab->relativeP))
-	section_lengths[section_count-1]++;
+		/* Tally section lengths */
+		section_lengths[section_count-1]++;
+		if ((ab->bytes==3)&&(!ab->relativeP))
+		section_lengths[section_count-1]++;
       
-      if (pending_labels)
-	{
-	  /* Declare the pending label as being here */
-	  while(pending_labels>0)
-	    {
-	      pending_labels--;
-	      if (!newLabel(pending_label_name[pending_labels],
-			    0,1,0,1,token_value,
-			    current_section,current_byte,NULL))
-		return -1;
-	    }
+		if (pending_labels) {
+			/* Declare the pending label as being here */
+			while(pending_labels>0) {
+				pending_labels--;
+				if (!newLabel(pending_label_name[pending_labels],
+				0,1,0,1,token_value,
+				current_section,current_byte,NULL))
+				return -1;
+			}
+		}
 	}
-      break;
-    case T_K_PRERELOCATE:
-      if (!pre_relocate)
-	{ pre_relocate=ab; current_section=ab; current_byte=ab;}
-      else
-	{ current_byte->next=ab; current_byte=ab; }
-      pre_relocate_length++;
-      if ((ab->bytes==3)&&(!ab->relativeP)) pre_relocate_length++;
-      while (pending_labels)
-	{
-	  /* Declare the pending label as being here */
-	  pending_labels--;
-	  if (!newLabel(pending_label_name[pending_labels],0,1,0,1,token_value,
-			current_section,current_byte,NULL))
-	    return -1;
+	else if(special_section==T_K_PRERELOCATE) {
+		if (!pre_relocate) { 
+			pre_relocate=ab; current_section=ab; current_byte=ab;
+		}
+		else { 
+			current_byte->next=ab; current_byte=ab; 
+		}
+		pre_relocate_length++;
+		if ((ab->bytes==3)&&(!ab->relativeP)) pre_relocate_length++;
+		while (pending_labels) {
+			/* Declare the pending label as being here */
+			pending_labels--;
+			if (!newLabel(pending_label_name[pending_labels],0,1,0,1,token_value,current_section,current_byte,NULL))
+			return -1;
+		}
 	}
-      break;
-    case T_K_POSTRELOCATE:
-      if (!post_relocate)
-	{ post_relocate=ab; current_section=ab; current_byte=ab;}
-      else
-	{ current_byte->next=ab; current_byte=ab; }
-      post_relocate_length++;      
-      if ((ab->bytes==3)&&(!ab->relativeP)) post_relocate_length++;
-      while (pending_labels)
-	{
-	  /* Declare the pending label as being here */
-	  pending_labels--;
-	  if (!newLabel(pending_label_name[pending_labels],0,1,0,1,token_value,
-			current_section,current_byte,NULL))
-	    return -1;
-	} 
-      break;
-    }
-
-  return 0;
+	else if(special_section==T_K_POSTRELOCATE) {
+		if (!post_relocate) { 
+			post_relocate=ab; current_section=ab; current_byte=ab;
+		}
+		else { 
+			current_byte->next=ab; current_byte=ab; 
+		}
+		post_relocate_length++;      
+		if ((ab->bytes==3)&&(!ab->relativeP)) post_relocate_length++;
+		while (pending_labels) {
+			/* Declare the pending label as being here */
+			pending_labels--;
+			if (!newLabel(pending_label_name[pending_labels],0,1,0,1,token_value,current_section,current_byte,NULL))
+			return -1;
+		} 
+	}
+	return 0;
 }
 
 int commitOpcode(char *inst,int mode)
