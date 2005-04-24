@@ -6,10 +6,10 @@
 
 /* XXX we chould move those to another include file probably? TB */
 #define VALID_OUT	PARPORT_CONTROL_STROBE
-//#define ERROR_OUT	PARPORT_CONTROL_SELECT
+#define ERROR_DATA	PARPORT_CONTROL_INIT
 #define REQUEST_IN	PARPORT_STATUS_BUSY
 #define ATN_IN		PARPORT_STATUS_ACK 
-#define ERROR		PARPORT_CONTROL_AUTOFD
+#define ERROR_CLOCK	PARPORT_CONTROL_AUTOFD
 
 static int DDR_READ =	0x1;
 static int DDR_WRITE =	0x0;
