@@ -105,6 +105,7 @@ int lpt_fd;
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/poll.h>
+#include <sys/select.h>
 
 #ifdef LINUX
 #include "lptio/lptio_linux.c"
@@ -265,8 +266,9 @@ void iec_untalk() {
 
 void iec_unlisten() {
 	change_state(IEC_IDLE);
-	//now we can clear the pos, as we closed the file anyway
+	//now we can clear the pos, as we closed the file anyway and clear the status;
 	dos_stat_pos[file_unit]=0;
+	//set_error(0, 0, 0);
 	//now we can fall into IDLE state to wait for new challanges.
 	return;
 }
@@ -281,25 +283,26 @@ unsigned int iec_listen() {
 	if((temp&0x100)==0) return -1;
 	SA=temp;
 #ifdef DEBUG_PIEC
-	printf("SA=$%X\n",(uchar)SA);
+	printf("listen SA=$%X\n",(uchar)SA);
 #endif
 	/* Record file number for listen */
 	listenlf=SA&0xf;
 
 	/* the data we'll receive should be saved, so we prepare for that */
 	if(SA==IEC_SAVE) {
-		//is there some file open? if not we probably need to create a new file
-		//XXX somehow the data i want to save doesn't get into the f**king file :-/ 
-		/* so try to open/create teh file we should save */
+		#ifdef DEBUG_PIEC
+		printf("SA commands us to save\n");
+		#endif
+		
+		/* if the file doesn't exist yet we end up here and try to create it now */
 		if (logical_files[file_unit][listenlf].open != 1) {
 			if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], myfilename, &logical_files[file_unit][listenlf])) {
 				/* file not found */
 				/* postpend ",W" to the filename and try again */
 				strcat ((char*)myfilename, ",W");
 				if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], myfilename, &logical_files[file_unit][listenlf])) {
-					/* cannot open file for some reason */
+					/* cannot open file for some reason (missing permissions or such) */
 					/* simply abort */
-					printf("Error: file exists\n");
 					temp=receive_byte();
 					//unsure about the next line, but should be there for savety
 					if((temp&0x100)!=0) { change_state(temp); return -1; }
@@ -308,20 +311,37 @@ unsigned int iec_listen() {
 				}
 			}
 		}
+		/* we were able to open the file without creating, so it exists already *
+		 * XXX we should check here if we are allowed to overwrite the file (@0:filename) *
+		 * in case of write protect on, nevertheless we should be never allowed to overwrite *
+		 * yet all this cases are not handled! */
 		else {
-			/* then pour all data into that file we opened until finished or ATN gets high */
 			#ifdef DEBUG_PIEC
-				printf("Now receiving data...\n");
+			printf("File exists\n");
 			#endif
+			set_error(63, 0, 0);
+			//we better send an error yet as we can't handle this situation at the moment
+			temp=receive_byte();
+			if((temp&0x100)!=0) { change_state(temp); return -1; }
+			send_error(ERROR_FILE_EXISTS);
+			return -1;
+		}
+		//we were able to open the file for our purpose and so we can start saving into it now
+		if (logical_files[file_unit][listenlf].open == 1) {
+			#ifdef DEBUG_PIEC
+				printf("File is open. Now receiving data to save...\n");
+			#endif
+			/* pour all data into that file until finished or ATN gets high */
 			while(1) {
 				/* receive a byte */
 				temp=receive_byte();
-				//printf("Got byte\n");
 				acknowledge();
 				/* check if data received under ATN high */
 				if((temp&0x100)!=0) { change_state(temp); return -1; }
+				#ifdef DEBUG_PIEC
 				printf("Got byte $%x\n",temp);
-				fs64_writechar (&logical_files[file_unit][listenlf], temp);
+				#endif
+				fs64_writechar(&logical_files[file_unit][listenlf], temp);
 			}
 		}
 	}
@@ -341,6 +361,7 @@ unsigned int iec_listen() {
 					/* byte not under attention: store in input buffer */
 					myfilename[myfilenamelen]=(uchar)temp;
 					myfilenamelen++;
+					/* XXX we should do error handling on too long filenames here. TB */
 					if(myfilenamelen>=maxcount) { 
 						maxcount+=1024; 
 						myfilename=realloc(myfilename,maxcount); 
@@ -349,18 +370,22 @@ unsigned int iec_listen() {
 				myfilename=realloc(myfilename,myfilenamelen+1);
 				myfilename[myfilenamelen]=0;
 
-				/* Data received was a filename to open */
-				#ifdef DEBUG_PIEC
-					printf("Received filename \"%s\" for logical file %d %d\n", myfilename,listenlf,myfilenamelen);
-				#endif
-				/* we are commanded to open, either a file or a command, lets store it first */
+				/* we are commanded to open, either a file or a command, lets decide further */
 				if(listenlf==0x0f) {
+					/* Data received was a command */
+					#ifdef DEBUG_PIEC
+						printf("Received command \"%s\"\n", myfilename);
+					#endif
 					strcpy(dos_command[last_unit],myfilename);
 					dos_comm_len[last_unit]=myfilenamelen;
 					do_dos_command();
 					if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; } 
 				}
 				else {
+					/* Data received was a filename to open */
+					#ifdef DEBUG_PIEC
+						printf("Received filename \"%s\" for logical file %d %d\n", myfilename,listenlf,myfilenamelen);
+					#endif
 					//if (logical_files[file_unit][listenlf].open == 1) fs64_closefile_g (&logical_files[last_unit][listenlf]);
 					debug_msg ("*** Opening [%s] on channel $%02x\n", myfilename, listenlf);
 					fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], myfilename, &logical_files[file_unit][listenlf]);
@@ -415,6 +440,7 @@ unsigned int iec_talk() {
 				temp=send_byte(0);
 				if(temp!=0) return -1;
 				send_error(ERROR_FILE_NOT_FOUND);
+				set_error(62,0,0);
 			}
 			else {
 				/* start sending bytes until finished or ATN high */
@@ -437,7 +463,7 @@ unsigned int iec_talk() {
 		}		
 	}
 	if(talklf==0x0f) {
-		/* we got a command, so do command and store result in output_buffer */
+		/* the c64 reads out the error channel, so talk the status */
 		#ifdef DEBUG_PIEC
 			printf("Sending status...\n");
 			printf("Status: %s", dos_status[last_unit]);
@@ -455,6 +481,8 @@ unsigned int iec_talk() {
 				temp=send_byte(data);
 				if(temp!=0) break;
 				send_error(ERROR_EOI);
+				//sent last byte of status, so we can clear status to 0,0,0
+				set_error(0,0,0);
 				break;
 			}  
 		}
@@ -560,25 +588,43 @@ int trigger_cnt() {
 	/* XXX unfortunatedly when toggling 16 times the c64 + 64net hangs (guess some
 	 * double triggered error :-( */
 	for(a=0;a<8;a++) {
-		status|=ERROR;					
+		status|=ERROR_CLOCK;					
 		set_lpt_control(status);
-		status^=ERROR;					
+		status^=ERROR_CLOCK;					
 		set_lpt_control(status);
 	}
 	return 0;
 }
 
 int send_error(unsigned char err) {
-	int temp;
-	trigger_cnt();
-	temp=send_byte(err);
-	/* we need to check if atn got high and redraw from bus in case! 
-	 * we really shouldn't acknowledge further more or we end up in 
-	 * some strange state! Sometimes we manage to get through our error, 
-	 * though the c64 doesn't want to it, as it goes atn high anyway. 
-	 * But in any case it doesn't hurt */
-	if(temp!=0) return -1;
-	acknowledge();
+	int status;
+	int a;
+	struct timeval time;
+	time.tv_sec = 0;
+	time.tv_usec = 1;
+
+	#ifdef DEBUG_PIEC
+	printf("Triggering CNT...\n");
+	#endif
+
+	/* XXX My C128D seems to need 16 toggles, even though the documentation
+	 * suggests 8 should be enough. */
+	/* XXX unfortunatedly when toggling 16 times the c64 + 64net hangs (guess some
+	 * double triggered error :-( */
+	/* all this is hopefully solved now! Actually the pc sometimes toggles things 
+	 * too fast here. So i keep every state up at least 1µs, that is more than 
+	 * one cycle on c64 side. Since that also serial transfer of the errorcode
+	 * to SP2 works stable. */
+	for(a=0;a<8;a++) {
+		status=ERROR_CLOCK;				
+		if((err&0x80)!=0) status|=ERROR_DATA;
+		select(1,NULL,NULL,NULL,&time);	//wait 1µs
+		set_lpt_control(status);
+		status^=ERROR_CLOCK;					
+		select(1,NULL,NULL,NULL,&time); //wait 1µs
+		set_lpt_control(status);
+		err=err<<1;
+	}
 	return 0;
 }
 
