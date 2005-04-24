@@ -14,8 +14,8 @@ int lpt_fd;
 #define ATN_IN 0x40
 #define REQUEST_IN 0x80
 #define VALID_OUT 0x01
-#define ERROR 0x02
-#define ERROR_OUT 0x08
+#define ERROR_CLOCK 0x02
+#define ERROR_DATA 0x04
 
 void set_datalines_input();
 
