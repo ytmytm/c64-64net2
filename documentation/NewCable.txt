@@ -1,0 +1,16 @@
+This is the yet design of the new cable, including ATN and errorhandling
+LPT Side	Description	Dir	Userport C64	Description
+1 		Strobe		->	B		/FLAG2		(ACKNOWLEDGE)
+2		Data0		<->	C		PB0		(DATA)
+3		Data1		<->	D		PB1
+4		Data2		<->	E		PB2
+5		Data3		<->	F		PB3
+6		Data4		<->	H		PB4
+7		Data5		<->	J		PB5
+8		Data6		<->	K		PB6
+9		Data7		<->	L		PB7
+10		Acknowledge	<-	9		Ser. ATN	(ATN)
+11		Busy		<-	M		PA2		(REQUEST)
+14		Autofeed	->	6		CNT2		(ERROR_CLOCK)
+16		Initialize	->	7		SP2		(ERROR_DATA)
+18-25		GND		<->	1/12/A/N	GND
