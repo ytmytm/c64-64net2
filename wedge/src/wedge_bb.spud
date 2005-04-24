@@ -1,0 +1,662 @@
+	; C64 wedge for 64net/2 parallel IEC mode
+
+
+; -----------------------------------------------------------------------
+; Reclaim some space in the kernel
+; -----------------------------------------------------------------------
+
+;	.space $c000 $cfff	
+
+	; was RS232 routines
+	.space $eebb $ef02
+	; Dodge $EF03 which CMD RamDrive seems to refuse to override
+	.space $ef04 $ef38
+	.space $ef4a $f0a3
+
+	; was open RS232
+	.space $f409 $f49d
+
+	; RS232 NMI
+	; .space $fed6 $ff06
+
+	; Make the space safe to use by nobbling the RS232 device
+	.patch $f388
+	; Device not present
+	jmp $f707
+
+
+; -----------------------------------------------------------------------
+; Pre-relocation routine: copy ROM to RAM
+; -----------------------------------------------------------------------
+	.prerelocate
+
+	; "Clear ,$nnnn from basic input"
+	ldx #$06 
+pr1	jsr $0073
+	dex
+	bne pr1
+
+	; Bank ROM in
+	lda #$e7
+	sta $01
+	; Copy ROM to RAM
+	ldy #$00
+rc1	lda $a000,y
+	sta $a000,y
+	iny
+	bne rc1
+	inc rc1+2
+	inc rc1+5
+	lda rc1+2
+	cmp #$c0
+	beq rc3	
+	cmp #$00 
+	beq rc2
+	bne rc1
+rc3	lda #$e0
+	sta rc1+2
+	sta rc1+5
+	jmp rc1
+rc2	nop
+
+; -----------------------------------------------------------------------
+; Post-relocation routine: copy ROM to RAM
+; -----------------------------------------------------------------------
+	.postrelocate
+
+#ifdef RAMDRIVE
+	; Copy ROMs to RAMDrive pages
+
+
+	; Toggle BBG indicator
+#else
+	; Not for RAMDrive, so just bank to RAM for kernel, and set 64net
+	; device
+	lda #117
+	sta $01
+	lda #$08
+	sta drive_64net
+	lda #$04
+	jsr $ffd2
+	; Hook into BASIC decode for @, $ and ! meta-commands
+	lda #<basic_decode
+	sta $0308
+	lda #>basic_decode
+	sta $0309
+#endif
+
+; -----------------------------------------------------------------------
+
+	; byte indicates the default drive for 64net
+	drive_64net = $a7
+
+	; Make SHIFT-RUN/STOP load from 64net device
+        ; bug in build wedge breaks this if LDX drive_64net is 
+	; used, as it tries to make it absolute instead of ZP addressed.
+	.patch $e1d9
+	ldx drive_64net 
+
+	; Replace basic "READY." message
+ 	; so we know what is going on
+	; .patch $a378
+	; .byte '6','4','N','/','2','.'
+
+; ---------------------------------------------------------------------
+; Patch kernel ACPTR routine: Read char from serial bus
+; ---------------------------------------------------------------------
+
+	acptr=$ee14
+	.patch $ee14
+
+	jmp myacptr
+	.byte $00
+
+	.section
+
+myacptr
+	; Test if 64net/2 device
+	lda $ba
+	cmp drive_64net
+	beq myacptr_entry
+myacptr_exit
+	; not for us - normal acptr
+	lda #$00
+	sta $a5
+	jmp $ee18
+myacptr_entry
+	sei
+	; Set lines to input
+	lda #$00
+	sta $dd03
+	; Request next byte
+	lda $dd0d
+	lda $dd00
+	eor #$04
+	sta $dd00
+myacptr_loop
+	; Wait until a byte arrives, or an error
+	; condition occurs
+	lda $dd0d
+	and #$18
+	beq myacptr_loop 
+	; no ack yet, loop
+	cmp #$10
+	beq myacptr_gotbyte
+	and #$08
+	beq myacptr_loop
+myacptr_goterr
+	; now receive an error number
+	lda $dd01
+	sta $a4
+	lda $dd0c
+	sta $90
+	lda $a4
+	sec
+	cli
+	rts
+myacptr_gotbyte
+	; Got a byte, return happily
+	lda #$00	;really needed? TB
+	sta $90		;dito
+	lda $dd01
+	sta $a4
+	clc
+	cli
+	rts
+
+	.section
+
+; ---------------------------------------------------------------------
+; Patch kernel clock wait routine at $edcc (in talk/listen)
+; ---------------------------------------------------------------------
+	clkwait=$edcd
+	.patch $edcd
+	jmp myclkwait
+
+	.section
+
+myclkwait
+	lda $ba
+	cmp drive_64net
+	beq myclkwait_entry
+	jsr $eea0
+	jmp $edd0
+myclkwait_entry
+	; for us - but we need do nothing - except releasing ATN
+	jsr $edbe
+	cli
+	rts
+
+; ---------------------------------------------------------------------
+; Patch kernel chkin wait routine at $f23f (in chkin)
+; ---------------------------------------------------------------------
+;
+; Note this patch is only added for extra speed, since it should get
+; caught by the myclkwait patch... but anyway.
+;
+
+;	chkinwait=$f23f
+;	.patch $f23f
+;	jmp mychkinwait
+;	
+;	.section
+;
+;mychkinwait
+;	bit $a7
+;	bpl mychkin_normal
+;	; for us - so dont wait - but need to drop ATN! Tobias
+;	jsr $edbe
+;	rts
+;mychkin_normal
+;	; normal kernel job, 
+;	; so wait normally
+;	jmp clkwait
+
+; ---------------------------------------------------------------------
+; Patch kernel serout routine at $ed37
+; ---------------------------------------------------------------------
+	serout=$ed37
+	.patch $ed37
+	jmp myserout
+	
+	.patch $ed41
+	jmp myserout_alternate
+
+	.section
+
+myserout
+	; Test if it is for us
+	lda $ba
+	cmp drive_64net
+	beq myserout_entry
+	; nope ... pass back to kernel
+	jsr $ee8e
+	jmp $ed3a
+myserout_entry
+	; for us
+
+	; set port to output
+	; sei
+	lda #$ff
+	sta $dd03
+	
+	; present character
+	lda $95
+	sta $dd01
+	
+	; Tell 64net/2 it is there
+	lda $dd0d
+	lda $dd00
+	eor #$04
+	sta $dd00
+
+	; wait for it to be accepted
+myserout_loop
+	lda $dd0d
+	and #$18
+	beq myserout_loop
+	cmp #$10
+	beq myserout_done
+	and #$08
+	beq myserout_loop
+myserout_err
+	lda #$00
+	sta $dd03
+	lda $dd0c
+	sta $90
+	lda $95
+	sec
+	cli
+	rts
+
+myserout_done
+	;Just to be sure we dont kill our CIA, might be unecessary though
+	lda #$00
+	sta $dd03
+	lda $95
+	cli
+	clc
+	rts
+
+	; Alternate entry point to write to serial bus
+myserout_alternate
+	lda $ba
+	cmp drive_64net
+	beq myserout_entry
+	; not for us
+	jsr $ee97
+	jmp $ed44
+
+
+; ---------------------------------------------------------------------
+; Patch kernel wait for clock+data routine at $eea9
+; ---------------------------------------------------------------------
+;	.patch $eea9
+;	jmp myclkdata
+;
+;	.section
+;
+;myclkdata
+;	bit $a7
+;	bpl myclkdata_normal
+;	; for us - do nothing
+;	rts
+;myclkdata_normal
+;	myclkloop
+;	lda $dd00
+;	cmp $dd00
+;	bne myclkloop
+;	asl a
+;	rts
+;
+; ---------------------------------------------------------------------
+; Patch kernel talk/listen to pick which bus first
+; ---------------------------------------------------------------------
+;	.patch $ed2e
+;	jmp whichbus
+;
+;	.section
+;
+;whichbus
+;	; Present char on port
+;	lda $ba
+;	cmp drive_64net 
+;	bne whichbusend
+;	lda #$89
+;	sta $a7
+;whichbusend
+;	lda $dd00
+;	jmp $ed31
+;	lda #$ff
+;	sta $dd03
+;	lda $95
+;	sta $dd01
+;	; clear $dd0d flags
+;	lda $dd0d
+;	; notify 64net/2 under attention
+;	lda $dd00
+;	ora #$08
+;	eor #$04
+;	sta $dd00
+;	; wait for response
+;	lda #$90
+;	sta $a7
+;	lda #$10
+;whichbus_loop
+;	bit $dd0d
+;	bne whichbus_gotresult
+;	dec $a7
+;	bmi whichbus_loop
+;whichbus_gotresult
+;	lda $a7
+;	ora #$80 ; was and #$80 but then you wont get through all bmi checks! Tobias
+;	sta $a7
+;	jmp serout-1
+
+;---
+; DEBUG - hexout routine to display chars received to help debug
+;         multiple ack/wack problem
+;---
+
+;	.section
+;
+;hextable 
+;	.byte '0','1','2','3','4','5','6','7','8','9'
+;	.byte 'A','B','C','D','E','F'
+;
+;	.section
+;
+;hexout
+;	; display the char in accumulator on screen as hex
+;	pha
+;	lda #'$'
+;	jsr $e716
+;	pla
+;	pha
+;	lsr a
+;	lsr a
+;	lsr a
+;	lsr a
+;	tax
+;	lda hextable,x
+;	jsr $e716
+;	pla
+;	pha
+;	and #$0f
+;	tax
+;	lda hextable,x
+;	jsr $e716
+;	lda #$20     ; space
+;	jsr $e716
+;	pla
+;	rts
+
+; ------------------------------------------------------------
+; Kernel Start up & control-code hooks
+; ------------------------------------------------------------
+
+	.patch $e7ce
+	jmp hotkeys
+
+	.section
+
+hotkeys cmp #$04   ; CTRL-D = drive select
+        bne hk1
+	jsr hotkey_d
+	jmp $ec44
+
+hk1	; Splice back into kernel function
+	jsr $e8cb
+	jmp $e7d1
+
+hotkey_d ; Swap drive 8/9
+	 ; i.e. make 64net drive 8 or 9
+	 ; XXX - We should be able to patch the kernel so that
+	 ; we can actually swap the devices by changing the byte
+	 ; sent under attention - but for now just make it easy
+         ; to change the default drive for 64net.
+	lda #$08
+	cmp drive_64net
+	bne hke1
+	lda #$09	
+hke1    sta drive_64net
+	; display "64NET IS" message
+	tya
+	pha
+	ldy #$00
+hke2	lda msg_64net_is,y
+	beq hke3
+	jsr $ffd2
+	iny
+	bne hke2	
+hke3	; display drive number and new line
+	lda drive_64net
+	ora #$30
+	jsr $ffd2
+	lda #$0d
+	jsr $ffd2
+	pla
+	tay
+	lda #$04
+	; jmp $ec44
+	rts
+
+	.section
+
+msg_64net_is
+	.byte '6','4','N','E','T',$20,'I'
+	.byte 'S',$20,'D','E','V',$23,$00
+
+	.patch $E444
+
+	jmp init_64net
+
+	.section
+
+init_64net
+	; Set device # by calling CTRL-D hotkey function.
+	; This will also display the "64NET is device x" message
+	lda #$0d
+	jsr $ffd2
+	lda #$05
+	jsr $ffd2
+	lda #$08
+	sta drive_64net
+	jsr hotkey_d
+	; Start up basic
+	jmp $a644
+
+; ---------------------------------------------------------------------
+; Patch Kernel LOAD routine to accept no filename if device is 64net
+; so that SHIFT-RUN/STOP can be used to boot C64
+; ---------------------------------------------------------------------
+	.patch $f4bc
+	jmp name_check
+
+	.section
+
+name_check
+	lda $ba
+	cmp drive_64net
+	beq nc1
+	; missing name error
+	jmp $f710
+nc1	; No name for 64net LOAD, so 
+	; load boot file
+	
+	; set file name	
+	ldx #<boot_file
+	ldy #>boot_file
+	lda #9
+	jsr $ffbd
+
+	; Return
+	ldy $b7
+	jmp $f4bf
+
+	.section
+
+boot_file
+	; 1:BOOT.64 for C64 booting
+	; 1:BOOT.65 for C65 etc...
+	.byte '1',':','B','O','O','T','.','6','4'
+boot_file_end
+	.byte $00
+
+
+; ---------------------------------------------------------------------
+; BASIC interprettor hooks for @, $ etc
+; ---------------------------------------------------------------------
+	
+	.patch $e44f
+	.byte <basic_decode,>basic_decode
+
+	.section
+
+basic_decode
+	jsr $0073
+	cmp #'@'
+	bne bd1
+	jmp found_at
+bd1	cmp #'$'
+	bne bd2
+	jmp found_dollar
+bd2	cmp #'!'
+	bne bd3
+	jmp found_bang
+bd3	jmp $a7e7 ; let C64 basic handle it
+
+	.section
+
+disable_decode
+	; Remove BASIC wedge, so that ROM can be switched
+	lda #$e4
+	sta $0308
+	lda #$a7
+	sta $0309
+	jmp $a7e7
+
+found_at
+	; Somewhat derived from p32 of "Anatomy of a C64"
+
+	; write command to channel
+	jsr $0073
+	cmp #'Q' ;quit basic wedge
+	beq disable_decode
+at2	lda drive_64net
+	sta $ba
+	jsr $ffb1 ; LISTEN
+	lda #$6f
+	sta $b9
+	jsr $ff93 ; LISTEN SA
+	jsr $0079
+at3	cmp #$00
+	beq at4
+	jsr $ffa8
+	jsr $0073
+	jmp at3
+at4	
+
+	; open command channel for reading
+	lda drive_64net
+	sta $ba
+	jsr $ffb4 ; TALK
+	lda #$6f  ; command channel
+	sta $b9
+	jsr $ff96 ; TKSA
+at1	jsr $ffa5
+	jsr $ffd2
+	cmp #$0d
+	bne at1	
+	jsr $ffab ; UNTLK
+
+	; back to basic
+	jsr $0079
+	sta $0400
+	jmp $a7e7
+	
+	.section
+
+found_dollar
+	; Somewhat derived from p33 of "Anatomy of a C64"
+
+	; Show directory
+
+	; Get directory file name
+	lda #$3c
+	sta $bb
+	lda #$03
+	sta $bc
+	ldy #$00
+	lda #'$'
+	sta ($bb),y
+	iny
+fd1	jsr $0073
+	; turn tokens back to characters where necessary
+	; this is to allow wild cards in directory spec
+	; XXX - Incomplete - ? is not allowed yet	
+	cmp #$ac ; *
+	bne fd0
+	lda #'*'
+fd0	cmp #$99
+	bne fd01
+	lda #'?'
+fd01	sta ($bb),y
+	iny
+	cmp #$00
+	bne fd1
+	dey
+	sty $b7
+
+	; Open directory for reading
+	lda drive_64net
+	sta $ba
+	lda #$60
+	sta $b9
+	jsr $f3d5 ; open file with name
+	lda $ba
+	jsr $ffb4 ; TALK
+	lda $b9
+	jsr $ff96 ; TKSA
+	lda #0
+	sta $90
+	ldy #3
+dl1	sty $fb
+	jsr $ffa5 ; ACPTR
+	sta $fc
+	ldy $90
+	bne dl4
+	jsr $ffa5
+	ldy $90
+	bne dl4
+	ldy $fb
+	dey
+	bne dl1
+	ldx $fc
+	jsr $bdcd
+	lda #$20
+	jsr $ffd2
+dl3	jsr $ffa5
+	ldx $90
+	bne dl4
+	tax
+	beq dl2
+	jsr $ffd2
+	jmp dl3
+dl2	lda #$0d
+	jsr $ffd2
+	ldy #$02
+	bne dl1
+dl4	jsr $f642
+
+	; back to basic
+	jmp $a7ae	
+
+	.section
+
+found_bang
+fb1	jsr $0073
+	cmp #$00
+	bne fb1
+	jmp $a7ae	
+
