@@ -301,8 +301,6 @@ fs_ufs_readblock (fs64_file * f)
   else
   {
     /* were already at the end of the file */
-    /* 61, FILE NOT OPEN,00,00 */
-    set_error (61, 0, 0);
     return (-1);
   }
 }
