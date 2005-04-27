@@ -27,10 +27,10 @@ void acknowledge() {
 }
 
 void write_data(uchar data) {
-  ioctl(lpt_fd,PPWDATA,&data);
 #ifdef DEBUG_PIEC
   printf("Presenting data: $%X\n",(unsigned char)data);
 #endif
+  ioctl(lpt_fd,PPWDATA,&data);
   return;		
 }
 
@@ -64,6 +64,13 @@ int bind_to_port (const char *name) {
   lpt_fd = open (name, O_RDWR);
   if (lpt_fd == -1) {
     perror ("open");
+    exit(1);
+  }
+  /* so we can be suer no other modules use the port and bring us into trouble
+   * like cups or something trying to print and such. */
+  if (ioctl (lpt_fd, PPEXCL)) {
+    perror ("PPEXCL");
+    close (lpt_fd);
     exit(1);
   }
   if (ioctl (lpt_fd, PPCLAIM)) {
