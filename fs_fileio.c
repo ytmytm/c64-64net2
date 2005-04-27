@@ -467,7 +467,10 @@ int fs64_unreadchar(fs64_file *f, uchar *c)
   /* push the character back onto the buffer.
      This is only guaranteed to work for one char */
 
-  if (f->open != 1) return -1;
+  if (f->open != 1) {
+	  set_error(61,0,0);
+	  return -1;
+  }
   if (f->char_queuedP) return -1;
 
   f->queued_char=*c;
@@ -486,6 +489,7 @@ fs64_readchar (fs64_file * f, uchar *c)
   {
     /* if eof or otherwise, be 1541 bug compatible */
     *c = 199;
+    set_error(61,0,0);
     return (-1);
   }
 
@@ -523,18 +527,19 @@ fs64_readchar (fs64_file * f, uchar *c)
   }
 
   /* check if there are chars in the buffer */
-  if (f->be <= f->bp)
+  if (f->be <= f->bp)	//XXX changed to be-1 yet as we get one byte too much else?! TB
   {
     /* buffer is empty - so read next block */
     if (fs64_readblock (f))
     {
+	    printf("readblock\n");
       /* file io error - error will be set */
       *c = 199;
       return (-1);
     }
   }
 
-  if (f->be <= f->bp)
+  if (f->be <= f->bp)	//XXX changed to be-1 yet as we get one byte too much else?! TB
   {
     /* it is *still* empty, so it must mean eof */
     *c = 199;
