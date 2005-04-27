@@ -146,7 +146,7 @@ inb_t inb;
 
 //special SAs for LOAD/SAVE
 #define IEC_LOAD		0x60
-#define IEC_SAVE		0x61
+#define IEC_SAVE		0x60
 #define IEC_OPEN		0xf0
 #define IEC_CLOSE		0xe0
 #define ERROR_EOI		0x40
@@ -276,6 +276,7 @@ void iec_unlisten() {
 unsigned int iec_listen() {
 	unsigned int temp;
 	int maxcount=1024;
+	int pos;
 	change_state(IEC_IDLE);
 	temp=receive_byte(); 
 	acknowledge();
@@ -289,17 +290,26 @@ unsigned int iec_listen() {
 	listenlf=SA&0xf;
 
 	/* the data we'll receive should be saved, so we prepare for that */
-	if(SA==IEC_SAVE) {
+	if((SA&0xf0)==IEC_SAVE && listenlf!=0xf) {
 		#ifdef DEBUG_PIEC
 		printf("SA commands us to save\n");
 		#endif
 		
 		/* if the file doesn't exist yet we end up here and try to create it now */
 		if (logical_files[file_unit][listenlf].open != 1) {
+			#ifdef DEBUG_PIEC
+			printf("Trying to open file...\n");
+			#endif
 			if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], myfilename, &logical_files[file_unit][listenlf])) {
+				#ifdef DEBUG_PIEC
+				printf("Can't find file, creating it...\n");
+				#endif
 				/* file not found */
 				/* postpend ",W" to the filename and try again */
 				strcat ((char*)myfilename, ",W");
+				#ifdef DEBUG_PIEC
+				printf("Filename now:%s\n",myfilename);
+				#endif
 				if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], myfilename, &logical_files[file_unit][listenlf])) {
 					/* cannot open file for some reason (missing permissions or such) */
 					/* simply abort */
@@ -310,27 +320,28 @@ unsigned int iec_listen() {
 					return -1;
 				}
 			}
+			/* we were able to open the file without creating, so it exists already *
+			 * XXX we should check here if we are allowed to overwrite the file (@0:filename) *
+			 * in case of write protect on, nevertheless we should be never allowed to overwrite *
+			 * yet all this cases are not handled! */
+			//else {
+			//	#ifdef DEBUG_PIEC
+			//	printf("File exists\n");
+			//	#endif
+			//	set_error(63, 0, 0);
+			//	//we better send an error yet as we can't handle this situation at the moment
+			//	temp=receive_byte();
+			//	if((temp&0x100)!=0) { change_state(temp); return -1; }
+			//	send_error(ERROR_FILE_EXISTS);
+			//	return -1;
+			//}
 		}
-		/* we were able to open the file without creating, so it exists already *
-		 * XXX we should check here if we are allowed to overwrite the file (@0:filename) *
-		 * in case of write protect on, nevertheless we should be never allowed to overwrite *
-		 * yet all this cases are not handled! */
-		else {
-			#ifdef DEBUG_PIEC
-			printf("File exists\n");
-			#endif
-			set_error(63, 0, 0);
-			//we better send an error yet as we can't handle this situation at the moment
-			temp=receive_byte();
-			if((temp&0x100)!=0) { change_state(temp); return -1; }
-			send_error(ERROR_FILE_EXISTS);
-			return -1;
-		}
-		//we were able to open the file for our purpose and so we can start saving into it now
+		//we managed to open a file and have write permissions so we can start saving into it now
 		if (logical_files[file_unit][listenlf].open == 1) {
 			#ifdef DEBUG_PIEC
 				printf("File is open. Now receiving data to save...\n");
 			#endif
+			set_error(0,0,0);
 			/* pour all data into that file until finished or ATN gets high */
 			while(1) {
 				/* receive a byte */
@@ -382,6 +393,17 @@ unsigned int iec_listen() {
 					if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; } 
 				}
 				else {
+					/* first we strip off any added stuff like ,p,w (TurboAss likes 
+					 * to add that and else really brings us in trouble! TB */
+					
+					//is there anything like a ',' in our filename?
+					if((char*)strchr(myfilename, ',')!=NULL) {
+						//yes, so get rid of that
+		         			pos=(int)((char*)strchr(myfilename, ',')-(char*)myfilename);
+						myfilename[pos]=0;
+						myfilenamelen=pos;
+					}
+					
 					/* Data received was a filename to open */
 					#ifdef DEBUG_PIEC
 						printf("Received filename \"%s\" for logical file %d %d\n", myfilename,listenlf,myfilenamelen);
@@ -392,13 +414,23 @@ unsigned int iec_listen() {
 				}
 			break;
 			case IEC_CLOSE: /* CLOSE */
-				if (logical_files[file_unit][listenlf].open == 1) fs64_closefile_g (&logical_files[last_unit][listenlf]);
+				if (logical_files[file_unit][listenlf].open == 1) { 
+					fs64_closefile_g (&logical_files[last_unit][listenlf]);
+					set_error(0,0,0);
+				}
 				/* Close file from SA */
 				#ifdef DEBUG_PIEC
 					printf("Closing logical file %d\n",listenlf);
 				#endif
 				/* do nothing except cleaning up */
 				if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; }
+			break;
+			default:
+				#ifdef DEBUG_PIEC
+					printf("Strange SA received. Let's interpret it as command then...\n");
+				#endif
+				/* can't handle SA, so we assume it is a just a new command */
+				change_state(SA);
 			break;
 		}
 	}
@@ -409,6 +441,7 @@ unsigned int iec_talk() {
 	/* Some strange things happen when i first receive the dos_status and then load the dir. Seems like you miss out cleaning up some array or like having some wrong position or such? */
 	unsigned int temp=0;
 	unsigned char data=0;
+	int result;
 	change_state(IEC_IDLE);
 	temp=receive_byte(); 
 	acknowledge();
@@ -433,34 +466,33 @@ unsigned int iec_talk() {
 	#endif
 
 	talklf=SA&0xf;
-	if(talklf!=0x0f) {
-		if((SA&0xf0)==IEC_LOAD) {
-			if (logical_files[file_unit][listenlf].open != 1) {
-				/* File not found, now signal it with sending a dummy char followed by a timeout */
-				temp=send_byte(0);
-				if(temp!=0) return -1;
-				send_error(ERROR_FILE_NOT_FOUND);
-				set_error(62,0,0);
-			}
-			else {
-				/* start sending bytes until finished or ATN high */
-				while(1) {	
-					if(!fs64_readchar(&logical_files[file_unit][talklf],&data)) {
-						temp=send_byte(data);
-						if(temp!=0) break;
-						acknowledge();
-					}
-					/* last char to send, signal with EOI */
-					else {
-						temp=send_byte(data);
-						if(temp!=0) break; 
-						send_error(ERROR_EOI);
-						break;
-					}  
+	if((SA&0xf0)==IEC_LOAD && talklf!=0x0f) {
+		if (logical_files[file_unit][listenlf].open != 1) {
+			/* File not found, now signal it with sending a dummy char followed by a timeout */
+			temp=send_byte(0);
+			if(temp!=0) return -1;
+			send_error(ERROR_FILE_NOT_FOUND);
+			set_error(62,0,0);
+		}
+		else {
+			/* start sending bytes until finished or ATN high */
+			while(1) {	
+				result=fs64_readchar(&logical_files[file_unit][talklf],&data);
+				/* last char to send, signal with EOI */
+				if(result || logical_files[file_unit][talklf].open!=1) {
+					temp=send_byte(data);
+					if(temp!=0) break; 
+					send_error(ERROR_EOI);
+					break;
+				}  
+				else {
+					temp=send_byte(data);
+					if(temp!=0) break;
+					acknowledge();
 				}
-				if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; }
 			}
-		}		
+			if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; }
+		}
 	}
 	if(talklf==0x0f) {
 		/* the c64 reads out the error channel, so talk the status */
