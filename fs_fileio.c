@@ -519,10 +519,10 @@ int fs64_readchar (fs64_file * f, uchar *c) {
 
 	if (f->bp >= f->be) {
 		if(fs64_readblock(f)==0) {
-			printf("readblock-success\n");
+			//printf("readblock-success\n");
 		}
 		else {
-			printf("readblock-failed\n");
+			//printf("readblock-failed\n");
 			return -1;
 		}
 	}

@@ -100,7 +100,7 @@ int pathdir;
 int lpt_fd;
 
 /* #define DEBUG_PIEC */
-#define DEBUG_PIEC
+//#define DEBUG_PIEC
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -319,21 +319,6 @@ unsigned int iec_listen() {
 					return -1;
 				}
 			}
-			/* we were able to open the file without creating, so it exists already *
-			 * XXX we should check here if we are allowed to overwrite the file (@0:filename) *
-			 * in case of write protect on, nevertheless we should be never allowed to overwrite *
-			 * yet all this cases are not handled! */
-			//else {
-			//	#ifdef DEBUG_PIEC
-			//	printf("File exists\n");
-			//	#endif
-			//	set_error(63, 0, 0);
-			//	//we better send an error yet as we can't handle this situation at the moment
-			//	temp=receive_byte();
-			//	if((temp&0x100)!=0) { change_state(temp); return -1; }
-			//	send_error(ERROR_FILE_EXISTS);
-			//	return -1;
-			//}
 		}
 		//we managed to open a file and have write permissions so we can start saving into it now
 		if (logical_files[file_unit][listenlf].open == 1) {
