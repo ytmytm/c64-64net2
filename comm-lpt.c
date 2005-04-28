@@ -100,7 +100,7 @@ int pathdir;
 int lpt_fd;
 
 /* #define DEBUG_PIEC */
-//#define DEBUG_PIEC
+#define DEBUG_PIEC
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -170,7 +170,6 @@ unsigned char change_state(unsigned int);
 int send_byte(unsigned char data);
 int receive_byte();
 int end_error(unsigned char err);
-int trigger_cnt();
 int start_server();
 int send_error(unsigned char err);
 
@@ -267,7 +266,7 @@ void iec_untalk() {
 void iec_unlisten() {
 	change_state(IEC_IDLE);
 	//now we can clear the pos, as we closed the file anyway and clear the status;
-	dos_stat_pos[file_unit]=0;
+	//dos_stat_pos[file_unit]=0;
 	//set_error(0, 0, 0);
 	//now we can fall into IDLE state to wait for new challanges.
 	return;
@@ -368,7 +367,7 @@ unsigned int iec_listen() {
 					/* receive a byte */
 					temp=receive_byte();
 					acknowledge();
-					if((temp&0x100)!=0) break;
+					if((temp&0x100)!=0) { change_state(temp); break; }
 					/* byte not under attention: store in input buffer */
 					myfilename[myfilenamelen]=(uchar)temp;
 					myfilenamelen++;
@@ -426,11 +425,18 @@ unsigned int iec_listen() {
 				if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; }
 			break;
 			default:
-				#ifdef DEBUG_PIEC
-					printf("Strange SA received. Let's interpret it as command then...\n");
-				#endif
-				/* can't handle SA, so we assume it is a just a new command */
-				change_state(SA);
+				if(listenlf!=0xf) {
+					#ifdef DEBUG_PIEC
+						printf("Strange SA received. Let's interpret it as command then...\n");
+					#endif
+					/* can't handle SA, so we assume it is a just a new command */
+					change_state(SA);
+				}
+				else {
+					#ifdef DEBUG_PIEC
+						printf("I think i send the status soon...(LISTEN+SA=6F)\n");
+					#endif
+				}
 			break;
 		}
 	}
@@ -438,7 +444,6 @@ unsigned int iec_listen() {
 }
 
 unsigned int iec_talk() {
-	/* Some strange things happen when i first receive the dos_status and then load the dir. Seems like you miss out cleaning up some array or like having some wrong position or such? */
 	unsigned int temp=0;
 	unsigned char data=0;
 	int result;
@@ -467,60 +472,59 @@ unsigned int iec_talk() {
 
 	talklf=SA&0xf;
 	if((SA&0xf0)==IEC_LOAD && talklf!=0x0f) {
+		//we can now clear the filename, hopefully
+		//not really needed here, as it will be done on close
+		//if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; }
+		//do we have an open file?
 		if (logical_files[file_unit][listenlf].open != 1) {
 			/* File not found, now signal it with sending a dummy char followed by a timeout */
-			temp=send_byte(0);
-			if(temp!=0) return -1;
+			if(send_byte(0)==-1) return -1;
 			send_error(ERROR_FILE_NOT_FOUND);
 			set_error(62,0,0);
+			return 0;
 		}
 		else {
 			/* start sending bytes until finished or ATN high */
-			while(1) {	
-				result=fs64_readchar(&logical_files[file_unit][talklf],&data);
-				/* last char to send, signal with EOI */
-				if(result || logical_files[file_unit][talklf].open!=1) {
-					temp=send_byte(data);
-					if(temp!=0) break; 
-					send_error(ERROR_EOI);
-					break;
-				}  
-				else {
-					temp=send_byte(data);
-					if(temp!=0) break;
-					acknowledge();
+			result=fs64_readchar(&logical_files[file_unit][talklf],&data); 	//fetch the first byte
+			if(send_byte(data)==-1) return -1;				//and send it
+			if(!result) {
+				//as long ast here is more to read from file we acknowledge previous byte and then send the actual byte
+				while(!fs64_readchar(&logical_files[file_unit][talklf],&data)) {
+						acknowledge();				//ack previous byte
+						if(send_byte(data)==-1) return -1; 	//send catual byte with usual error handling
 				}
 			}
-			if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; }
+			//no more to read, so EOI for previous byte instead of acknowledge
+			send_error(ERROR_EOI);
+			set_error(0,0,0);
+			return 0;
 		}
 	}
 	if(talklf==0x0f) {
 		/* the c64 reads out the error channel, so talk the status */
 		#ifdef DEBUG_PIEC
-			printf("Sending status...\n");
-			printf("Status: %s", dos_status[last_unit]);
+			printf("Sending status123...\n");
+			//printf("Status: %s", dos_status[last_unit]);
 		#endif
 		while(1) {
 			data=dos_status[last_unit][dos_stat_pos[last_unit]];
 			//printf("pos: %d\n",dos_stat_pos[last_unit]);
-			if(data!=0) {
-				temp=send_byte(data);
-				if(temp!=0) break; 
+			//send byte
+			if(send_byte(data)==-1) return -1;
+			if(data!=0x0d) {
 				acknowledge();
 				dos_stat_pos[last_unit]++;
 			}
 			else {
-				temp=send_byte(data);
-				if(temp!=0) break;
 				send_error(ERROR_EOI);
-				//sent last byte of status, so we can clear status to 0,0,0
 				set_error(0,0,0);
-				break;
+				return 0;;
 			}  
 		}
 	}
-	return temp;
+	return 0;
 }
+
 
 int send_byte(unsigned char data) {
 	unsigned char temp;
@@ -602,38 +606,12 @@ int receive_byte() {
 	return data;
 }
 
-int trigger_cnt() { 
-	/* tested: works on c64 at least, but seems like a C128 needs 16 toggles :-/
-	* Connect pin 14 on lpt to CNT pin on userport to make this work at all. 
-	* To indicate an EOI, we toggle the c64's cnt pin 8 times.
-	* This causes a shift register byte received notification, which
-	* sets bit 3 in $dd0d, which the 64net/2 wedge can see */
-	int status;
-	int a;
-	#ifdef DEBUG_PIEC
-	printf("Triggering CNT...\n");
-	#endif
-
-	status=0x00;
-	/* XXX My C128D seems to need 16 toggles, even though the documentation
-	 * suggests 8 should be enough. */
-	/* XXX unfortunatedly when toggling 16 times the c64 + 64net hangs (guess some
-	 * double triggered error :-( */
-	for(a=0;a<8;a++) {
-		status|=ERROR_CLOCK;					
-		set_lpt_control(status);
-		status^=ERROR_CLOCK;					
-		set_lpt_control(status);
-	}
-	return 0;
-}
-
 int send_error(unsigned char err) {
 	int status;
 	int a;
 	struct timeval time;
 	time.tv_sec = 0;
-	time.tv_usec = 1;
+	time.tv_usec = 5; //5µs is on teh save side! with 1µs i sometimes fail to send the error! TB
 
 	#ifdef DEBUG_PIEC
 	printf("Triggering CNT...\n");
@@ -1017,7 +995,7 @@ which_unit (int dev)
   return (-1);
 }
 
-int 
+ int 
 set_drive_status (uchar *string, int len)
 {
   /* set the drive message */
@@ -1035,9 +1013,10 @@ set_drive_status (uchar *string, int len)
 
   /* and set length */
   dos_stat_len[d] = len;
+  //Fixed: need to set pos to 0!! TB
+  dos_stat_pos[d] = 0;
   return (0);
 }
-
 
 /*
   -------------------------------------------------------------------------
