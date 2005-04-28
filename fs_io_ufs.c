@@ -272,37 +272,25 @@ fs_ufs_writeblock (fs64_file * f)
   return (0);
 }
 
-int
-fs_ufs_readblock (fs64_file * f)
-{
-  /* seek_set the file pointer right */
-  fseek (f->filesys.fsfile, f->curr_poss, SEEK_SET);
-
-  /* read as many bytes into the block as we can */
-  if (f->curr_poss < (f->first_poss + f->realsize))
-  {
-    for (f->be = 2; f->be < 256; f->be++)
-    {
-      f->buffer[f->be] = fgetc (f->filesys.fsfile);
-      f->curr_poss++;
-      if (f->curr_poss >= (f->first_poss + f->realsize))
-	/* eof reached */
-	break;
-    }
-    /* add one so things work happily */
-    f->be++;
-    /* and make sure its not over the ceiling */
-    if (f->be > 256)
-      f->be = 256;
-    /* set buffer pointer */
-    f->bp = 2;
-    return (0);
-  }
-  else
-  {
-    /* were already at the end of the file */
-    return (-1);
-  }
+int fs_ufs_readblock (fs64_file * f) {
+	int c;
+	/* seek_set the file pointer right */
+	fseek (f->filesys.fsfile, f->curr_poss, SEEK_SET);
+	/* initialize pointers */
+	f->bp=2;
+	f->be=2;
+	/* read as many bytes into the block as we can */
+	while(f->be<256) {
+		c=fgetc(f->filesys.fsfile);
+		if(c==EOF) {
+			if(f->be > f->bp) return 0;	//end of file, but at least we had some left chars
+			else return -1;			//end without a single char in buffer;
+		}
+		f->buffer[f->be]=c;
+		f->curr_poss++;
+		f->be++;
+	}
+	return 0;					//read block without problems
 }
 
 int
