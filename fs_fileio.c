@@ -479,79 +479,55 @@ int fs64_unreadchar(fs64_file *f, uchar *c)
   return 0;
 }
 
-int
-fs64_readchar (fs64_file * f, uchar *c)
-{
-  /* read a character from the file */
+int fs64_readchar (fs64_file * f, uchar *c) {
+	/* read a character from the file */
 
 
-  if (f->open != 1)
-  {
-    /* if eof or otherwise, be 1541 bug compatible */
-    *c = 199;
-    set_error(61,0,0);
-    return (-1);
-  }
+	if (f->open != 1) {
+		/* if eof or otherwise, be 1541 bug compatible */
+		*c = 199;
+		set_error(61,0,0);
+		return (-1);
+	}
 
-  /* Re-send queued character */
-  if (f->char_queuedP) 
-    {
-      f->char_queuedP=0;
-      *c = f->queued_char;
-      return 0;
-    }
+	/* Re-send queued character */
+	if (f->char_queuedP) {
+		f->char_queuedP=0;
+		*c = f->queued_char;
+		return 0;
+	}
 
-  if (f->isbuff)
-  {
-    /* buffer read */
-    *c = f->buffer[f->bp];
-    (f->bp) += 1;
-    if (f->bp > 255)
-      f->bp = 0;
-    return (0);
-  }
+	if (f->isbuff) {
+		/* buffer read */
+		*c = f->buffer[f->bp];
+		(f->bp) += 1;
+		if (f->bp > 255) f->bp = 0;
+		return (0);
+	}
 
-  /* FILESYSTEM_SPECIFIC */
-  switch (f->filesys.media)
-  {
-  case media_NET:
-    return (fs_net_readchar (f, c));
-  }
+	/* FILESYSTEM_SPECIFIC */
+	switch (f->filesys.media) {
+		case media_NET:
+		return (fs_net_readchar (f, c));
+	}
 
-  if (f->mode != mode_READ)
-  {
-    /* if it isnt a readable file, be 1541 bug compatible */
+	if (f->mode != mode_READ) {
+		/* if it isnt a readable file, be 1541 bug compatible */
+		*c = 199;
+		return (-1);
+	}
 
-    *c = 199;
-    return (-1);
-  }
-
-  /* check if there are chars in the buffer */
-  if (f->be <= f->bp)	//XXX changed to be-1 yet as we get one byte too much else?! TB
-  {
-    /* buffer is empty - so read next block */
-    if (fs64_readblock (f))
-    {
-	    printf("readblock\n");
-      /* file io error - error will be set */
-      *c = 199;
-      return (-1);
-    }
-  }
-
-  if (f->be <= f->bp)	//XXX changed to be-1 yet as we get one byte too much else?! TB
-  {
-    /* it is *still* empty, so it must mean eof */
-    *c = 199;
-    return (-1);
-  }
-  else
-  {
-    /* return f->buffer[f->bp] and increment f->bp */
-    *c = f->buffer[f->bp++];
-    return (0);
-  }
-
+	if (f->bp >= f->be) {
+		if(fs64_readblock(f)==0) {
+			printf("readblock-success\n");
+		}
+		else {
+			printf("readblock-failed\n");
+			return -1;
+		}
+	}
+	*c = f->buffer[f->bp++];
+	return 0;
 }
 
 int
