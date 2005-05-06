@@ -99,6 +99,7 @@ int pathdir;
 /* our lpt device filedescriptor */
 int lpt_fd;
 
+
 /* #define DEBUG_PIEC */
 //#define DEBUG_PIEC
 
@@ -106,6 +107,7 @@ int lpt_fd;
 #include <stdio.h>
 #include <sys/poll.h>
 #include <sys/select.h>
+#include <time.h>
 
 #ifdef LINUX
 #include "lptio/lptio_linux.c"
@@ -161,6 +163,9 @@ int state=IEC_IDLE;
 int myfilenamelen=0;
 unsigned char* myfilename;
 
+/* for measuring transfertimes */
+clock_t transfertime;
+
 unsigned int iec_listen();
 unsigned int iec_talk();
 void iec_unlisten();
@@ -172,6 +177,9 @@ int receive_byte();
 int end_error(unsigned char err);
 int start_server();
 int send_error(unsigned char err);
+void begin_measure();
+void end_measure();
+
 
 //todo: maybe we add also the resetpin? If the c64 resets also the 64net/2 can
 // reset and get into IDLE mode again. 
@@ -313,9 +321,9 @@ unsigned int iec_listen() {
 					/* cannot open file for some reason (missing permissions or such) */
 					/* simply abort */
 					temp=receive_byte();
+					send_error(ERROR_FILE_EXISTS);
 					//unsure about the next line, but should be there for savety
 					if((temp&0x100)!=0) { change_state(temp); return -1; }
-					send_error(ERROR_FILE_EXISTS);
 					return -1;
 				}
 			}
@@ -343,6 +351,7 @@ unsigned int iec_listen() {
 	else {
 		switch (SA&0xf0) {
 			case IEC_OPEN: /* OPEN */
+				begin_measure();
 				myfilenamelen=0;
 				myfilename=malloc(maxcount);
 				#ifdef DEBUG_PIEC
@@ -398,6 +407,7 @@ unsigned int iec_listen() {
 				}
 			break;
 			case IEC_CLOSE: /* CLOSE */
+				end_measure();
 				if (logical_files[file_unit][listenlf].open == 1) { 
 					fs64_closefile_g (&logical_files[last_unit][listenlf]);
 					set_error(0,0,0);
@@ -427,6 +437,33 @@ unsigned int iec_listen() {
 	}
 	return 0;
 }
+
+void begin_measure() {
+	transfertime=clock();
+	return;
+}
+
+void end_measure() {
+	float time;
+	float rate;
+	long amount;
+	long timediff;
+	clock_t endtime=clock();
+	amount=logical_files[file_unit][listenlf].realsize;
+	timediff=endtime-transfertime;
+	time=((float)timediff/(float)CLOCKS_PER_SEC);
+	rate=(float)amount/time;
+	printf("Trasnferred bytes:%d\n", amount);
+	printf("Time needed:%f\n", time);
+//	printf("Starttime:%d\n", transfertime);
+//	printf("Endtime:%d\n", endtime);
+//	printf("Timediff:%d\n", timediff);
+//	printf("CLK_TCK:%d\n", CLOCKS_PER_SEC);
+	printf("Transferrate:%f kb/s\n", rate);
+	return;	
+}
+	
+	
 
 unsigned int iec_talk() {
 	unsigned int temp=0;
@@ -517,12 +554,13 @@ int send_byte(unsigned char data) {
 	/* we have to make a decision here out of a single look
 	 * on the status. If we do two checks we read the status 
 	 * twice and probably do a check on two different values 
-	 * of status! This teh decision might be faulty and we 
+	 * of status! Thus the decision might be faulty and we 
 	 * get into big troubles! */
 	while(1) {
 		temp=get_status();
 		if((temp&ATN_IN)!=ATN_IN) {
 			set_datalines_input();
+			request=temp&REQUEST_IN;
 			#ifdef DEBUG_PIEC
 				printf("ATN changed!\n");
 			#endif
