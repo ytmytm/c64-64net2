@@ -70,8 +70,9 @@ int bind_to_port (const char *name) {
    * like cups or something trying to print and such. */
   if (ioctl (lpt_fd, PPEXCL)) {
     perror ("PPEXCL");
-    close (lpt_fd);
-    exit(1);
+    printf("Couldn't get exclusiv access to \"%s\". It is possible that other programms or modules interfere with the actions of 64NET/2 while communicating on lpt and thus cause problems during transfer. If you encounter problems you know where to start first.\n", name);
+   // close (lpt_fd);
+   // exit(1);
   }
   if (ioctl (lpt_fd, PPCLAIM)) {
     perror ("PPCLAIM");
