@@ -554,6 +554,7 @@ int parseFile(FILE *f)
 int main(int argc,char **argv)
 {
   FILE *f;
+  int i;
   char template[1024]="/tmp/build_wedge.XXXXXXXX";
 
   if (argc!=3)
@@ -601,14 +602,23 @@ int main(int argc,char **argv)
 
   printf("\nPass 1 - Parse and assemble\n-----------------------\n");
   parseFile(f);
-  dumpSections();
+  /* dumpSections(); */
   printf("\nPass 2 - Place sections\n-----------------------\n");
   placeSections();
   printf("\nPass 3 - Resolve labels\n-----------------------\n");
   resolveLabels();
   printf("\nPass 4 - Resolve remaining values\n-----------------------\n");
   resolveValues();
-  dumpSections();
+  /* dumpSections(); */
+  printf("\nRemaining Free Space\n-----------------------\n");
+  for(i=0;i<free_space_count;i++)
+    {
+      if (free_space_starts[i]<free_space_ends[i])
+	printf("  $%04x - $%04x (%d bytes)\n",
+	       free_space_starts[i],free_space_ends[i],
+	       free_space_ends[i]-free_space_starts[i]+1
+	       );
+    }
 
   writeWedge(argv[2]);
 
@@ -697,7 +707,7 @@ int assembleLabel(FILE *f)
   /* Assemble a label at the start of a line,
      and maybe an instruction and some dregs as well */
 
-  printf("label [%s]\n",token_body);
+  /* printf("label [%s]\n",token_body); */
 
   /* Record label */
   if (pending_labels<16)
@@ -787,7 +797,7 @@ struct assembled_byte *parseValueOperand(FILE *f)
 	  {
 	    /* un-defined label.
 	       Create as undefined */
-	    printf("Creating undefined label [%s]\n",token_body);
+	    /* printf("Creating undefined label [%s]\n",token_body); */
 	    l=newLabel(token_body,0,0,0,1,0,
 		    NULL,NULL,NULL);	    
 	  }
@@ -1176,8 +1186,11 @@ int placeSections()
   int smallest_space_len=-1;
 
   for(j=0;j<free_space_count;j++)
-    printf("Free space at $%04x-$%04x\n",
-	   free_space_starts[j],free_space_ends[j]);
+    printf("Free space at $%04x-$%04x (%d bytes)\n",
+	   free_space_starts[j],free_space_ends[j],
+	   free_space_ends[j]-free_space_starts[j]+1
+	   );
+  printf("\n");
 
   for(i=0;i<section_count;i++)
     if (!section_patchp[i])
@@ -1307,9 +1320,9 @@ int resolveSectionValues(struct assembled_byte *b,
 		      b->label->name);
 	      return -1;
 	    }
-	  else
-	    printf("[%s] is resolved as $%04x\n",
-		   b->label->name,b->label->value);
+	  /* else
+	     printf("[%s] is resolved as $%04x\n",
+	     b->label->name,b->label->value); */
 	  b->value=b->label->value+b->label_offset;
 	  if (b->relativeP)
 	    {
@@ -1382,7 +1395,7 @@ int writeWedge(char *file)
 	  pre_relocate_address,
 	  pre_relocate_address,
 	  0,0,0);
-  printf("File offset after BASIC header: %ld\n",ftell(f));
+  /* printf("File offset after BASIC header: %ld\n",ftell(f)); */
   wedge_next_address+=BASIC_HEADER_LENGTH;
 
   /* output code sections */
@@ -1398,8 +1411,8 @@ int writeWedge(char *file)
 	}
     }
 
-  printf("File offset at entry point: %ld (i.e. $%04lX)\n",
-	 ftell(f),ftell(f)+load_address-2);
+  /* printf("File offset at entry point: %ld (i.e. $%04lX)\n",
+     ftell(f),ftell(f)+load_address-2); */
 
   /* Output ROM copy code */
   /* for(i=0;romcopycode[i]!=0x1000;i++)
@@ -1407,10 +1420,10 @@ int writeWedge(char *file)
      printf("Output %d bytes of ROM copy code\n",i); */
 
   /* output pre-relocate code */
-  printf("Next address is $%04x\n",wedge_next_address);
+  /* printf("Next address is $%04x\n",wedge_next_address); */
 
-  printf("File offset at pre-relocation entry point: %ld (i.e. $%04lX)\n",
-	 ftell(f),ftell(f)+load_address-2);
+  /* printf("File offset at pre-relocation entry point: %ld (i.e. $%04lX)\n",
+     ftell(f),ftell(f)+load_address-2); */
      
   {
     struct assembled_byte *b;
@@ -1439,10 +1452,10 @@ int writeWedge(char *file)
   wedge_next_address+=13*section_count;
 
   /* output post-relocate code */
-  printf("Next address is $%04x\n",wedge_next_address);
+  /* printf("Next address is $%04x\n",wedge_next_address); */
 
-  printf("File offset at post-relocation entry point: %ld (i.e. $%04lX)\n",
-	 ftell(f),ftell(f)+load_address-2);
+  /* printf("File offset at post-relocation entry point: %ld (i.e. $%04lX)\n",
+     ftell(f),ftell(f)+load_address-2); */
 
   {
     struct assembled_byte *b;
