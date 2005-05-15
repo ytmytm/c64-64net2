@@ -243,7 +243,7 @@ fs64_blocksfree (fs64_filesystem * fs)
      Called by fs64_writeblock to determine if there is any free space,
      and by directory searches to provide the BLOCKS FREE line */
 
-  debug_msg ("fs64_blocksfree(M=%d)\n", fs->media);
+//  debug_msg ("fs64_blocksfree(M=%d)\n", fs->media);
 
   switch (fs->media)
   {
