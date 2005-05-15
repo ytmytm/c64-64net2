@@ -228,7 +228,7 @@ fs_ufs_writeblock (fs64_file * f)
 {
   /* BUGS: Doesnt check for free "blocks" aka diskspace */
 
-  debug_msg ("ufs: Write block %d,%d\n", f->be, f->bp);
+  //debug_msg ("ufs: Write block %d,%d\n", f->be, f->bp);
 
   /* seek_set the file pointer right */
   fseek (f->filesys.fsfile, f->curr_poss, SEEK_SET);
