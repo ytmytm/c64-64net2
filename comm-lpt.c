@@ -185,7 +185,7 @@ void end_measure();
 // reset and get into IDLE mode again. 
 
 int parallel_iec_commune(int unused) {
-	lpt_fd=bind_to_port("/dev/parport0"); /*doesn't soemhow work with the port variable form above*/
+	lpt_fd=bind_to_port(port); /*doesn't soemhow work with the port variable form above*/
 	if (lpt_fd<0) {
 		fprintf(stderr,"Failed to open parallel port.\n");
 		perror("open_lptport");
