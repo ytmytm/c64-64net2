@@ -102,6 +102,7 @@ int lpt_fd;
 
 /* #define DEBUG_PIEC */
 //#define DEBUG_PIEC
+#define FLIPFLOP
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -172,9 +173,8 @@ void iec_unlisten();
 void iec_untalk();
 void iec_idle();
 unsigned char change_state(unsigned int);
-int send_byte(unsigned char data);
-int receive_byte();
-int end_error(unsigned char err);
+int send_byte(unsigned char data, int error_code);
+int receive_byte(int error_code);
 int start_server();
 int send_error(unsigned char err);
 void begin_measure();
@@ -193,6 +193,9 @@ int parallel_iec_commune(int unused) {
 	last_unit=0; file_unit=0;
 	set_datalines_input();
 	set_lpt_control(0); // drop strobe
+//	while(1) {
+//		printf("$%x\n",get_status());
+//	}
 	request=get_status()&REQUEST_IN; //get initial state of PA2 from C64
 	while(start_server()==-1);
 	return 0;
@@ -249,8 +252,7 @@ int start_server() {
 
 void iec_idle() {
 	int temp;
-	temp=receive_byte(); 
-	acknowledge();
+	temp=receive_byte(-1); 
 	if((temp&0x100)!=0) change_state(temp);
 	return;
 }
@@ -259,7 +261,7 @@ void iec_identify() {
 	/* we are asked to idenitfy ourself, so present the deviceumber under
 	 which we listen. */
 	change_state(IEC_IDLE);
-	send_byte(devicenumber);				
+	send_error(devicenumber);				
 	return;
 }
 
@@ -285,8 +287,7 @@ unsigned int iec_listen() {
 	int maxcount=1024;
 	int pos;
 	change_state(IEC_IDLE);
-	temp=receive_byte(); 
-	acknowledge();
+	temp=receive_byte(-1); 
 	/* we expect a SA coming under ATN high, if something is suspect we fall back to idle */
 	if((temp&0x100)==0) return -1;
 	SA=temp;
@@ -320,8 +321,7 @@ unsigned int iec_listen() {
 				if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], myfilename, &logical_files[file_unit][listenlf])) {
 					/* cannot open file for some reason (missing permissions or such) */
 					/* simply abort */
-					temp=receive_byte();
-					send_error(ERROR_FILE_EXISTS);
+					temp=receive_byte(ERROR_FILE_EXISTS);
 					//unsure about the next line, but should be there for savety
 					if((temp&0x100)!=0) { change_state(temp); return -1; }
 					return -1;
@@ -337,8 +337,7 @@ unsigned int iec_listen() {
 			/* pour all data into that file until finished or ATN gets high */
 			while(1) {
 				/* receive a byte */
-				temp=receive_byte();
-				acknowledge();
+				temp=receive_byte(-1);
 				/* check if data received under ATN high */
 				if((temp&0x100)!=0) { change_state(temp); return -1; }
 				#ifdef DEBUG_PIEC
@@ -359,8 +358,7 @@ unsigned int iec_listen() {
 				#endif
 				while(1) {
 					/* receive a byte */
-					temp=receive_byte();
-					acknowledge();
+					temp=receive_byte(-1);
 					if((temp&0x100)!=0) { change_state(temp); break; }
 					/* byte not under attention: store in input buffer */
 					myfilename[myfilenamelen]=(uchar)temp;
@@ -468,10 +466,9 @@ void end_measure() {
 unsigned int iec_talk() {
 	unsigned int temp=0;
 	unsigned char data=0;
-	int result;
+	unsigned char buffer=0;
 	change_state(IEC_IDLE);
-	temp=receive_byte(); 
-	acknowledge();
+	temp=receive_byte(-1); 
 	/* we expect a SA coming under ATN high, if something is suspect we fall back to idle */
 	if((temp&0x100)==0) return -1;
 	SA=temp;
@@ -500,25 +497,22 @@ unsigned int iec_talk() {
 		//do we have an open file?
 		if (logical_files[file_unit][listenlf].open != 1) {
 			/* File not found, now signal it with sending a dummy char followed by a timeout */
-			if(send_byte(0)==-1) return -1;
-			send_error(ERROR_FILE_NOT_FOUND);
 			set_error(62,0,0);
+			if(send_byte(0,ERROR_FILE_NOT_FOUND)==-1) return -1;
 			return 0;
 		}
 		else {
 			/* start sending bytes until finished or ATN high */
-			result=fs64_readchar(&logical_files[file_unit][talklf],&data); 	//fetch the first byte
-			if(send_byte(data)==-1) return -1;				//and send it
-			if(!result) {
-				//as long ast here is more to read from file we acknowledge previous byte and then send the actual byte
-				while(!fs64_readchar(&logical_files[file_unit][talklf],&data)) {
-						acknowledge();				//ack previous byte
-						if(send_byte(data)==-1) return -1; 	//send catual byte with usual error handling
+			
+			if(!fs64_readchar(&logical_files[file_unit][talklf],&data)) {
+				while(1) {
+					buffer=data;
+					if(fs64_readchar(&logical_files[file_unit][talklf],&data)) break;
+					if(send_byte(buffer, -1)==-1) return -1; 	//send actual byte 
 				}
 			}
-			//no more to read, so EOI for previous byte instead of acknowledge
-			send_error(ERROR_EOI);
 			set_error(0,0,0);
+			if(send_byte(buffer,ERROR_EOI)==-1) return -1; 			//now send last byte + EOI
 			return 0;
 		}
 	}
@@ -530,25 +524,20 @@ unsigned int iec_talk() {
 		#endif
 		while(1) {
 			data=dos_status[last_unit][dos_stat_pos[last_unit]];
-			//printf("pos: %d\n",dos_stat_pos[last_unit]);
-			//send byte
-			if(send_byte(data)==-1) return -1;
+			if(send_byte(data,-1)==-1) return -1;
 			if(data!=0x0d) {
-				acknowledge();
 				dos_stat_pos[last_unit]++;
 			}
 			else {
-				send_error(ERROR_EOI);
 				set_error(0,0,0);
-				return 0;;
+				return 0;
 			}  
 		}
 	}
 	return 0;
 }
 
-
-int send_byte(unsigned char data) {
+int send_byte(unsigned char data, int error_code) {
 	unsigned char temp;
 
 	/* we have to make a decision here out of a single look
@@ -556,6 +545,12 @@ int send_byte(unsigned char data) {
 	 * twice and probably do a check on two different values 
 	 * of status! Thus the decision might be faulty and we 
 	 * get into big troubles! */
+#ifdef FLIPFLOP
+	set_datalines_output();
+	write_data((data&0xff));
+	if(error_code==-1) acknowledge();
+	else send_error(error_code);
+#endif
 	while(1) {
 		temp=get_status();
 		if((temp&ATN_IN)!=ATN_IN) {
@@ -569,26 +564,16 @@ int send_byte(unsigned char data) {
 		}
 		if((temp&REQUEST_IN)!=request) break;
 	}
-//	while((get_status()&REQUEST_IN)==request && get_ATN!=1) {
-//	}
-	/* now check if it was atn? if so, cancel */
-//	if(get_ATN()==1) {
-//		set_datalines_input();
-//		#ifdef DEBUG_PIEC
-//			printf("ATN changed!\n");
-//		#endif
-//		/* ATN went high, we better stop! */
-//		return -1;
-//	}
 	request^=REQUEST_IN;
 	#ifdef DEBUG_PIEC
 		printf("Request toggled $%x $%x\n",get_status(),request);
 	#endif
-	//set datalines to outputmode
+#ifndef FLIPFLOP
 	set_datalines_output();
-	//write data
 	write_data((data&0xff));
-
+	if(error_code==-1) acknowledge();
+	else send_error(error_code);
+#endif
 	/* When we send a byte, we do not immediately provide an ACK signal to the 
 	 * C64.  This is to allow for the calling routine to decide when the data
 	 * has been completely sent, and so if we need to assert EOI instead of 
@@ -596,7 +581,26 @@ int send_byte(unsigned char data) {
 	return 0;
 }
 
-int receive_byte() {
+int wait_request() {
+	unsigned char temp;
+	while(1) {
+		temp=get_status();
+		if((temp&ATN_IN)!=ATN_IN) {
+			set_datalines_input();
+			request=temp&REQUEST_IN;
+			#ifdef DEBUG_PIEC
+				printf("ATN changed!\n");
+			#endif
+			/* ATN went high, we better stop! */
+			return -1;
+		}
+		if((temp&REQUEST_IN)!=request) break;
+	}
+	request^=REQUEST_IN;
+	return 0;
+}
+
+int receive_byte(int error_code) {
 	int data=0;
 
 	#ifdef DEBUG_PIEC
@@ -609,6 +613,7 @@ int receive_byte() {
 	printf("Waiting for request to toggle...\n");
 	#endif
 	while((get_status()&REQUEST_IN)==request);
+	request^=REQUEST_IN;
 	#ifdef DEBUG_PIEC
 	printf("Request toggled r\n");
 	#endif
@@ -624,8 +629,9 @@ int receive_byte() {
 		#endif
 		data|=0x100; 
 	}
-	request^=REQUEST_IN;
 	data|=(read_data()&0xff);
+	if(error_code==-1) acknowledge();
+	else send_error(error_code);
 	return data;
 }
 
