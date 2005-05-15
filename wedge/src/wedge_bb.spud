@@ -124,43 +124,30 @@ myacptr_exit
 	sta $a5
 	jmp $ee18
 myacptr_entry
-	sei
 	; Set lines to input
 	lda #$00
 	sta $dd03
+	; clear error indicator
+	sta $dd0c
 	; Request next byte
-	lda $dd0d
-	lda $dd00
-	eor #$04
-	sta $dd00
+
 myacptr_loop
-	; Wait until a byte arrives, or an error
-	; condition occurs
+	; Wait until something arrives
 	lda $dd0d
-	and #$18
 	beq myacptr_loop 
-	; no ack yet, loop
-	cmp #$10
-	beq myacptr_gotbyte
-	and #$08
-	beq myacptr_loop
-myacptr_goterr
-	; now receive an error number
-	lda $dd01
-	sta $a4
-	lda $dd0c
-	sta $90
-	lda $a4
-	sec
-	cli
-	rts
 myacptr_gotbyte
-	; Got a byte, return happily
-	lda #$00	;really needed? TB
-	sta $90		;dito
+	lda $dd0c
+	bne myacptr_error
 	lda $dd01
 	sta $a4
 	clc
+	cli
+	rts
+myacptr_error
+	sta $90
+	lda $dd01
+	sta $a4
+	sec
 	cli
 	rts
 
@@ -188,31 +175,6 @@ myclkwait_entry
 	rts
 
 ; ---------------------------------------------------------------------
-; Patch kernel chkin wait routine at $f23f (in chkin)
-; ---------------------------------------------------------------------
-;
-; Note this patch is only added for extra speed, since it should get
-; caught by the myclkwait patch... but anyway.
-;
-
-;	chkinwait=$f23f
-;	.patch $f23f
-;	jmp mychkinwait
-;	
-;	.section
-;
-;mychkinwait
-;	bit $a7
-;	bpl mychkin_normal
-;	; for us - so dont wait - but need to drop ATN! Tobias
-;	jsr $edbe
-;	rts
-;mychkin_normal
-;	; normal kernel job, 
-;	; so wait normally
-;	jmp clkwait
-
-; ---------------------------------------------------------------------
 ; Patch kernel serout routine at $ed37
 ; ---------------------------------------------------------------------
 	serout=$ed37
@@ -232,51 +194,6 @@ myserout
 	; nope ... pass back to kernel
 	jsr $ee8e
 	jmp $ed3a
-myserout_entry
-	; for us
-
-	; set port to output
-	; sei
-	lda #$ff
-	sta $dd03
-	
-	; present character
-	lda $95
-	sta $dd01
-	
-	; Tell 64net/2 it is there
-	lda $dd0d
-	lda $dd00
-	eor #$04
-	sta $dd00
-
-	; wait for it to be accepted
-myserout_loop
-	lda $dd0d
-	and #$18
-	beq myserout_loop
-	cmp #$10
-	beq myserout_done
-	and #$08
-	beq myserout_loop
-myserout_err
-	lda #$00
-	sta $dd03
-	lda $dd0c
-	sta $90
-	lda $95
-	sec
-	cli
-	rts
-
-myserout_done
-	;Just to be sure we dont kill our CIA, might be unecessary though
-	lda #$00
-	sta $dd03
-	lda $95
-	cli
-	clc
-	rts
 
 	; Alternate entry point to write to serial bus
 myserout_alternate
@@ -287,109 +204,144 @@ myserout_alternate
 	jsr $ee97
 	jmp $ed44
 
+myserout_entry
+	; set port to output
+	lda #$ff
+	sta $dd03
+	lda #$00
+	sta $dd0c
+	lda $dd0d ;may be obsolete, but better go for sure it is cleared 
+	
+	; present character
+	lda $95
+	sta $dd01
+	
+	; wait for it to be accepted
+myserout_loop
+	lda $dd0d
+	beq myserout_loop
 
-; ---------------------------------------------------------------------
-; Patch kernel wait for clock+data routine at $eea9
-; ---------------------------------------------------------------------
-;	.patch $eea9
-;	jmp myclkdata
-;
-;	.section
-;
-;myclkdata
-;	bit $a7
-;	bpl myclkdata_normal
-;	; for us - do nothing
-;	rts
-;myclkdata_normal
-;	myclkloop
-;	lda $dd00
-;	cmp $dd00
-;	bne myclkloop
-;	asl a
-;	rts
-;
-; ---------------------------------------------------------------------
-; Patch kernel talk/listen to pick which bus first
-; ---------------------------------------------------------------------
-;	.patch $ed2e
-;	jmp whichbus
-;
-;	.section
-;
-;whichbus
-;	; Present char on port
-;	lda $ba
-;	cmp drive_64net 
-;	bne whichbusend
-;	lda #$89
-;	sta $a7
-;whichbusend
-;	lda $dd00
-;	jmp $ed31
-;	lda #$ff
-;	sta $dd03
-;	lda $95
-;	sta $dd01
-;	; clear $dd0d flags
-;	lda $dd0d
-;	; notify 64net/2 under attention
-;	lda $dd00
-;	ora #$08
-;	eor #$04
-;	sta $dd00
-;	; wait for response
-;	lda #$90
-;	sta $a7
-;	lda #$10
-;whichbus_loop
-;	bit $dd0d
-;	bne whichbus_gotresult
-;	dec $a7
-;	bmi whichbus_loop
-;whichbus_gotresult
-;	lda $a7
-;	ora #$80 ; was and #$80 but then you wont get through all bmi checks! Tobias
-;	sta $a7
-;	jmp serout-1
+	lda #$00
+	sta $dd03
+	lda $dd0c
+	bne myserout_error
+	lda $95
+	clc
+	sli
+	rts
 
-;---
-; DEBUG - hexout routine to display chars received to help debug
-;         multiple ack/wack problem
-;---
+myserout_error
+	sta $90
+	lda $95
+	sec
+	cli
+	rts
+	
+; ------------------------------------------------------------
+; Kernel Load routine
+; ------------------------------------------------------------
 
-;	.section
-;
-;hextable 
-;	.byte '0','1','2','3','4','5','6','7','8','9'
-;	.byte 'A','B','C','D','E','F'
-;
-;	.section
-;
-;hexout
-;	; display the char in accumulator on screen as hex
-;	pha
-;	lda #'$'
-;	jsr $e716
-;	pla
-;	pha
-;	lsr a
-;	lsr a
-;	lsr a
-;	lsr a
-;	tax
-;	lda hextable,x
-;	jsr $e716
-;	pla
-;	pha
-;	and #$0f
-;	tax
-;	lda hextable,x
-;	jsr $e716
-;	lda #$20     ; space
-;	jsr $e716
-;	pla
-;	rts
+	.patch $f4f0
+	jmp myload
+	.section
+
+myload
+	lda $ba
+	cmp drive_64net
+	beq myload_entry
+	jsr $f5d2
+	jmp $f4f3
+
+myload_entry
+	ldy $ae
+	lda #$00
+	sta $dd03
+	sta $dd0c
+	sta $ae
+	sei
+	jsr loader
+	sta $90
+	sty $ae
+	cli
+	jmp $f528
+
+loader
+	ldx $dd0d
+	beq loader
+	lda $dd01
+	sta ($ae),y
+	cpx #$08
+	beq load_error
+	iny
+	bne loader
+	inc $af
+	bne loader
+	lda #$40
+	rts
+load_error
+	lda $dd0c
+	rts
+
+; ------------------------------------------------------------
+; Kernel Load routine
+; ------------------------------------------------------------
+
+	.patch $f61c
+	jmp mysave
+	.section
+
+mysave
+	pha
+	lda $ba
+	cmp drive_64net
+	beq mysave_entry
+	pla
+	jsr $eddd
+	jmp $f61f
+
+mysave_entry
+	pla
+	; need to do that on our own, else we get the last byte form our adress buffered 
+	; and not written immediatedly :-/
+	sta $95
+	jsr myserout_entry
+	lda $ad
+	sta $95
+	jsr myserout_entry 
+	
+	ldx #$ff
+	stx $dd03
+	ldy $ac
+	inx
+	stx $ac
+	lda $dd0d ;maybe obsolete
+
+	sei
+	jsr saver
+	cli
+	sty $ac
+	lda #$00
+	sta $dd03
+	sta $90
+	clc
+	jmp $f63f
+
+saver
+	lda ($ac),y
+	sta $dd01
+saver_loop
+	lda $dd0d
+	beq saver_loop
+	iny
+	bne saver_next1
+	inc $ad
+saver_next1
+	cpy $ae		
+	bne saver
+	lda $ad
+	cmp $af
+	bne saver
+	rts
 
 ; ------------------------------------------------------------
 ; Kernel Start up & control-code hooks
