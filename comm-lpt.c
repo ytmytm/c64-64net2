@@ -166,6 +166,7 @@ unsigned char* myfilename;
 
 /* for measuring transfertimes */
 clock_t transfertime;
+long transferred_amount=0;
 
 unsigned int iec_listen();
 unsigned int iec_talk();
@@ -451,6 +452,7 @@ unsigned int iec_listen() {
 }
 
 void begin_measure() {
+	transferred_amount=0;
 	transfertime=clock();
 	return;
 }
@@ -458,20 +460,18 @@ void begin_measure() {
 void end_measure() {
 	float time;
 	float rate;
-	long amount;
 	long timediff;
 	clock_t endtime=clock();
-	amount=logical_files[file_unit][listenlf].realsize;
 	timediff=endtime-transfertime;
 	time=((float)timediff/(float)CLOCKS_PER_SEC);
-	rate=(float)amount/time;
-	printf("Transferred bytes:%ld\n", amount);
+	rate=(float)transferred_amount/time;
+	printf("Transferred bytes:%ld\n", transferred_amount);
 	printf("Time needed:%f\n", time);
 //	printf("Starttime:%d\n", transfertime);
 //	printf("Endtime:%d\n", endtime);
 //	printf("Timediff:%d\n", timediff);
 //	printf("CLK_TCK:%d\n", CLOCKS_PER_SEC);
-	printf("Transferrate:%f kb/s\n", rate);
+	printf("Transferrate:%8.2f bps (%8.3fKB/sec)\n", rate,rate/1024);
 	return;	
 }
 	
@@ -588,6 +588,9 @@ int send_byte(unsigned char data, int error_code) {
 	if(error_code==-1) acknowledge();
 	else send_error(error_code);
 #endif
+	/* Record bytes sent for calculating LOAD/SAVE speed */
+	transferred_amount++;
+
 	/* When we send a byte, we do not immediately provide an ACK signal to the 
 	 * C64.  This is to allow for the calling routine to decide when the data
 	 * has been completely sent, and so if we need to assert EOI instead of 
@@ -646,6 +649,10 @@ int receive_byte(int error_code) {
 	data|=(read_data()&0xff);
 	if(error_code==-1) acknowledge();
 	else send_error(error_code);
+
+	/* Record number of bytes transfered so that we can determine SAVE speed */
+	transferred_amount++;
+
 	return data;
 }
 
