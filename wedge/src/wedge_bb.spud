@@ -1,12 +1,27 @@
 	; C64 wedge for 64net/2 parallel IEC mode
 
+	;Select which extra features to enable, remembering that they all
+	;take bytes
+#define CMD_AT
+#define CMD_DOLLAR
+#define CMD_BANG
 
+	; Enable the following to build into $c000-$cfff rather than
+	; patching the kernel
+#undef USE_RAM
+
+	;If you need more bytes, consider enabling some of the following
+	;options to grab more bytes from various places.
+#define USE_RS232_NMI_AREA
+#define USE_KERNAL_PATCH_AREA
+#define USE_RS232_EXTRA_AREAS
 ; -----------------------------------------------------------------------
 ; Reclaim some space in the kernel
 ; -----------------------------------------------------------------------
 
-;	.space $c000 $cfff	
-
+#ifdef USE_RAM
+	.space $c000 $cfff	
+#else
 	; was RS232 routines
 	.space $eebb $ef02
 	; Dodge $EF03 which CMD RamDrive seems to refuse to override
@@ -16,14 +31,31 @@
 	; was open RS232
 	.space $f409 $f49d
 
-	; RS232 NMI
-	; .space $fed6 $ff06
+#ifdef USE_KERNAL_PATCH_AREA
+	; was $AA filled patch area?
+	; (truncated to not overlap with patches in SX64 kernal)
+	.space $e4b7 $e4d2
+#endif
+#ifdef USE_RS232_EXTRA_AREAS
+	; was RS232 baud rate table
+	.space $e4ec $e4ff
 
+	; RS232 input
+	.space $f1b8 $f1c9
+#endif
+#ifdef USE_RS232_NMI_AREA
+	; RS232 NMI
+	; patch out calls from NMI routine, and yield the free space
+	.patch $fe72
+		jmp $febc
+	.space $fe75 $feb9  ; RS232 NMI logic
+	.space $fec2 $ff43  ; RS232 baud rate constants and input NMI
+#endif
 	; Make the space safe to use by nobbling the RS232 device
 	.patch $f388
 	; Device not present
 	jmp $f707
-
+#endif ; USE_RAM
 
 ; -----------------------------------------------------------------------
 ; Pre-relocation routine: copy ROM to RAM
@@ -467,16 +499,25 @@ boot_file_end
 
 basic_decode
 	jsr $0073
+#ifdef CMD_AT
 	cmp #'@'
 	bne bd1
 	jmp found_at
-bd1	cmp #'$'
+bd1
+#endif
+#ifdef CMD_DOLLAR
+	cmp #'$'
 	bne bd2
 	jmp found_dollar
-bd2	cmp #'!'
+bd2
+#endif
+#ifdef CMD_BANG
+	cmp #'!'
 	bne bd3
 	jmp found_bang
-bd3	jmp $a7e7 ; let C64 basic handle it
+bd3
+#endif
+	jmp $a7e7 ; let C64 basic handle it
 
 	.section
 
@@ -487,6 +528,8 @@ disable_decode
 	lda #$a7
 	sta $0309
 	jmp $a7e7
+
+#ifdef CMD_AT
 
 found_at
 	; Somewhat derived from p32 of "Anatomy of a C64"
@@ -526,7 +569,8 @@ at1	jsr $ffa5
 	jsr $0079
 	sta $0400
 	jmp $a7e7
-	
+#endif	
+#ifdef CMD_DOLLAR
 	.section
 
 found_dollar
@@ -578,7 +622,7 @@ dl1	sty $fb
 	sta $fc
 	ldy $90
 	bne dl4
-	jsr $ffa5
+	jsr $ffa5 ; ACPTR
 	ldy $90
 	bne dl4
 	ldy $fb
@@ -588,7 +632,7 @@ dl1	sty $fb
 	jsr $bdcd
 	lda #$20
 	jsr $ffd2
-dl3	jsr $ffa5
+dl3	jsr $ffa5 ; ACPTR
 	ldx $90
 	bne dl4
 	tax
@@ -603,12 +647,13 @@ dl4	jsr $f642
 
 	; back to basic
 	jmp $a7ae	
+#endif CMD_DOLLAR
 
-	.section
-
+#ifdef CMD_BANG
 found_bang
 fb1	jsr $0073
 	cmp #$00
 	bne fb1
 	jmp $a7ae	
+#endif
 

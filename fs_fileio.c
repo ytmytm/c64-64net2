@@ -996,11 +996,20 @@ fs64_openfile_g (uchar *curdir, uchar *filespec, fs64_file * f)
 	strcpy (header, "-=-  64NET/2 -=-");
 	strcpy (id, "64NET");
       }
+      /* PGS - 20050516 - Why would we ever want to send T18S0 in raw
+	 format?  Also, the talklf test here is wrong, as in PIEC the 
+	 logical file gets set after, not before.  So just disable all
+	 this and format the header always. */
       /* output header */
-      if (((talklf & 0x0f)==0)||(talklf<0)) {
-        fs64_dirheader (f, par, header, id); }
-      else {
-        fs64_rawdirheader (f, par, header, id); }
+      fs64_dirheader (f, par, header, id);
+      if (0) 
+	{
+	  if (((talklf & 0x0f)==0)||(talklf<0)) {
+	    fs64_dirheader (f, par, header, id); }
+	  else {
+	    printf("Raw dir header: talklf = %d\n",talklf);
+	    fs64_rawdirheader (f, par, header, id); }
+	}
       /* all's well - so off we go */
       client_activity (++of_count);
       return (0);

@@ -1,6 +1,6 @@
 /* 
    64NET/2 Commune module
-   (C)Copyright Paul Gardner-Stephen 1995, 1996, 2003 All Rights Reserved.
+   (C)Copyright Paul Gardner-Stephen 1995, 1996, 2003-2005 All Rights Reserved.
 
    This module does all the C64 <--> Server communications
    Printer port version
@@ -451,7 +451,7 @@ void end_measure() {
 	timediff=endtime-transfertime;
 	time=((float)timediff/(float)CLOCKS_PER_SEC);
 	rate=(float)amount/time;
-	printf("Trasnferred bytes:%d\n", amount);
+	printf("Transferred bytes:%ld\n", amount);
 	printf("Time needed:%f\n", time);
 //	printf("Starttime:%d\n", transfertime);
 //	printf("Endtime:%d\n", endtime);

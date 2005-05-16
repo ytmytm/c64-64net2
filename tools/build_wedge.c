@@ -201,6 +201,7 @@ int token_body_len=0;
 
 struct label *labels=NULL;
 struct assembled_byte *sections[256]={NULL};
+int section_lines[256]={0};
 int section_lengths[256]={0};
 int section_addresses[256]={-1};
 int section_patchp[256]={0};
@@ -551,10 +552,23 @@ int parseFile(FILE *f)
   return 0;
 }
 
+int dumpFreeSpace()
+{
+  int i;
+  for(i=0;i<free_space_count;i++)
+    {
+      if (free_space_starts[i]<free_space_ends[i])
+	printf("  $%04x - $%04x (%d bytes)\n",
+	       free_space_starts[i],free_space_ends[i],
+	       free_space_ends[i]-free_space_starts[i]+1
+	       );
+    }
+  return 0;
+}
+
 int main(int argc,char **argv)
 {
   FILE *f;
-  int i;
   char template[1024]="/tmp/build_wedge.XXXXXXXX";
 
   if (argc!=3)
@@ -611,14 +625,7 @@ int main(int argc,char **argv)
   resolveValues();
   /* dumpSections(); */
   printf("\nRemaining Free Space\n-----------------------\n");
-  for(i=0;i<free_space_count;i++)
-    {
-      if (free_space_starts[i]<free_space_ends[i])
-	printf("  $%04x - $%04x (%d bytes)\n",
-	       free_space_starts[i],free_space_ends[i],
-	       free_space_ends[i]-free_space_starts[i]+1
-	       );
-    }
+  dumpFreeSpace();
 
   writeWedge(argv[2]);
 
@@ -635,7 +642,8 @@ int syntaxError(char *msg)
   fprintf(stderr,"last token type=%d\n",token_type);
   if (token_type==T_LITERAL)
     fprintf(stderr,"token_body=[%s]\n",token_body);
-  return -1;
+  fprintf(stderr,"Line of input is:\n%s\n",linebuf);
+  exit(1);
 }
 
 struct label *newLabel(char *name,
@@ -876,6 +884,7 @@ int commitByte(struct assembled_byte *ab)
 	if(special_section==NULL) {
 		if ((!current_section)) { /* ||(!current_byte)) */
 			/* Start first section */
+		        section_lines[section_count]=linenum;
 			sections[section_count++]=ab;
 			current_section=ab;
 			current_byte=ab;
@@ -1185,11 +1194,7 @@ int placeSections()
   int smallest_space=-1;
   int smallest_space_len=-1;
 
-  for(j=0;j<free_space_count;j++)
-    printf("Free space at $%04x-$%04x (%d bytes)\n",
-	   free_space_starts[j],free_space_ends[j],
-	   free_space_ends[j]-free_space_starts[j]+1
-	   );
+  dumpFreeSpace();
   printf("\n");
 
   for(i=0;i<section_count;i++)
@@ -1213,8 +1218,13 @@ int placeSections()
 	  }
 	if (smallest_space==-1)
 	  {
-	    fprintf(stderr,"Could not place section %d, no contiguous space available\n",i);
-	    return -1;
+	    fprintf(stderr,"Could not place section %d, which is defined in line %d\n",i,section_lines[i]);
+	    fprintf(stderr,"Need %d contiguous bytes\n",section_lengths[i]);
+	    printf("Remaining Free Space:\n----------------\n");
+	    dumpFreeSpace();
+	    printf("Byte stream of section:\n");
+	    dumpBytes(sections[i]);
+	    exit(1);
 	  }
 	else
 	  {
@@ -1390,7 +1400,7 @@ int writeWedge(char *file)
 	  wedge_next_address&0xff,(wedge_next_address>>8),
 	  (wedge_next_address+BASIC_HEADER_LENGTH-2)&0xff,
 	  ((wedge_next_address+BASIC_HEADER_LENGTH-2)>>8),
-	  2004&0xff,2004>>8,
+	  2005&0xff,2005>>8,
 	  0x9e,
 	  pre_relocate_address,
 	  pre_relocate_address,
