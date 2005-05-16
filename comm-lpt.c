@@ -416,7 +416,7 @@ unsigned int iec_listen() {
 				#endif
 				/* do nothing except cleaning up */
 				if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; }
-			break;
+			       break;
 			default:
 				if(listenlf!=0xf) {
 					#ifdef DEBUG_PIEC
@@ -427,8 +427,22 @@ unsigned int iec_listen() {
 				}
 				else {
 					#ifdef DEBUG_PIEC
-						printf("I think i send the status soon...(LISTEN+SA=6F)\n");
+						printf("Receiving DOS command\n");
 					#endif
+						while(1) {
+				/* receive a byte */
+						  temp=receive_byte(-1);
+				/* check if data received under ATN high */
+						  if((temp&0x100)!=0) { change_state(temp); break; }
+#ifdef DEBUG_PIEC
+						  printf("Got DOS command byte $%x\n",temp);
+#endif
+						  if (dos_comm_len[last_unit]<255)
+						    dos_command[last_unit][dos_comm_len[last_unit]++]=temp;
+						}
+						debug_msg ("Processing dos command\n");
+						if (dos_comm_len[last_unit]!=0) do_dos_command();
+						
 				}
 			break;
 		}
@@ -1271,7 +1285,7 @@ int commune (void)
 	      
 	      if ((a==UNLISTEN) && ((lastlf & 0x0f)==15)) {
     		debug_msg ("Processing dos command\n");
-		if (dos_comm_len[last_unit]!=0) do_command();
+		if (dos_comm_len[last_unit]!=0) do_dos_command();
 		sendchar (0);	/* UN{TALK,LISTEN} always return status code OK, read dos_status for more */
 	      } else {
 		switch(lastlf & 0xf0) {

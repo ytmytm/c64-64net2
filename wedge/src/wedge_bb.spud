@@ -547,6 +547,7 @@ at2	lda drive_64net
 	jsr $0079
 at3	cmp #$00
 	beq at4
+	jsr fixbasicchar
 	jsr $ffa8
 	jsr $0073
 	jmp at3
@@ -588,16 +589,8 @@ found_dollar
 	sta ($bb),y
 	iny
 fd1	jsr $0073
-	; turn tokens back to characters where necessary
-	; this is to allow wild cards in directory spec
-	; XXX - Incomplete - ? is not allowed yet	
-	cmp #$ac ; *
-	bne fd0
-	lda #'*'
-fd0	cmp #$99
-	bne fd01
-	lda #'?'
-fd01	sta ($bb),y
+	jsr fixbasicchar
+	sta ($bb),y
 	iny
 	cmp #$00
 	bne fd1
@@ -657,3 +650,16 @@ fb1	jsr $0073
 	jmp $a7ae	
 #endif
 
+	.section
+
+fixbasicchar
+	; turn tokens back to characters where necessary
+	; this is to allow wild cards in directory spec
+	; XXX - Incomplete - ? is not allowed yet	
+	cmp #$ac ; *
+	bne fd0
+	lda #'*'
+fd0	cmp #$99
+	bne fd01
+	lda #'?'
+fd01	rts

@@ -14,3 +14,4 @@ LPT Side	Description	Dir	Userport C64	Description
 14		Autofeed	->	6		CNT2		(ERROR_CLOCK)
 16		Initialize	->	7		SP2		(ERROR_DATA)
 18-25		GND		<->	1/12/A/N	GND
+
