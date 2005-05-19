@@ -34,7 +34,7 @@ extern int piec_delaycount;
 #ifdef USE_SERIAL_DRIVER
 uchar port[1024] = COMM_DEVICE;
 #else
-uchar port[1024] = "/dev/par0"; // LPT_DEVICE;
+uchar port[1024] = "/dev/parport0"; // LPT_DEVICE;
 #endif
 
 /* Current talk & listen logical files */
@@ -175,7 +175,7 @@ void iec_untalk();
 void iec_idle();
 unsigned char change_state(unsigned int);
 int send_byte(unsigned char data, int error_code);
-int receive_byte(int error_code);
+int receive_byte(int error_code, int wait);
 int start_server();
 int send_error(unsigned char err);
 void begin_measure();
@@ -253,7 +253,8 @@ int start_server() {
 
 void iec_idle() {
 	int temp;
-	temp=receive_byte(-1); 
+	//no need to waste 100% CPU time when being idle, so set a polling interval of 1ms
+	temp=receive_byte(-1,1000); 
 	if((temp&0x100)!=0) change_state(temp);
 	return;
 }
@@ -288,7 +289,7 @@ unsigned int iec_listen() {
 	int maxcount=1024;
 	int pos;
 	change_state(IEC_IDLE);
-	temp=receive_byte(-1); 
+	temp=receive_byte(-1,0); 
 	/* we expect a SA coming under ATN high, if something is suspect we fall back to idle */
 	if((temp&0x100)==0) return -1;
 	SA=temp;
@@ -322,7 +323,7 @@ unsigned int iec_listen() {
 				if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], myfilename, &logical_files[file_unit][listenlf])) {
 					/* cannot open file for some reason (missing permissions or such) */
 					/* simply abort */
-					temp=receive_byte(ERROR_FILE_EXISTS);
+					temp=receive_byte(ERROR_FILE_EXISTS,0);
 					//unsure about the next line, but should be there for savety
 					if((temp&0x100)!=0) { change_state(temp); return -1; }
 					return -1;
@@ -338,7 +339,7 @@ unsigned int iec_listen() {
 			/* pour all data into that file until finished or ATN gets high */
 			while(1) {
 				/* receive a byte */
-				temp=receive_byte(-1);
+				temp=receive_byte(-1,0);
 				/* check if data received under ATN high */
 				if((temp&0x100)!=0) { change_state(temp); return -1; }
 				#ifdef DEBUG_PIEC
@@ -359,7 +360,7 @@ unsigned int iec_listen() {
 				#endif
 				while(1) {
 					/* receive a byte */
-					temp=receive_byte(-1);
+					temp=receive_byte(-1,0);
 					if((temp&0x100)!=0) { change_state(temp); break; }
 					/* byte not under attention: store in input buffer */
 					myfilename[myfilenamelen]=(uchar)temp;
@@ -432,7 +433,7 @@ unsigned int iec_listen() {
 					#endif
 						while(1) {
 				/* receive a byte */
-						  temp=receive_byte(-1);
+						  temp=receive_byte(-1,0);
 				/* check if data received under ATN high */
 						  if((temp&0x100)!=0) { change_state(temp); break; }
 #ifdef DEBUG_PIEC
@@ -482,7 +483,7 @@ unsigned int iec_talk() {
 	unsigned char data=0;
 	unsigned char buffer=0;
 	change_state(IEC_IDLE);
-	temp=receive_byte(-1); 
+	temp=receive_byte(-1,0); 
 	/* we expect a SA coming under ATN high, if something is suspect we fall back to idle */
 	if((temp&0x100)==0) return -1;
 	SA=temp;
@@ -617,7 +618,9 @@ int wait_request() {
 	return 0;
 }
 
-int receive_byte(int error_code) {
+/* Added a polling-interval value to avoid unnecessary 
+ * cpu-cycles when being idle */
+int receive_byte(int error_code, int wait) {
 	int data=0;
 
 	#ifdef DEBUG_PIEC
@@ -629,7 +632,9 @@ int receive_byte(int error_code) {
 	#ifdef DEBUG_PIEC
 	printf("Waiting for request to toggle...\n");
 	#endif
-	while((get_status()&REQUEST_IN)==request);
+	while((get_status()&REQUEST_IN)==request) {
+		if(wait>0) usleep(wait);
+	}
 	request^=REQUEST_IN;
 	#ifdef DEBUG_PIEC
 	printf("Request toggled r\n");
