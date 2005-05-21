@@ -174,6 +174,7 @@ struct instruction instruction_set[]=
 #define T_EQUALS 53
 #define T_PLUS 54
 #define T_MINUS 55
+#define T_STRING 56
 
 #define T_SEMICOLON 80
 #define T_EOL 81
@@ -198,6 +199,7 @@ int token_type;
 int token_value;
 char token_body[1024];
 int token_body_len=0;
+int token_quote_mode=0;
 
 struct label *labels=NULL;
 struct assembled_byte *sections[256]={NULL};
@@ -257,118 +259,128 @@ int accumulatedToken()
 
   token_body[token_body_len]=0;
 
-  if (!strcasecmp(token_body,"a")) 
-    { token_type=T_A; token_body_len=0; return 0; }
-  if (!strcasecmp(token_body,"x")) 
-    { token_type=T_X; token_body_len=0; return 0; }
-  if (!strcasecmp(token_body,"y")) 
-    { token_type=T_Y; token_body_len=0; return 0; }
-
-  if (!strcasecmp(token_body,".patch")) 
-    { token_type=T_K_PATCH; token_body_len=0; return 0; }
-  if (!strcasecmp(token_body,".free")) 
-    { token_type=T_K_FREE; token_body_len=0; return 0; }
-  if (!strcasecmp(token_body,".space")) 
-    { token_type=T_K_SPACE; token_body_len=0; return 0; }
-  if (!strcasecmp(token_body,".section")) 
-    { token_type=T_K_SECTION; token_body_len=0; return 0; }
-  if (!strcasecmp(token_body,".prerelocate")) 
-    { token_type=T_K_PRERELOCATE; token_body_len=0; return 0; }
-  if (!strcasecmp(token_body,".postrelocate")) 
-    { token_type=T_K_POSTRELOCATE; token_body_len=0; return 0; }
-  if (!strcasecmp(token_body,".byte")) 
-    { token_type=T_K_BYTE; token_body_len=0; return 0; }
-  if (!strcasecmp(token_body,".word")) 
-    { token_type=T_K_WORD; token_body_len=0; return 0; }
-
-  if ((token_body[0]=='\'')&&(token_body[2]=='\'')
-      &&(token_body_len==3))
+  if (token_quote_mode)
     {
-      /* ascii (NOT PETSCII!) character */
-      token_value=token_body[1];
-      token_type=T_NUMERIC;
-      token_body_len=0; 
-      return 0;      
+      token_type=T_STRING;
+      token_body_len=0;      
+      token_quote_mode=0;
+      return 0;
     }
-  if (token_body[0]=='$')
+  else
     {
-      /* hex */
-      for(i=1;i<token_body_len;i++)
-	switch(tolower(token_body[i]))
-	  {
-	  case '0': case '1': case '2': case '3': case '4':
-	  case '5': case '6': case '7': case '8': case '9':
-	  case 'a': case 'b': case 'c': case 'd': case 'e':
-	  case 'f':	
-	    break;
-	  default:
-	    hex=0;
-	  }
-      if (!hex) 
+      if (!strcasecmp(token_body,"a")) 
+	{ token_type=T_A; token_body_len=0; return 0; }
+      if (!strcasecmp(token_body,"x")) 
+	{ token_type=T_X; token_body_len=0; return 0; }
+      if (!strcasecmp(token_body,"y")) 
+	{ token_type=T_Y; token_body_len=0; return 0; }
+      
+      if (!strcasecmp(token_body,".patch")) 
+	{ token_type=T_K_PATCH; token_body_len=0; return 0; }
+      if (!strcasecmp(token_body,".free")) 
+	{ token_type=T_K_FREE; token_body_len=0; return 0; }
+      if (!strcasecmp(token_body,".space")) 
+	{ token_type=T_K_SPACE; token_body_len=0; return 0; }
+      if (!strcasecmp(token_body,".section")) 
+	{ token_type=T_K_SECTION; token_body_len=0; return 0; }
+      if (!strcasecmp(token_body,".prerelocate")) 
+	{ token_type=T_K_PRERELOCATE; token_body_len=0; return 0; }
+      if (!strcasecmp(token_body,".postrelocate")) 
+	{ token_type=T_K_POSTRELOCATE; token_body_len=0; return 0; }
+      if (!strcasecmp(token_body,".byte")) 
+	{ token_type=T_K_BYTE; token_body_len=0; return 0; }
+      if (!strcasecmp(token_body,".word")) 
+	{ token_type=T_K_WORD; token_body_len=0; return 0; }
+      
+      if ((token_body[0]=='\'')&&(token_body[2]=='\'')
+	  &&(token_body_len==3))
 	{
+	  /* ascii (NOT PETSCII!) character */
+	  token_value=token_body[1];
+	  token_type=T_NUMERIC;
+	  token_body_len=0; 
+	  return 0;      
+	}
+      if (token_body[0]=='$')
+	{
+	  /* hex */
+	  for(i=1;i<token_body_len;i++)
+	    switch(tolower(token_body[i]))
+	      {
+	      case '0': case '1': case '2': case '3': case '4':
+	      case '5': case '6': case '7': case '8': case '9':
+	      case 'a': case 'b': case 'c': case 'd': case 'e':
+	      case 'f':	
+		break;
+	      default:
+		hex=0;
+	      }
+	  if (!hex) 
+	    {
+	      token_body_len=0; 
+	      token_body[0]=0;
+	      return syntaxError("Bad character in hexadecimal value");
+	    }
+	  token_value=strtol(&token_body[1],NULL,16);
+	  token_type=T_NUMERIC;
 	  token_body_len=0; 
 	  token_body[0]=0;
-	  return syntaxError("Bad character in hexadecimal value");
+	  return 0;
 	}
-      token_value=strtol(&token_body[1],NULL,16);
-      token_type=T_NUMERIC;
-      token_body_len=0; 
-      token_body[0]=0;
-      return 0;
-    }
-  if (token_body[0]=='%')
-    {
-      /* binary */
-      hex=1;
-      for(i=1;i<token_body_len;i++)
-	switch(tolower(token_body[i]))
-	  {
-	  case '0': case '1':
-	    break;
-	  default:
-	    hex=0;
-	  }
-      if (!hex) 
+      if (token_body[0]=='%')
 	{
+	  /* binary */
+	  hex=1;
+	  for(i=1;i<token_body_len;i++)
+	    switch(tolower(token_body[i]))
+	      {
+	      case '0': case '1':
+		break;
+	      default:
+		hex=0;
+	      }
+	  if (!hex) 
+	    {
+	      token_body_len=0; 
+	      token_body[0]=0;
+	      return syntaxError("Bad character in binary value");
+	    }
+	  token_value=strtol(&token_body[1],NULL,2);
+	  token_type=T_NUMERIC;
 	  token_body_len=0; 
-	  token_body[0]=0;
-	  return syntaxError("Bad character in binary value");
+	  return 0;
 	}
-      token_value=strtol(&token_body[1],NULL,2);
-      token_type=T_NUMERIC;
-      token_body_len=0; 
-      return 0;
-    }
-
-  /* work out whether the token is a dec, hex or literal value */
-  for(i=0;i<token_body_len;i++)
-    {
-      switch(tolower(token_body[i]))
+      
+      /* work out whether the token is a dec, hex or literal value */
+      for(i=0;i<token_body_len;i++)
 	{
-	case '0': case '1': case '2': case '3': case '4':
-	case '5': case '6': case '7': case '8': case '9':
-	  break;
-	default:
-	  dec=0;
+	  switch(tolower(token_body[i]))
+	    {
+	    case '0': case '1': case '2': case '3': case '4':
+	    case '5': case '6': case '7': case '8': case '9':
+	      break;
+	    default:
+	      dec=0;
+	    }
 	}
-    }
-
-  if (dec) 
-    {
-      token_type=T_NUMERIC;
-      token_value=atoi(token_body);
-      token_body_len=0; 
+      
+      if (dec) 
+	{
+	  token_type=T_NUMERIC;
+	  token_value=atoi(token_body);
+	  token_body_len=0; 
+	  return 0;
+	}
+      
+      /* instruction or literal? */
+      token_type=T_LITERAL;
+      for(i=0;instruction_set[i].name;i++)
+	if (!strcasecmp(instruction_set[i].name,token_body))
+	  token_type=T_INSTRUCTION;
+      
+      token_body_len=0;      
       return 0;
     }
-
-  /* instruction or literal? */
-  token_type=T_LITERAL;
-  for(i=0;instruction_set[i].name;i++)
-    if (!strcasecmp(instruction_set[i].name,token_body))
-      token_type=T_INSTRUCTION;
-  
-  token_body_len=0;      
-  return 0;
 }
 
 int getNextToken(FILE *f)
@@ -396,48 +408,69 @@ int getNextToken(FILE *f)
 	  linelen=strlen(linebuf);
 	  linepos=0;
 	}
-      
-      switch(linebuf[linepos])
+
+      if (token_quote_mode)
 	{
-	case ' ': case '\t':
-	  linepos++;
-	  if (token_body_len)
+	  switch(linebuf[linepos])
 	    {
-	      return accumulatedToken();
-	    }
-	  break;
-	case '(': case ')': case ';': case ',': 
-	case '<': case '>': case '#': case '+':
-	case '-': case '=': case '\n': case '\r':
-	  /* special single character tokens */
-	  if (!token_body_len)
-	    {
-	      switch(linebuf[linepos])
-		{
-		case '(': token_type=T_LBRACKET; break;
-		case ')': token_type=T_RBRACKET; break;
-		case ';': token_type=T_SEMICOLON; break;
-		case ',': token_type=T_COMMA; break;
-		case '<': token_type=T_LANGLE; break;
-		case '>': token_type=T_RANGLE; break;
-		case '#': token_type=T_HASH; break;
-		case '=': token_type=T_EQUALS; break;
-		case '+': token_type=T_PLUS; break;
-		case '-': token_type=T_MINUS; break;
-		case '\n': token_type=T_EOL; break;
-		case '\r': token_type=T_EOL; break;
-		}
-	      token_body_len=0;
+	    case '"': 
 	      linepos++;
-	      return 0;
+	      return accumulatedToken();
+	    default:
+	      /* Accumulate character */
+	      if (token_body_len<1023)
+		token_body[token_body_len++]=linebuf[linepos];
+	      linepos++;
 	    }
-	  else
-	    return accumulatedToken();
-	default:
-	  /* Accumulate character */
-	  if (token_body_len<1023)
-	    token_body[token_body_len++]=linebuf[linepos];
-	  linepos++;
+	}
+      else
+	{
+	  switch(linebuf[linepos])
+	    {
+	    case '"':
+	      token_quote_mode=1;
+	      linepos++;
+	      break;
+	    case ' ': case '\t':
+	      linepos++;
+	      if (token_body_len)
+		{
+		  return accumulatedToken();
+		}
+	      break;
+	    case '(': case ')': case ';': case ',': 
+	    case '<': case '>': case '#': case '+':
+	    case '-': case '=': case '\n': case '\r':
+	      /* special single character tokens */
+	      if (!token_body_len)
+		{
+		  switch(linebuf[linepos])
+		    {
+		    case '(': token_type=T_LBRACKET; break;
+		    case ')': token_type=T_RBRACKET; break;
+		    case ';': token_type=T_SEMICOLON; break;
+		    case ',': token_type=T_COMMA; break;
+		    case '<': token_type=T_LANGLE; break;
+		    case '>': token_type=T_RANGLE; break;
+		    case '#': token_type=T_HASH; break;
+		    case '=': token_type=T_EQUALS; break;
+		    case '+': token_type=T_PLUS; break;
+		    case '-': token_type=T_MINUS; break;
+		    case '\n': token_type=T_EOL; break;
+		    case '\r': token_type=T_EOL; break;
+		    }
+		  token_body_len=0;
+		  linepos++;
+		  return 0;
+		}
+	      else
+		return accumulatedToken();
+	    default:
+	      /* Accumulate character */
+	      if (token_body_len<1023)
+		token_body[token_body_len++]=linebuf[linepos];
+	      linepos++;
+	    }
 	}
     }
 }
@@ -536,7 +569,7 @@ int parseFile(FILE *f)
 	      return syntaxError("Expect line number after #");
 	    linenum=token_value-1;
 	    getNextToken(f);
-	    if (token_type!=T_LITERAL)
+	    if ((token_type!=T_LITERAL)&&(token_type!=T_STRING))
 	      return syntaxError("Expect filename after '# linenumber '");
 	    strcpy(inputfile,token_body);
 	  }
@@ -640,7 +673,7 @@ int syntaxError(char *msg)
   fprintf(stderr,"?SYNTAX  ERROR IN %d\n",linenum);
   fprintf(stderr,"%s:%d.%d: %s\n",inputfile,linenum,linepos,msg);
   fprintf(stderr,"last token type=%d\n",token_type);
-  if (token_type==T_LITERAL)
+  if ((token_type==T_LITERAL)||(token_type==T_STRING))
     fprintf(stderr,"token_body=[%s]\n",token_body);
   fprintf(stderr,"Line of input is:\n%s\n",linebuf);
   exit(1);

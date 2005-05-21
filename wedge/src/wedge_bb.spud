@@ -1,11 +1,10 @@
 	; C64 wedge for 64net/2 parallel IEC mode
-
 	;Select which extra features to enable, remembering that they all
 	;take bytes
 #define CMD_AT
 #define CMD_DOLLAR
 #define CMD_BANG
-
+	
 	; Enable the following to build into $c000-$cfff rather than
 	; patching the kernel
 #undef USE_RAM
