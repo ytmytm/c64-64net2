@@ -175,10 +175,13 @@ const int c64yres=200;
 int address=0x1000;
 unsigned char pic4bit[320*200];
 unsigned char hires_charset[4096];
-unsigned char *multicol_charsets;
+unsigned char *multicol_charset;
 unsigned char *multicol_bitmaps;
-unsigned char *multicol_charset_stats;
-unsigned char *multicol_charmaps;
+int *multicol_charmaps;
+int *multicol_resolve_map;
+int *multicol_charset_stats;
+int *multicol_charset_errors;
+
 int *diffplanes;
 int charset_lifetime = 2;	//over how many farmes should the charset be valid?
 //unsigned char multicol_charmap[1000];
@@ -206,8 +209,9 @@ void convert_to_multicol();
 int main() {
 	int c;
 	mode = MULTICOL_CHARSET;
-	mode = PETSCII;
+//	mode = PETSCII;
 	filenr=100000;
+	charset_lifetime = 2;
 	
 	fdw = fopen (write_name, write_mode);
 	if(fdw==NULL) { printf("Error: can't open output file\n"); exit(0); }
@@ -380,13 +384,14 @@ void convert_to_multicol() {
 	int error;
 	
 	multicol_frame_counter=0;
-	charset_lifetime=4;
 
 	result=(unsigned char *)calloc((0x400+0x800/charset_lifetime)*charset_lifetime,1);
-	multicol_charmaps=(unsigned char *)calloc(0x400*charset_lifetime,1);
+	multicol_charmaps=(int *)calloc(0x400*charset_lifetime,4);
 	multicol_bitmaps=(unsigned char *)calloc(8000*charset_lifetime,1);
-	multicol_charsets=(unsigned char *)calloc(8000*charset_lifetime,1);
-	multicol_charset_stats=(unsigned char *)calloc(1000*charset_lifetime,1);
+	multicol_charset=(unsigned char *)calloc(8000*charset_lifetime,1);
+	multicol_charset_stats=(int *)calloc(1000*charset_lifetime,4);
+	multicol_charset_errors=(int *)calloc(1000*charset_lifetime,4);
+	multicol_resolve_map=(int *)calloc(1000*charset_lifetime,4);
 
 	while(error!=-1) {
 	 	while((multicol_frame_counter<charset_lifetime) && (error=load_frame(read_name))!=-1) {	//we get x frames
@@ -394,96 +399,76 @@ void convert_to_multicol() {
 			multicol_frame_counter++;
 		}	
 		multicol_frame_counter=0;
-		extract_multicol_charset(charset_lifetime);		//get charset over those x frames
 		
-		copy_charset_to_result();
-	
-		for(a=0;a<charset_lifetime;a++) force_bitmap_to_multicol_charset(a);
-
-		copy_charmaps_into_result(charset_lifetime);
+		extract_multicol_charset(charset_lifetime);		//get charset over those x frames
+		create_multicol_charmaps(charset_lifetime);
 		
 		framesize=(0x400+0x800/charset_lifetime)*charset_lifetime;
 		framecolramstart=framesize;
 		framecolramsize=0;
+#ifdef DEBUG
 		printf("Writing %d frames\n",charset_lifetime);
+#endif
 		write_frame();
 	}
 	
 	free(multicol_charmaps);
 	free(multicol_bitmaps);
-	free(multicol_charsets);
+	free(multicol_charset);
 	free(multicol_charset_stats);
+	free(multicol_charset_errors);
+	free(multicol_resolve_map);
 	free(data);
 	free(result);
 }
 
-int copy_charset_to_result() {
+int create_multicol_charmaps(int frames, int lastchar) {
 	int a;
-	for(a=0;a<0x800;a++) {
-		result[a]=multicol_charsets[a];
-	}
-}
-
-int copy_charmaps_into_result(int frames) {
-	int a;
-	int b;
-	for(b=0;b<frames;b++) {
-		for(a=0;a<0x400;a++) {
-			result[0x800+b*0x400+a]=multicol_charmaps[b*0x400+a];
+	int frame;
+	for(frame=0;frame<frames;frame++) {
+		for(a=0;a<1000;a++) {
+			result[0x800+(frame*0x400)+a]=multicol_resolve_map[multicol_charmaps[frame*1000+a]];
+//			if(result[0x800+frame*0x400+a]<16) printf("0%x", result[0x800+frame*0x400+a]);
+//			else printf("%x", result[0x800+frame*0x400+a]);
+			
+//			if(a%40==0) printf("\n");
 		}
 	}
-}
-
-int force_bitmap_to_multicol_charset(int offset) {
-	int diff;
-	int best_char=0;
-	int temp=-1;
-	int a,xx,yy;
-	int x,y;
-	unsigned char row1, row2;
-	int errors=0;
-	int lastdiff=0;
-	
-	for(y=0;y<c64ychars;y++) {
-		for(x=0;x<c64xchars;x++) {
-			//walk through charset
-			temp=-1;
-			diff=0;
-			for(a=0;a<256;a++) {
-				diff=0;
-				//walk through block
-				for(yy=0;yy<8;yy++) {
-					row1=multicol_charsets[a*8+yy];
-					row2=multicol_bitmaps[y*c64xchars*8+x*8+yy+offset*8000];
-					for(xx=0;xx<8;xx+=2) {
-						diff+=1<<(abs((row1&3)-(row2&3)));
-						row1=row1>>2;
-						row2=row2>>2;
-		//premature abort, this char has already more errors than our yet favourite -> next char
-		//				if(diff>temp && temp!=-1) { yy=8;xx=8; }
-					}
-				}
-				//if we found a better char, remember
-				if((temp==-1) || (temp>diff)) { temp=diff; best_char=a; lastdiff=diff; }
-			}
-			multicol_charmaps[y*c64xchars+x+offset*0x400]=best_char;
-			if(lastdiff!=0) errors++;
-#ifdef DEBUG
-			if(best_char<16) printf("0%x",best_char);
-			else printf("%x",best_char);
-#endif
-		}
-#ifdef DEBUG
-		printf("\n");
-#endif
-	}
-//#ifdef DEBUG
-	printf("errornous chars: %d\n",errors);
-//#endif
 	return 0;
 }
 
-int extract_multicol_charset(int frames) {
+int condense_multicol_charset(int lastchar) {
+	int newpos=0;
+	int pos;
+	int y;
+	int temp;
+
+	for(pos=0;pos<lastchar;pos++) {
+		temp=multicol_charset_stats[pos];
+		if(temp>0) {
+			for(y=0;y<8;y++) result[newpos*8+y]=multicol_charset[pos*8+y];
+			multicol_resolve_map[pos]=newpos;
+			multicol_charset_stats[pos]=0;
+	//		printf("new:$%x old:$%x\n",multicol_resolve_map[pos],pos);
+			newpos++;
+		}
+	}
+	for(pos=0;pos<lastchar;pos++) {
+		temp=multicol_charset_stats[pos];
+		if(temp<0) {
+			while(1) {
+				temp=0-temp;
+				if(multicol_charset_stats[temp]==0) break; 					//has this char been replaced?
+				temp=multicol_charset_stats[temp];						//yes, get alternative char
+			}
+			multicol_resolve_map[pos]=multicol_resolve_map[temp];
+//			printf("new:$%x old:$%x\n",multicol_resolve_map[pos],pos);
+		}
+	}
+	return 0;
+}
+
+int extract_multicol_charset(int charset_lifetime) {
 	int y;
 	int lastchar=0;
 	int bitmappos=0;
@@ -491,33 +476,90 @@ int extract_multicol_charset(int frames) {
 	int x;
 	int temp;
 	int a;
-	for(a=0;a<1000;a++) multicol_charset_stats[a]=0;
+	
+	int max_err=0;
+	int killedchars=0;
+	int charpos;
+	int diff;
+	int xx,yy;
+	unsigned char row1,row2;
+	for(a=0;a<1000*charset_lifetime;a++) { multicol_charset_stats[a]=0; multicol_charset_errors[a]=0; }
 	copy_multicol_block_to_charset(lastchar,bitmappos);
 	multicol_charset_stats[lastchar]++;
 	lastchar++;
-	for(bitmappos=0;bitmappos<8000*charset_lifetime;bitmappos+=8) {		//process x frames! start from offset (so we can cache still other frames)
+	for(bitmappos=0;bitmappos<(8000*charset_lifetime);bitmappos+=8) {		//process x frames! start from offset (so we can cache still other frames)
 		found_char=find_multicol_char(lastchar,bitmappos);
 		if(found_char!=-1) {
-		//	multicol_charmap[bitmappos/8]=found_char;
+			multicol_charmaps[bitmappos/8]=found_char;
 			multicol_charset_stats[found_char]++;
 		}
 		else {
+			multicol_charmaps[bitmappos/8]=lastchar;
 			copy_multicol_block_to_charset(lastchar, bitmappos);
-			multicol_charset_stats[lastchar]++;
 			lastchar++;
+			multicol_charset_stats[lastchar]++;
 		}
 	}
 //#ifdef DEBUG
-	printf("lastchar %d\n",lastchar);
 #ifdef DEBUG
+	printf("lastchar %d\n",lastchar);
 
-	for(y=0;y<lastchar;y++) if(multicol_charset_stat[y]>0) printf("%d  ",multicol_charset_stat[y]);
+	for(y=0;y<lastchar;y++) printf("%d  ",multicol_charset_stats[y]);
 	printf("\n");
-	for(x=0;x<10;x++) {
-		for(a=0;a<8;a++) printf("%x ", multicol_charset[x*8+a]);
-		printf("\n");
-	}
 #endif
+	//multicol_sort_charset(lastchar);
+	max_err=1;
+	killedchars=0;
+#ifdef DEBUG
+	printf("Melting down charset");
+#endif
+	while(1) {
+		//printf("max_erYr: %d\n",max_err);
+		for(charpos=0;charpos<lastchar;charpos++) {
+			for(a=0;a<lastchar;a++) {
+				if(lastchar-killedchars==256) {
+				//	multicol_sort_charset(lastchar);
+				//	for(y=0;y<lastchar;y++) printf("%d  ",multicol_charset_stats[y]);
+#ifdef DEBUG
+					printf("\n");
+#endif
+					condense_multicol_charset(lastchar);
+					return 0;
+				}
+				if((a!=charpos) && (multicol_charset_stats[charpos]>0) && (multicol_charset_stats[a]>0) && (multicol_charset_stats[a]>multicol_charset_stats[charpos])) {
+					diff=0;
+					//walk through block
+					for(yy=0;yy<8;yy++) {
+						row1=multicol_charset[a*8+yy];
+						row2=multicol_charset[charpos*8+yy];
+						diff+=((abs(((row1>>6)&3)-((row2>>6)&3)))); //1<<x makes maybe better results but is slooooooow.
+						diff+=((abs(((row1>>4)&3)-((row2>>4)&3))));
+						diff+=((abs(((row1>>2)&3)-((row2>>2)&3))));
+						diff+=((abs((row1&3)-(row2&3))));
+					}
+					diff=diff*multicol_charset_stats[charpos]; //fehler gewichten, je nachdem wieviele chars gekillt werden!!
+					if((diff<=max_err) && (multicol_charset_errors[charpos]<2)) {
+						multicol_charset_errors[charpos]++;
+						//printf("threw out char $%x with error $%x, $%x, $%x. lastchar now $%x\n",charpos, diff,multicol_charset_errors[charpos],multicol_charset_stats[charpos], lastchar-killedchars);
+#ifdef DEBUG
+						printf(".");
+#endif
+//						diff/=multicol_charset_stats[charpos];
+//						multicol_charset_errors[a]+=diff*((float)multicol_charset_stats[a]/(float)(multicol_charset_stats[charpos]+multicol_charset_stats[a]));
+						multicol_charset_stats[a]+=multicol_charset_stats[charpos];
+						multicol_charset_stats[charpos]=0-a; //set negative charpos here to have a pointer to new char
+						killedchars++;
+					}
+				}
+			}
+		}
+		max_err++; //+=10, XXX granularität ggf. erhöhen
+	}
+	
+}
+
+int multicol_sort_charset(int lastchar) {
+	int x,y,temp,a;
 	//now sort the statistic and the charset in the same move
 	for(x=0;x<lastchar;x++) {
 		for(y=x;y<lastchar;y++) {
@@ -528,21 +570,14 @@ int extract_multicol_charset(int frames) {
 				multicol_charset_stats[x]=temp;
 				//swap also the correspondig char in its position
 				for(a=0;a<8;a++) {
-					temp=multicol_charsets[y*8+a];
-					multicol_charsets[y*8+a]=multicol_charsets[x*8+a];
-					multicol_charsets[x*8+a]=temp;
+					temp=multicol_charset[y*8+a];
+					multicol_charset[y*8+a]=multicol_charset[x*8+a];
+					multicol_charset[x*8+a]=temp;
 				}
 			}
 		}
 	}
-#ifdef DEBUG
-	for(y=0;y<lastchar;y++) if(multicol_charset_stat[y]>0) printf("%d  ",multicol_charset_stat[y]);
-	printf("\n");
-	for(x=0;x<10;x++) {
-		for(a=0;a<8;a++) printf("%x ", multicol_charset[x*8+a]);
-		printf("\n");
-	}
-#endif
+	return 0;
 }
 
 int find_multicol_char(int lastchar, int bitmappos) {
@@ -550,7 +585,7 @@ int find_multicol_char(int lastchar, int bitmappos) {
 	int y;
 	for(charpos=0;charpos<lastchar;charpos++) {
 		y=0;
-		while(y<8 && multicol_bitmaps[bitmappos+y]==multicol_charsets[charpos*8+y]) y++;
+		while(y<8 && multicol_bitmaps[bitmappos+y]==multicol_charset[charpos*8+y]) y++;
 		if(y==8) return charpos;
 	}
 	return -1;
@@ -558,7 +593,7 @@ int find_multicol_char(int lastchar, int bitmappos) {
 
 int copy_multicol_block_to_charset(int charpos, int bitmappos) {
 	int y;
-	for(y=0;y<8;y++) multicol_charsets[charpos*8+y]=multicol_bitmaps[bitmappos+y];
+	for(y=0;y<8;y++) multicol_charset[charpos*8+y]=multicol_bitmaps[bitmappos+y];
 	return 0;
 }
 
@@ -577,12 +612,12 @@ int rgb_to_multicol_bitmap(int offset) {
 					c+=data[(x+xx)*bpp+(y+yy)*sizex*bpp+1];
 					c+=data[(x+xx)*bpp+(y+yy)*sizex*bpp+0];
 					c=c/3;
-					c=(int)((float)c/((float)256/(float)7)); ///7 scheisse sein tun
+					c=(int)((float)c/((float)256)*(float)7); ///7 scheisse sein tun
 //					c=(int)((float)1/((float)256/(float)7)); ///7 scheisse sein tun
 					//now we have 2 bit grayscale
 					
 					if(c&1==1) { //mischfarbe, also dithern
-						dither=((xx/2)&1)^(yy&1);
+						dither=((xx/2)&1)^(yy&1);	//kreuzmuster
 					}
 					else {
 						dither=0;
