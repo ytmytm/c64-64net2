@@ -158,6 +158,7 @@ inb_t inb;
 #define uchar		unsigned char
 
 unsigned char request;
+int ATN=0;
 int devicenumber=9;
 uchar SA;
 int state=IEC_IDLE;
@@ -386,16 +387,13 @@ unsigned int iec_listen() {
 					if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; } 
 				}
 				else {
-					/* first we strip off any added stuff like ,p,w (TurboAss likes 
-					 * to add that and else really brings us in trouble! TB */
-					
-					//is there anything like a ',' in our filename?
-					if((char*)strchr(myfilename, ',')!=NULL) {
-						//yes, so get rid of that
-		         			pos=(int)((char*)strchr(myfilename, ',')-(char*)myfilename);
-						myfilename[pos]=0;
-						myfilenamelen=pos;
-					}
+					//XXX UNUSED
+//					if((char*)strchr(myfilename, ',')!=NULL) {
+//						//yes, so get rid of that
+//		         			pos=(int)((char*)strchr(myfilename, ',')-(char*)myfilename);
+//						myfilename[pos]=0;
+//						myfilenamelen=pos;
+//					}
 					
 					/* Data received was a filename to open */
 					#ifdef DEBUG_PIEC
@@ -403,7 +401,20 @@ unsigned int iec_listen() {
 					#endif
 					//if (logical_files[file_unit][listenlf].open == 1) fs64_closefile_g (&logical_files[last_unit][listenlf]);
 					debug_msg ("*** Opening [%s] on channel $%02x\n", myfilename, listenlf);
-					fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], myfilename, &logical_files[file_unit][listenlf]);
+					//hier checken ob dir, falls ja merken damit wir spätrt
+					//0 bytes schicken
+					//dann auch noch cd:new dir
+					//fs64_findnext_g(&de);					
+					//printf("filetype: %s\n",curr_dir[last_unit][curr_par[last_unit]]);
+					//printf("filetype: %s\n",myfilename);
+					//printf("filetype: %s\n",de.realname);
+					//printf("filetype: %s\n",de.realname);
+					if(fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], myfilename, &logical_files[file_unit][listenlf])==-1) {
+					printf("filetype: %x\n",logical_files[file_unit][listenlf].isdir);
+					logical_files[file_unit][listenlf].open=0;
+					
+					}
+					
 				}
 			break;
 			case IEC_CLOSE: /* CLOSE */
@@ -511,10 +522,19 @@ unsigned int iec_talk() {
 		//if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; }
 		//do we have an open file?
 		if (logical_files[file_unit][listenlf].open != 1) {
-			/* File not found, now signal it with sending a dummy char followed by a timeout */
-			set_error(62,0,0);
-			if(send_byte(0,ERROR_FILE_NOT_FOUND)==-1) return -1;
-			return 0;
+			if (logical_files[file_unit][listenlf].isdir != 1) {
+				/* File not found, now signal it with sending a dummy 
+				 * char followed by a timeout */
+				set_error(62,0,0);
+				if(send_byte(0,ERROR_FILE_NOT_FOUND)==-1) return -1;
+				return 0;
+			}
+			else {
+				printf("loading a dir...\n");
+				set_error(0,0,0);
+				if(send_byte(0,ERROR_EOI)==-1) return -1;
+				return 0;
+			}
 		}
 		else {
 			/* start sending bytes until finished or ATN high */
@@ -561,10 +581,12 @@ int send_byte(unsigned char data, int error_code) {
 	 * of status! Thus the decision might be faulty and we 
 	 * get into big troubles! */
 #ifdef FLIPFLOP
-	set_datalines_output();
-	write_data((data&0xff));
-	if(error_code==-1) acknowledge();
-	else send_error(error_code);
+	if((get_status()&ATN_IN)==ATN_IN) {
+		set_datalines_output();
+		write_data((data&0xff));
+		if(error_code==-1) acknowledge();
+		else send_error(error_code);
+	}
 #endif
 	while(1) {
 		temp=get_status();
@@ -575,10 +597,12 @@ int send_byte(unsigned char data, int error_code) {
 				printf("ATN changed!\n");
 			#endif
 			/* ATN went high, we better stop! */
+			ATN=1;
 			return -1;
 		}
 		if((temp&REQUEST_IN)!=request) break;
 	}
+	ATN=0;
 	request^=REQUEST_IN;
 	#ifdef DEBUG_PIEC
 		printf("Request toggled $%x $%x\n",get_status(),request);
@@ -599,29 +623,11 @@ int send_byte(unsigned char data, int error_code) {
 	return 0;
 }
 
-int wait_request() {
-	unsigned char temp;
-	while(1) {
-		temp=get_status();
-		if((temp&ATN_IN)!=ATN_IN) {
-			set_datalines_input();
-			request=temp&REQUEST_IN;
-			#ifdef DEBUG_PIEC
-				printf("ATN changed!\n");
-			#endif
-			/* ATN went high, we better stop! */
-			return -1;
-		}
-		if((temp&REQUEST_IN)!=request) break;
-	}
-	request^=REQUEST_IN;
-	return 0;
-}
-
 /* Added a polling-interval value to avoid unnecessary 
  * cpu-cycles when being idle */
 int receive_byte(int error_code, int wait) {
 	int data=0;
+	float time;
 
 	#ifdef DEBUG_PIEC
 	printf("Receiving data...\n");
@@ -632,8 +638,25 @@ int receive_byte(int error_code, int wait) {
 	#ifdef DEBUG_PIEC
 	printf("Waiting for request to toggle...\n");
 	#endif
-	while((get_status()&REQUEST_IN)==request) {
-		if(wait>0) usleep(wait);
+	//If ATN == 1 we had already noticed a toggle before and also
+	//acknowledged the byte unfortunatedly. so no need to wait here 
+	//anymore but we grant a timeout and try to save the data that
+	//is hopefully still valid!
+	if(ATN==1) {
+		//better save data before it is too late
+		data|=(read_data()&0xff);
+		//in case of ATN went high during send_byte, we only poll request with 
+		//an timeout else we might hang here forever as we might have missed
+		//the toggle of REQUEST_IN
+		time=clock();
+		while(clock()-time<(float)(CLOCKS_PER_SEC/(float)10)) {
+			if((get_status()&REQUEST_IN)!=request) break;
+		}
+	}
+	else {
+		while((get_status()&REQUEST_IN)==request) {
+			if(wait>0) usleep(wait);
+		}
 	}
 	request^=REQUEST_IN;
 	#ifdef DEBUG_PIEC
@@ -645,13 +668,19 @@ int receive_byte(int error_code, int wait) {
 	 * as it is polling for cnt or flag coming high from our acknowledge.
 	 * If ATN high, OR the read byte with $100, so that we know it was received 
 	 * under attention. */
-	if((get_status()&ATN_IN)!=ATN_IN) { 
+	
+	//Also we might miss out ATN being high here, so we test also for
+	//the flag from last send_byte!
+	if(ATN==1 || (get_status()&ATN_IN)!=ATN_IN) { 
 		#ifdef DEBUG_PIEC
 		printf("data received under ATN\n");
 		#endif
 		data|=0x100; 
+		ATN=0;
 	}
-	data|=(read_data()&0xff);
+	if(ATN==0) {
+		data|=(read_data()&0xff);
+	}
 	if(error_code==-1) acknowledge();
 	else send_error(error_code);
 
@@ -666,7 +695,7 @@ int send_error(unsigned char err) {
 	int a;
 	struct timeval time;
 	time.tv_sec = 0;
-	time.tv_usec = 5; //5µs is on teh save side! with 1µs i sometimes fail to send the error! TB
+	time.tv_usec = 10; //5µs is on teh save side! with 1µs i sometimes fail to send the error! TB
 
 	#ifdef DEBUG_PIEC
 	printf("Triggering CNT...\n");
