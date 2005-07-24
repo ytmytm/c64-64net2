@@ -397,9 +397,16 @@ fs64_direntry2block (fs64_file * f)
     f->buffer[f->be++] = 'Q';
     break;
   case cbm_PRG:
-    f->buffer[f->be++] = 'P';
-    f->buffer[f->be++] = 'R';
-    f->buffer[f->be++] = 'G';
+    if(f->de.filesys.arctype==arc_N64) {
+      f->buffer[f->be++] = 'N';
+      f->buffer[f->be++] = '6';
+      f->buffer[f->be++] = '4';
+    }
+    else {
+      f->buffer[f->be++] = 'P';
+      f->buffer[f->be++] = 'R';
+      f->buffer[f->be++] = 'G';
+    }
     break;
   case cbm_USR:
     f->buffer[f->be++] = 'U';
@@ -763,14 +770,14 @@ fs64_openfile_g (uchar *curdir, uchar *filespec, fs64_file * f)
 
   /* parse out some important info! */
   /* and return a path, glob , dirflag, and mode value for the open request */
-  debug_msg ("openfile_g: running fs64_parse_filespec\n");
+  //debug_msg ("openfile_g: running fs64_parse_filespec\n");
   if (fs64_parse_filespec (filespec, path, glob, &dirflag, &mode, &replace, &par, &dirtrack, &dirsect))
   {
     /* an error occurred */
     /* parse_filespec will have set the error appropriately */
     return (-1);
   }
-  debug_msg ("openfile_g: fs64_parse_filespec completed (T%d S%d)\n", dirtrack, dirsect);
+  //debug_msg ("openfile_g: fs64_parse_filespec completed (T%d S%d)\n", dirtrack, dirsect);
 
   client_activity (1);
 
@@ -820,7 +827,7 @@ fs64_openfile_g (uchar *curdir, uchar *filespec, fs64_file * f)
   if ((mode == mode_READ) && (dirflag == 0))
   {
     /* do a fs64_findfirst_g to locate the file, then a normal open */
-    debug_msg("Calling findfirst_g with: path=%s, glob=%s\n",path,glob);
+    //debug_msg("Calling findfirst_g with: path=%s, glob=%s\n",path,glob);
     if (!fs64_findfirst_g (path, glob, &de, &dirtrack, &dirsect))
     {
       DIR *foo;
@@ -828,9 +835,9 @@ fs64_openfile_g (uchar *curdir, uchar *filespec, fs64_file * f)
       int rv;
       foo = de.dir;
       rv = fs64_openfile (&de, f);
-      debug_msg ("foo: %d, dir %d\n", (int) foo, (int) de.dir);
+      //debug_msg ("foo: %d, dir %d\n", (int) foo, (int) de.dir);
       fs64_closefind_g (&de);
-      debug_msg ("Just closed a dir in openfile_g\n");
+      //debug_msg ("Just closed a dir in openfile_g\n");
       if (!rv)
       {
 	/* notify client, if necessary */
@@ -849,7 +856,7 @@ fs64_openfile_g (uchar *curdir, uchar *filespec, fs64_file * f)
       fs64_closefind_g (&de);
       debug_msg("Error reason: fs64_findfirst_g (%s,%s,&de,%d,%d) failed\n",
 		path, glob,dirtrack,dirsect);
-      set_error (62, 0, 0);
+  //    set_error (62, 0, 0);
       client_activity (of_count);
       return (-1);
     }
@@ -932,8 +939,8 @@ fs64_openfile_g (uchar *curdir, uchar *filespec, fs64_file * f)
     if (par == 0)
       par = curr_par[last_unit];
     /* setup de for search */
-    debug_msg ("openfile_g: running openfind_g\n");
-    debug_msg("Calling findfirst_g with: path=%s, glob=%s,$\n",path,glob);
+    //debug_msg ("openfile_g: running openfind_g\n");
+    //debug_msg("Calling findfirst_g with: path=%s, glob=%s,$\n",path,glob);
     if (fs64_openfind_g (path, (uchar*)strcat ((char*)glob, ",$"), &f->de, &dirtrack, &dirsect))
     {
       /* cant open directory */
@@ -947,22 +954,21 @@ fs64_openfile_g (uchar *curdir, uchar *filespec, fs64_file * f)
       /* joy! - lets to it */
       fs64_filesystem fs;
       fs.fsfile = 0;
-      debug_msg ("openfile_g: openfind_g succeeded\n");
+     // debug_msg ("openfile_g: openfind_g succeeded\n");
       if (fs_pathtofilesystem (&fs, path))
       {
 	return (-1);
       }
       f->filesys.dirtrack = dirtrack;
       f->filesys.dirsector = dirsect;
-      debug_msg ("fs64_openfile_g() mt: %d\n", de.filesys.media);
+      //debug_msg ("fs64_openfile_g() mt: %d\n", de.filesys.media);
       f->blocksfree = fs64_blocksfree (&fs);
       if (fs.fsfile)
       {
-	debug_msg ("Trying to close a file: %d\n", (int) fs.fsfile);
+//	debug_msg ("Trying to close a file: %d\n", (int) fs.fsfile);
 	fclose (fs.fsfile);
 	fs.fsfile = 0;
       }
-      debug_msg ("After\n");
       f->bp = 0;
       f->be = 0;
       f->mode = mode_READ;
@@ -1064,6 +1070,7 @@ fs64_openfile (fs64_direntry * de, fs64_file * f)
   {
     /* its a bad'un! */
     /* 64,FILE TYPE MISMATCH,00,00 */
+	  //XXX DIR CHECK, TOBY
     debug_msg("Error reason: Tried to open a cbm_DIR or cbm_CBM file\n");
     set_error (64, 0, 0);
     return (-2);		/* references an `unopenable' */
@@ -1205,7 +1212,7 @@ fs64_closefile (fs64_file * f)
     {
       if ((f->filesys.fsfile)&&(f->realname[0]))
       {
-	debug_msg ("closing file (probably `%s')\n", f->realname);
+	//debug_msg ("closing file (probably `%s')\n", f->realname);
 	fclose (f->filesys.fsfile);
 	f->filesys.fsfile = 0;
       }

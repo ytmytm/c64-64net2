@@ -12,8 +12,10 @@
 int
 fs64_findfirst_g (uchar *path, uchar *glob, fs64_direntry * de, int *dirtrack, int *dirsect)
 {
-  if (!fs64_openfind_g (path, glob, de, dirtrack, dirsect))
+  if (!fs64_openfind_g (path, glob, de, dirtrack, dirsect)) {
+
     return (fs64_findnext_g (de));
+  }
   else
     return (-1);
 

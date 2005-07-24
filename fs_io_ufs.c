@@ -37,14 +37,14 @@ fs_ufs_createfile (uchar *path, uchar *name, int t, int rel_len, fs64_file * f)
 	     path, name, t);
 
   /* get shortened name for file */
-  if (shortname (path, name, rname, (uchar*)".n64"))
+  if (shortname (path, name, rname, (uchar*)"")) //.prg
   {
     /* disk full (or dir full etc..) */
     set_error (72, 0, 0);
     return (-1);
   }
 
-  sprintf ((char*)fname, "%s%s.n64", path, rname);
+  sprintf ((char*)fname, "%s%s", path, rname); //%s%s.prg
   debug_msg ("ufs: rendered filename to: %s\n", fname);
 
   /* create file, and put vital info in */
@@ -84,31 +84,34 @@ fs_ufs_createfile (uchar *path, uchar *name, int t, int rel_len, fs64_file * f)
     return (-1);
   }				/* end if file not created */
 
-  /* put default stuff into file */
-  /* header & filetype & filesize placeholders */
+/* only needed if we want to store in .n64 fileformat
+ * TB
+  // put default stuff into file 
+  // header & filetype & filesize placeholders 
   fprintf (f->filesys.fsfile, "C64%c%c%c%c%c%c", 0x01, t | 0x80, 0, 0, 0, 0);
-  /* padding (reserved) */
+  // padding (reserved) 
   for (i = 0; i < 22; i++)
     fprintf (f->filesys.fsfile, "%c", 0);
-  /* filename */
+  // filename 
   for (i = 16; i > strlen (name); i--)
     name[i] = 0;
   for (i = 0; i < 16; i++)
     fprintf (f->filesys.fsfile, "%c", (char) name[i]);
-  /* padding to actual start of file */
+  // padding to actual start of file 
   for (i = 0; i < 0xcf; i++)
     fprintf (f->filesys.fsfile, "%c", 0);
-  /* set buffer and poss infomation etc.. */
+  // set buffer and poss infomation etc.. 
+*/
   f->open = 1;
   strcpy (f->fs64name, name);
   strcpy (f->realname, fname);
   f->first_track = 0;
   f->first_sector = 0;
-  f->first_poss = 0xfe;
+  f->first_poss = 0x00; //0xfe
   f->mode = mode_WRITE;
   f->curr_track = 0;
   f->curr_sector = 0;
-  f->curr_poss = 0xfe;
+  f->curr_poss = 0x00; //0xfe
   f->blocks = 0;
   f->realsize = 0;
   f->filetype = 0x80 | t;
@@ -215,7 +218,7 @@ int
 fs_ufs_scratchfile (fs64_direntry * de)
 {
   /* delete file currently pointed to in the de */
-
+//XXX erlauben!
   debug_msg ("Pretending to delete UFS [%s]\n", de->realname);
   /* if (unlink(de->realname))
      return(-1);
@@ -344,6 +347,7 @@ fs_ufs_openfind (fs64_direntry * de, uchar *path)
   {
     /* file system error of some evil sort no doubt */
     /* 74,DRIVE NOT READY,00,00 */
+	  printf("dreck\n");
     set_error (74, 0, 0);
     return (-1);
   }
@@ -359,14 +363,14 @@ fs_ufs_findnext (fs64_direntry * de)
 
   /* read raw entry */
   dirent = readdir (de->dir);
-  if (dirent)
-  {
-    /* skip . & .. */
-    if (dirent && (!strcmp (".", dirent->d_name)))
-      dirent = readdir (de->dir);
-    if (dirent && (!strcmp ("..", dirent->d_name)))
-      dirent = readdir (de->dir);
-  }
+  //if (dirent)
+  //{
+  //  /* skip . & .. */
+  //  if (dirent && (!strcmp (".", dirent->d_name)))
+  //    dirent = readdir (de->dir);
+  //  if (dirent && (!strcmp ("..", dirent->d_name)))
+  //    dirent = readdir (de->dir);
+  //}
 
   if (dirent)
   {
@@ -393,232 +397,205 @@ fs_ufs_findnext (fs64_direntry * de)
 }
 
 int
-fs_ufs_getinfo (fs64_direntry * de)
-{
-  uchar tarr[1025];	/* buffer for first kb of file */
+fs_ufs_getinfo (fs64_direntry * de) {
+	uchar tarr[1025];	/* buffer for first kb of file */
 #ifdef AMIGA
-  BPTR filelock;
-  struct FileInfoBlock myFIB;
+	BPTR filelock;
+	struct FileInfoBlock myFIB;
 #else
-  struct stat buf;
+	struct stat buf;
 #endif
-  FILE *temp = 0;
-  long i;
-  unsigned long j;
+	FILE *temp = 0;
+	long i;
+	unsigned long j;
+	long end,start;
 
-  if ((temp = fopen (de->realname, "r")) == NULL)
-  {
-    /* could not open file - might be a directory or something */
-    /* so we will fall back on our dim assumption - */
-    de->filesys.arctype = arc_UFS;
-  }
-  else
-  {
-    /* read in first 1024 bytes to try to find the file's type */
-    memset(tarr,0,1024);
-    fread(tarr,1024,1,temp);
+	if ((temp = fopen (de->realname, "r")) == NULL) {
+		/* could not open file - might be a directory or something */
+		/* so we will fall back on our dim assumption - */
+		de->filesys.arctype = arc_UFS;
+	}
+	else {
+		/* read in first 1024 bytes to try to find the file's type */
+		memset(tarr,0,1024);
+		fread(tarr,1024,1,temp);
 
-    /* now try to find the file's type */
-    de->filesys.arctype = arc_UFS;	/* default */
-    de->invisible = 0;		/* we want to be able to see the file */
-    if ((tarr[0] == 'C') && (tarr[1] == '6') && (tarr[2] == '4') && (tarr[3] < 3))
-    {
-      /* n64 file! */
-      de->filesys.arctype = arc_N64;
-    }
-    /* is it just a raw file?? */
-    if ((tarr[0] == 0x01) && ((tarr[1] == 8) || (tarr[1] == 0x1c) || (tarr[1] == 0x20) || (tarr[1] == 0x40)))
-    {
-      /* raw binary file */
-      de->filesys.arctype = arc_RAW;
-    }
-    fclose (temp);
-    temp = 0;
-  }
+		/* now try to find the file's type */
+		de->filesys.arctype = arc_UFS;	/* default */
+		de->invisible = 0;		/* we want to be able to see the file */
+		if ((tarr[0] == 'C') && (tarr[1] == '6') && (tarr[2] == '4') && (tarr[3] < 3)) {
+			/* n64 file! */
+			de->filesys.arctype = arc_N64;
+		}
+		//else {
+		/* is it just a raw file?? */
+		//XXX This causes problems if we have a .d64 starting with 0x01 0x08
+		//i had already such cases a .d64 wasn't recgnized :-/ Toby
+		//maybe we have bette checks to make out a LNX archive? maybe we also 
+		//include the .lnx ending? 
+		//    if ((tarr[0] == 0x01) && ((tarr[1] == 8) || (tarr[1] == 0x1c) || (tarr[1] == 0x20) || (tarr[1] == 0x40))) {
+		/* raw binary file */
+		//      de->filesys.arctype = arc_RAW;
+		//    }
+		fclose (temp);
+		temp = 0;
+	}
 
-  /* now we know the file structure - lets do something about it ;) */
-  switch (de->filesys.arctype)
-  {
-  case arc_UFS:
-    {
+	/* now we know the file structure - lets do something about it ;) */
+	switch (de->filesys.arctype) {
+		case arc_UFS: {
 #ifdef AMIGA
-      if ((filelock = Lock (de->realname, ACCESS_READ)) != 0)
-	if (Examine (filelock, &myFIB))
-	{
-	  de->realsize = myFIB.fib_Size;
-	  /* calculate the size in blocks */
-	  de->blocks = (long) ((de->realsize / 254) + ((de->realsize % 254) && 1));
-	  /* File is UFS */
-	  de->filetype = cbm_UFS;
-	  if (myFIB.fib_DirEntryType > 0)
-	    de->filetype = cbm_DIR;
-	  de->filetype |= cbm_CLOSED * (((myFIB.fib_Protection & 0x08) == 0x08) == 0);
-	  /* If no write permission then is write protected */
-	  de->filetype |= cbm_LOCKED * (((myFIB.fib_Protection & 0x04) == 0x04) != 0);
-	  UnLock (filelock);
-	}
-	else
-	  return (-1);		/* Lock failed - something else has exclusive access? */
+			if ((filelock = Lock (de->realname, ACCESS_READ)) != 0)
+			if (Examine (filelock, &myFIB))	{
+				de->realsize = myFIB.fib_Size;
+				/* calculate the size in blocks */
+				de->blocks = (long) ((de->realsize / 254) + ((de->realsize % 254) && 1));
+				/* File is UFS */
+				de->filetype = cbm_UFS;
+				if (myFIB.fib_DirEntryType > 0) de->filetype = cbm_DIR;
+				de->filetype |= cbm_CLOSED * (((myFIB.fib_Protection & 0x08) == 0x08) == 0);
+				/* If no write permission then is write protected */
+				de->filetype |= cbm_LOCKED * (((myFIB.fib_Protection & 0x04) == 0x04) != 0);
+				UnLock (filelock);
+			}
+			else  return (-1);/* Lock failed - something else has exclusive access? */
 #else
-      /* find the size of the binary portion of a file */
-      stat ((char*)de->realname, &buf);
-      /* calculate the file binary size */
-      de->realsize = buf.st_size;
-      /* calculate the size in blocks */
-      de->blocks = (long) ((de->realsize / 254) + ((de->realsize % 254) && 1));
-      /* File is UFS */
-      de->filetype = cbm_UFS;
-      if (buf.st_mode & S_IFDIR)
-	de->filetype = cbm_DIR;
-      de->filetype |= cbm_CLOSED * ((buf.st_mode & S_IREAD) != 0);
-      /* If no write permission then is write protected */
-      de->filetype |= cbm_LOCKED * ((buf.st_mode & S_IWRITE) == 0);
+			/* find the size of the binary portion of a file */
+			stat ((char*)de->realname, &buf);
+			/* calculate the file binary size */
+			de->realsize = buf.st_size;
+			/* calculate the size in blocks */
+			de->blocks = (long) ((de->realsize / 254) + ((de->realsize % 254) && 1));
+			/* File is UFS */
+			de->filetype = cbm_UFS;
+			if (buf.st_mode & S_IFDIR) de->filetype = cbm_DIR;
+			de->filetype |= cbm_CLOSED * ((buf.st_mode & S_IREAD) != 0);
+			/* If no write permission then is write protected */
+			de->filetype |= cbm_LOCKED * ((buf.st_mode & S_IWRITE) == 0);
 #endif
-      /* use files real name - so do nothing (pre-set) */
-      /* track and sector = -1 as not a sector available file */
-      de->track = -1;
-      de->sector = -1;
-      /* binary base for a arc_UFS is zero */
-      de->binbase = 0;
+			/* use files real name - so do nothing (pre-set) */
+			/* track and sector = -1 as not a sector available file */
+			de->track = -1;
+			de->sector = -1;
+			/* binary base for a arc_UFS is zero */
+			de->binbase = 0;
 
-      /* check if right 4 chars are .d64 or .t64 - if so, then this is
-         a logical sub-directory
-       */
-      i = strlen (de->realname);
-      j = de->realname[i - 4] * 65536 * 256 + de->realname[i - 3] * 65536;
-      j += de->realname[i - 2] * 256 + de->realname[i - 1];
-      switch (j)
-      {
-      case 0x2e443634:		/* .D64 */
-      case 0x2e643634:		/* .d64 */
-      case 0x2e543634:		/* .T64 */
-      case 0x2e743634:		/* .t64 */
-      case 0x2e443731:		/* .D71 */
-      case 0x2e643731:		/* .d71 */
-	de->filetype &= (cbm_CLOSED | cbm_LOCKED);
-	de->filetype |= cbm_DIR;
-	de->first_track = 18;
-	de->first_sector = 0;
-	break;
-      case 0x2e443831:		/* .D81 */
-      case 0x2e643831:		/* .d81 */
-	de->filetype &= (cbm_CLOSED | cbm_LOCKED);
-	de->filetype |= cbm_DIR;
-	de->first_track = 40;
-	de->first_sector = 0;
-	break;
-      case 0x2e444844:		/* .DHD */
-      case 0x2e646864:		/* .dhd */
-	de->filetype &= (cbm_CLOSED | cbm_LOCKED);
-	de->filetype |= cbm_DIR;
-	de->first_track = 1;
-	de->first_sector = 1;
-	break;
-      }
+			/* check if right 4 chars are .d64 or .t64 - if so, then this is
+			   a logical sub-directory
+			*/
+			i = strlen (de->realname);
+			j = de->realname[i - 4] * 65536 * 256 + de->realname[i - 3] * 65536;
+			j += de->realname[i - 2] * 256 + de->realname[i - 1];
+			switch (j) {
+				//XXX at loadtime, if filetype=xxx_DIR, then
+				//cd to dir and return 0 bytes
+				case 0x2e4c4e58:		/* .LNX */
+				case 0x2e6c6e78:		/* .lnx */
+					de->filetype &= (cbm_CLOSED | cbm_LOCKED);
+					de->filetype |= cbm_DIR;
+					de->first_track = -1;
+					de->first_sector = -1;
+					de->binbase=0;
+					de->filesys.arctype=arc_RAW;
+					break;
 
-      if ((de->filetype & 0xf) == cbm_DIR)
-      {
-	/* mono case */
-	for (i = 0; i < 16; i++)
-	{
-	  if (isalpha (de->fs64name[i]))
-	    de->fs64name[i] = toupper (de->fs64name[i]);
+				case 0x2e443634:		/* .D64 */
+				case 0x2e643634:		/* .d64 */
+				case 0x2e543634:		/* .T64 */
+				case 0x2e743634:		/* .t64 */
+				case 0x2e443731:		/* .D71 */
+				case 0x2e643731:		/* .d71 */
+					de->filetype &= (cbm_CLOSED | cbm_LOCKED);
+					de->filetype |= cbm_DIR;
+					de->first_track = 18;
+					de->first_sector = 0;
+					break;
+				case 0x2e443831:		/* .D81 */
+				case 0x2e643831:		/* .d81 */
+					de->filetype &= (cbm_CLOSED | cbm_LOCKED);
+					de->filetype |= cbm_DIR;
+					de->first_track = 40;
+					de->first_sector = 0;
+					break;
+				case 0x2e444844:		/* .DHD */
+				case 0x2e646864:		/* .dhd */
+					de->filetype &= (cbm_CLOSED | cbm_LOCKED);
+					de->filetype |= cbm_DIR;
+					de->first_track = 1;
+					de->first_sector = 1;
+					break;
+					/*
+				case 0x2e505247:		// .PRG 
+				case 0x2e707267:		// .prg 
+			//		end=strlen(de->realname)-4;
+			//		start=strlen(de->realname)-4;
+			//		while(start>0) {
+			//			if(de->realname[start]=='/') { start++; break; }
+			//			start--;
+			//		}
+			//		for (i=0;i<16;i++) {
+			//			if(start<end) {
+			//				de->fs64name[i]=de->realname[start];
+			//				start++;
+			//			}
+			//			else {
+			//				de->fs64name[i]=0xa0;
+			//			}
+			//		}
+		//			de->fs64name[17]=0xa0;
+					de->filetype &= (cbm_CLOSED | cbm_LOCKED);
+					de->filetype |= cbm_PRG;
+					de->first_track = -1;
+					de->first_sector = -1;
+					
+					break;
+					*/
+				default:
+					if((de->filetype & 0x0f) == cbm_UFS) {
+						de->filetype &= (cbm_CLOSED | cbm_LOCKED);
+						de->filetype = (de->filetype&0xf0) | cbm_PRG;
+						de->first_track = -1;
+						de->first_sector = -1;
+					}
+
+			}
+			if ((de->filetype & 0xf) == cbm_DIR) {
+				/* mono case */
+				for (i = 0; i < 16; i++) {
+					if (isalpha (de->fs64name[i])) de->fs64name[i] = toupper (de->fs64name[i]);
+				}
+			}
+			else {
+				/* case invert */
+				for (i = 0; i < 16; i++) {
+					if (isalpha (de->fs64name[i])) de->fs64name[i] ^= 0x20;
+				}
+			}
+			return (0);
+		}
+		case arc_N64: {
+			/* lets extract some info =) */
+			de->filetype = tarr[4];
+			de->track = 0;
+			de->sector = 0;
+			de->binbase = 254;
+			for (i = 0; i < 16; i++) {
+				if (tarr[31 + i] > 0) de->fs64name[i] = tarr[i + 31];
+				else de->fs64name[i] = 0xa0;	/* 0xa0 padding , like 1541 */
+			}
+			/* The size too small by one caused a bug! */
+			de->realsize = tarr[7] + 256 * tarr[8] + 65536 * tarr[9] + (65536 * 256) * tarr[10] + 1;
+			de->blocks = (de->realsize) / 254 + ((de->realsize % 254) != 0);
+	
+			return (0);
+		}
+		default: {
+			/* Ooh.. a bad thing (tm) */
+			/* 74, DRIVE NOT READY,00,00 */
+			set_error (74, 0, 0);
+			return (-1);
+		}
+	
+						/* end switch de.arctype */
 	}
-      }
-      else
-      {
-	/* case invert */
-	for (i = 0; i < 16; i++)
-	{
-	  if (isalpha (de->fs64name[i]))
-	    de->fs64name[i] ^= 0x20;
-	}
-      }
-
-      return (0);
-    }
-  case arc_RAW:
-    {
-#ifdef AMIGA
-      if ((filelock = Lock (de->realname, ACCESS_READ)) != 0)
-	if (Examine (filelock, &myFIB))
-	{
-	  de->realsize = myFIB.fib_Size;
-	  /* calculate the size in blocks */
-	  de->blocks = (long) ((de->realsize / 254) + ((de->realsize % 254) && 1));
-	  /* File is UFS */
-	  de->filetype = cbm_UFS;
-	  if (myFIB.fib_DirEntryType > 0)
-	    de->filetype = cbm_DIR;
-	  de->filetype |= cbm_CLOSED * (((myFIB.fib_Protection & 0x08) == 0x08) == 0);
-	  /* If no write permission then is write protected */
-	  de->filetype |= cbm_LOCKED * (((myFIB.fib_Protection & 0x04) == 0x04) != 0);
-	  UnLock (filelock);
-	}
-	else
-	  return (-1);		/* Lock failed - something else has exclusive access? */
-#else
-      stat ((char*)de->realname, &buf);
-      de->realsize = buf.st_size;
-      de->blocks = (long) ((de->realsize / 254) + ((de->realsize % 254) && 1));
-      if (buf.st_mode & S_IFDIR)
-	de->filetype = cbm_DIR;
-      else
-	de->filetype = cbm_PRG;
-      de->filetype |= cbm_CLOSED * ((buf.st_mode & S_IREAD) != 0);
-      de->filetype |= cbm_LOCKED * ((buf.st_mode & S_IWRITE) == 0);
-#endif
-      /* use defualt filename (preset) */
-      de->track = -1;
-      de->sector = -1;
-      de->binbase = 0;
-
-      i = strlen (de->realname);
-      j = de->realname[i - 4] * 65536 * 256 + de->realname[i - 3] * 65536;
-      j += de->realname[i - 2] * 256 + de->realname[i - 1];
-      /* check if its a lynx file */
-      switch (j)
-      {
-      case 0x2e4c4e58:		/* .LNX */
-      case 0x2e6c6e78:		/* .lnx */
-	de->filetype &= (cbm_CLOSED | cbm_LOCKED);
-	de->filetype |= cbm_DIR;
-	{
-	  /* mono case */
-	  int i;
-	  for (i = 0; i < 16; i++)
-	  {
-	    if (isalpha (de->fs64name[i]))
-	      de->fs64name[i] = toupper (de->fs64name[i]);
-	  }
-	}
-      }
-      return (0);
-    }
-  case arc_N64:
-    {
-      /* lets extract some info =) */
-      de->filetype = tarr[4];
-      de->track = 0;
-      de->sector = 0;
-      de->binbase = 254;
-      for (i = 0; i < 16; i++)
-	if (tarr[31 + i] > 0)
-	  de->fs64name[i] = tarr[i + 31];
-	else
-	  de->fs64name[i] = 0xa0;	/* 0xa0 padding , like 1541 */
-      /* The size too small by one caused a bug! */
-      de->realsize = tarr[7] + 256 * tarr[8] + 65536 * tarr[9] + (65536 * 256) * tarr[10] + 1;
-      de->blocks = (de->realsize) / 254 + ((de->realsize % 254) != 0);
-
-      return (0);
-    }
-  default:
-    {
-      /* Ooh.. a bad thing (tm) */
-      /* 74, DRIVE NOT READY,00,00 */
-      set_error (74, 0, 0);
-      return (-1);
-    }
-  }				/* end switch de.arctype */
 }
