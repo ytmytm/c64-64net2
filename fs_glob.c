@@ -15,6 +15,7 @@ typedef struct
 }
 glob_record;
 
+//XXX UNUSED
 int
 glob_comp (uchar *pattern, uchar *test, int filetype)
 {
@@ -75,9 +76,15 @@ glob_p_comp (uchar glob_array[17][32], uchar *pattern)
   return (0);
 }
 
+//XXX UNUSED
 int
-glob_match (uchar *glob, uchar *pattern)
+glob_match_old (uchar *glob, uchar *pattern)
 {
+	//XXX einfacher machen, deutlich
+	//string abwatscheln, wenn ? dann char skippen, passt, wenn ende glob oder * auch gut. 
+	//wenn > 16 dann eh schlecht
+	
+
   /* glob compare a single string (with 0xa0 padding in pattern) */
   glob_record globs[32];
   int glob_count = 0;
@@ -168,6 +175,38 @@ glob_match (uchar *glob, uchar *pattern)
   return (1);
 }
 
+int glob_match (uchar *glob, uchar *pattern) {
+	//fixed bug. now we can't load "foo01" anymore 
+	//by just loading "foo". now we need to load
+	//"foo*", "foo01" or alike to make that happen. TB
+	int i;
+	for(i=0; i < strlen(pattern); i++) {
+		//still within glob, so compare
+		if(i<strlen(glob)) {
+			if(glob[i]=='?') {
+				//we can assume any char, but take care we have not
+				//reached the padding already
+				if(pattern[i]==0xa0) return 0;
+			}
+			else {
+				//great, a star, so no need to care about the rest
+				if(glob[i]=='*') {
+					return 1;
+				}
+				else {
+					//the regular case, compare both
+					if(glob[i]!=pattern[i]) return 0;
+				}
+			}
+		}
+		//end of glob. now rest of pattern must be empty or we fail
+		//as pattern is longer then glob then.
+		else {
+			if(pattern[i]!=0xa0) return 0;
+		}
+	}
+	return 1;
+}
 
 int
 parse_glob (uchar glob_array[17][32], uchar *pattern)
