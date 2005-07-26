@@ -191,7 +191,7 @@ int multicol_frame_counter;
 char* write_name="output.a64";
 char* charset_name="chargen";
 char* write_mode="w+";
-char read_name[128];
+char* read_name;
 char* read_mode="r";
 unsigned char *result;
 unsigned char *data;
@@ -206,12 +206,68 @@ void convert_to_ecm();
 void convert_to_petscii(); 
 void convert_to_multicol(); 
 
-int main() {
+int main(int argc, char **argv) {
 	int c;
-	mode = MULTICOL_CHARSET;
+	int a;
+	if(argc==1) {
+		fprintf(stderr, "Usage: convert -m <mode> <first file> [<output file>]\n");
+		fprintf(stderr, "  Converts sequence of bmp-files into .a64 format.\n");
+		fprintf(stderr, "  The following modes are accepted: petscii, multi, ecm.\n");
+		exit(2);
+	}
+	for(a=1;a<argc;a++) {
+		if(strcmp(argv[a],"-f")==0) {
+			a++;
+			if(argc>a) {
+				printf("%s\n",argv[a]);
+				read_name=argv[a];
+			}
+			else {
+				fprintf(stderr, "ERROR: No input file given.\n");
+				exit(2);
+			}
+		}  
+		//-> nachfolgendes als filenamen holen,a++;	
+		if (strcmp(argv[a],"-m")==0) {
+			a++;
+			if(argc>a) {
+				printf("%s\n",argv[a]);
+				if(strcmp(argv[a],"petscii")==0) mode=PETSCII;
+				else if(strcmp(argv[a],"multi")==0) mode=MULTICOL_CHARSET;
+				else if(strcmp(argv[a],"ecm")==0) mode=ECM_COLOR;
+				else {
+					fprintf(stderr, "Unknown mode.\n");
+					exit(2);
+				}
+
+			}
+			else {
+				fprintf(stderr, "ERROR: No mode given.\n");
+				exit(2);
+			}
+			
+			//-> nachfolgendes arg als mode holen
+		}
+		if (strcmp(argv[a],"-o")==0) {
+			a++;
+			if(argc>a) {
+				printf("%s\n",argv[a]);
+				write_name=argv[a];
+			}
+			else {
+				fprintf(stderr, "ERROR: No output file given.\n");
+				exit(2);
+			}
+			//-> nachfolgendes arg als mode holen
+		}
+		//if (strcmp(argv[a],"-l")==0) {
+		//	//-> nachfolgendes arg als mode holen
+		//}
+	}
+//	mode = MULTICOL_CHARSET;
 //	mode = PETSCII;
-	filenr=100000;
-	charset_lifetime = 2;
+	filenr=10000;
+	charset_lifetime = 1;
 	
 	fdw = fopen (write_name, write_mode);
 	if(fdw==NULL) { printf("Error: can't open output file\n"); exit(0); }
@@ -251,7 +307,7 @@ int create_structures() {
 	//count possible color combinations
 	while(color_ranges[range_count*2]!=color_ranges[range_count*2+1]) range_count++;
 	range_count--;
-	printf("stat: %d\n",range_count);
+	//printf("stat: %d\n",range_count);
 	return 0;
 }
 
