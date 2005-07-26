@@ -288,7 +288,6 @@ void iec_unlisten() {
 unsigned int iec_listen() {
 	unsigned int temp;
 	int maxcount=1024;
-	int pos;
 	change_state(IEC_IDLE);
 	temp=receive_byte(-1,0); 
 	/* we expect a SA coming under ATN high, if something is suspect we fall back to idle */
@@ -351,103 +350,63 @@ unsigned int iec_listen() {
 		}
 	}
 	else {
-		switch (SA&0xf0) {
-			case IEC_OPEN: /* OPEN */
-				begin_measure();
-				myfilenamelen=0;
-				myfilename=malloc(maxcount);
-				#ifdef DEBUG_PIEC
-					printf("Now receiving data...\n");
-				#endif
-				while(1) {
-					/* receive a byte */
-					temp=receive_byte(-1,0);
-					if((temp&0x100)!=0) { change_state(temp); break; }
-					/* byte not under attention: store in input buffer */
-					myfilename[myfilenamelen]=(uchar)temp;
-					myfilenamelen++;
-					/* XXX we should do error handling on too long filenames here. TB */
-					if(myfilenamelen>=maxcount) { 
-						maxcount+=1024; 
-						myfilename=realloc(myfilename,maxcount); 
-					}
-				}
-				myfilename=realloc(myfilename,myfilenamelen+1);
-				myfilename[myfilenamelen]=0;
-
-				/* we are commanded to open, either a file or a command, lets decide further */
-				if(listenlf==0x0f) {
-					/* Data received was a command */
-					#ifdef DEBUG_PIEC
-						printf("Received command \"%s\"\n", myfilename);
-					#endif
-					strcpy(dos_command[last_unit],myfilename);
-					dos_comm_len[last_unit]=myfilenamelen;
-					do_dos_command();
-					if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; } 
-				}
-				else {
-					//XXX UNUSED
-//					if((char*)strchr(myfilename, ',')!=NULL) {
-//						//yes, so get rid of that
-//		         			pos=(int)((char*)strchr(myfilename, ',')-(char*)myfilename);
-//						myfilename[pos]=0;
-//						myfilenamelen=pos;
-//					}
-					
-					/* Data received was a filename to open */
-					#ifdef DEBUG_PIEC
-						printf("Received filename \"%s\" for logical file %d %d\n", myfilename,listenlf,myfilenamelen);
-					#endif
-					//if (logical_files[file_unit][listenlf].open == 1) fs64_closefile_g (&logical_files[last_unit][listenlf]);
-					debug_msg ("*** Opening [%s] on channel $%02x\n", myfilename, listenlf);
-					//XXX openfile seems to be a bit buggy, has sometimes file open though it doesn't exist or is a dir.
-					if(fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], myfilename, &logical_files[file_unit][listenlf])!=0) {
-						logical_files[file_unit][listenlf].open=0;
-					}
-				}
-			break;
-			case IEC_CLOSE: /* CLOSE */
-				end_measure();
-				if (logical_files[file_unit][listenlf].open == 1) { 
-					fs64_closefile_g (&logical_files[last_unit][listenlf]);
-					set_error(0,0,0);
-				}
-				/* Close file from SA */
-				#ifdef DEBUG_PIEC
-					printf("Closing logical file %d\n",listenlf);
-				#endif
-				/* do nothing except cleaning up */
-				if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; }
-			       break;
-			default:
-				if(listenlf!=0xf) {
-					#ifdef DEBUG_PIEC
-						printf("Strange SA received. Let's interpret it as command then...\n");
-					#endif
-					/* can't handle SA, so we assume it is a just a new command */
-					change_state(SA);
-				}
-				else {
-					#ifdef DEBUG_PIEC
-						printf("Receiving DOS command\n");
-					#endif
-						while(1) {
+		if((SA&0xf0)==IEC_OPEN || listenlf==0x0f) {  /* OPEN */
+			begin_measure();
+			myfilenamelen=0;
+			myfilename=malloc(maxcount);
+			#ifdef DEBUG_PIEC
+				printf("Now receiving data...\n");
+			#endif
+			//first receive something
+			while(1) {
 				/* receive a byte */
-						  temp=receive_byte(-1,0);
-				/* check if data received under ATN high */
-						  if((temp&0x100)!=0) { change_state(temp); break; }
-#ifdef DEBUG_PIEC
-						  printf("Got DOS command byte $%x\n",temp);
-#endif
-						  if (dos_comm_len[last_unit]<255)
-						    dos_command[last_unit][dos_comm_len[last_unit]++]=temp;
-						}
-						debug_msg ("Processing dos command\n");
-						if (dos_comm_len[last_unit]!=0) do_dos_command();
-						
+				temp=receive_byte(-1,0);
+				if((temp&0x100)!=0) { change_state(temp); break; }
+				/* byte not under attention: store in input buffer */
+				myfilename[myfilenamelen]=(uchar)temp;
+				myfilenamelen++;
+				/* XXX we should do error handling on too long filenames here. TB */
+				if(myfilenamelen>=maxcount) { 
+					maxcount+=1024; 
+					myfilename=realloc(myfilename,maxcount); 
 				}
-			break;
+			}
+			myfilename=realloc(myfilename,myfilenamelen+1);
+			myfilename[myfilenamelen]=0;
+
+			/* we are commanded to open, either a file or a command, lets decide further */
+			if(listenlf==0x0f) {
+				myfilename[myfilenamelen]=0;
+				/* Data received was a command */
+				#ifdef DEBUG_PIEC
+					printf("Received command \"%s\"\n", myfilename);
+				#endif
+				strcpy(dos_command[last_unit],myfilename);
+				dos_comm_len[last_unit]=myfilenamelen;
+				if (dos_comm_len[last_unit]!=0) do_dos_command();
+				if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; } 
+			}
+			else {
+				/* Data received was a filename to open */
+				debug_msg ("*** Opening [%s] on channel $%02x\n", myfilename, listenlf);
+				//XXX openfile seems to be a bit buggy, has sometimes file open though it doesn't exist or is a dir.
+				if(fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], myfilename, &logical_files[file_unit][listenlf])!=0) {
+					logical_files[file_unit][listenlf].open=0;
+				}
+			}
+		}
+		if((SA&0xf0)==IEC_CLOSE) { /* CLOSE */
+			end_measure();
+			if (logical_files[file_unit][listenlf].open == 1) { 
+				fs64_closefile_g (&logical_files[last_unit][listenlf]);
+				set_error(0,0,0);
+			}
+			/* Close file from SA */
+			#ifdef DEBUG_PIEC
+				printf("Closing logical file %d\n",listenlf);
+			#endif
+			/* do nothing except cleaning up */
+			if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; }
 		}
 	}
 	return 0;
@@ -526,8 +485,6 @@ unsigned int iec_talk() {
 			for(i=0;i<myfilenamelen;i++) {
 				dos_command[last_unit][3+i]=myfilename[i];
 			}
-			printf("cd-string: %s\n", dos_command[last_unit]);
-			printf("len: %d\n", dos_comm_len[last_unit]);
 			if(do_dos_command()==0) {
 				printf("changed sucessful\n");
 		//		set_error(0,0,0);
@@ -546,7 +503,6 @@ unsigned int iec_talk() {
 		}
 		else {
 			/* start sending bytes until finished or ATN high */
-			
 			if(!fs64_readchar(&logical_files[file_unit][talklf],&data)) {
 				while(1) {
 					buffer=data;
