@@ -49,7 +49,7 @@ fs_ufs_createfile (uchar *path, uchar *name, int t, int rel_len, fs64_file * f)
 
   /* create file, and put vital info in */
   f->filesys.media = media_UFS;
-  f->filesys.arctype = arc_N64;
+  f->filesys.arctype = cbm_PRG;
   strcpy (f->filesys.fspath, path);
   if ((f->filesys.fsfile = fopen (fname, "w")) == NULL)
   {
@@ -88,7 +88,7 @@ fs_ufs_createfile (uchar *path, uchar *name, int t, int rel_len, fs64_file * f)
  * TB
   // put default stuff into file 
   // header & filetype & filesize placeholders 
-  fprintf (f->filesys.fsfile, "C64%c%c%c%c%c%c", 0x01, t | 0x80, 0, 0, 0, 0);
+   fprintf (f->filesys.fsfile, "C64%c%c%c%c%c%c", 0x01, t | 0x80, 0, 0, 0, 0);
   // padding (reserved) 
   for (i = 0; i < 22; i++)
     fprintf (f->filesys.fsfile, "%c", 0);
@@ -100,8 +100,8 @@ fs_ufs_createfile (uchar *path, uchar *name, int t, int rel_len, fs64_file * f)
   // padding to actual start of file 
   for (i = 0; i < 0xcf; i++)
     fprintf (f->filesys.fsfile, "%c", 0);
-  // set buffer and poss infomation etc.. 
 */
+  // set buffer and poss infomation etc.. 
   f->open = 1;
   strcpy (f->fs64name, name);
   strcpy (f->realname, fname);
@@ -265,10 +265,11 @@ fs_ufs_writeblock (fs64_file * f)
     f->realsize++;
   }
   /* update file size stuff */
-  fseek (f->filesys.fsfile, 7, SEEK_SET);
-  fprintf (f->filesys.fsfile, "%c%c%c%c", (int) f->realsize & 0xff,
-   (int) (0xff & (f->realsize / 256)), (int) (0xff & (f->realsize / 65536)),
-	   (int) (0xff & (f->realsize / (65536 * 256))));
+  //This destroys our .prg file, we better avoid. TB
+  //fseek (f->filesys.fsfile, 7, SEEK_SET);
+  //fprintf (f->filesys.fsfile, "%c%c%c%c", (int) f->realsize & 0xff,
+  // (int) (0xff & (f->realsize / 256)), (int) (0xff & (f->realsize / 65536)),
+//	   (int) (0xff & (f->realsize / (65536 * 256))));
   /* set buffer pointer */
   f->bp = 2;
   f->be = 2;
