@@ -279,8 +279,6 @@ void iec_untalk() {
 void iec_unlisten() {
 	change_state(IEC_IDLE);
 	//now we can clear the pos, as we closed the file anyway and clear the status;
-	//dos_stat_pos[file_unit]=0;
-	//set_error(0, 0, 0);
 	//now we can fall into IDLE state to wait for new challanges.
 	return;
 }
@@ -348,67 +346,75 @@ unsigned int iec_listen() {
 				fs64_writechar(&logical_files[file_unit][listenlf], temp);
 			}
 		}
+		else {
+			//XXX missing errorhandling here. TB, could be disk full, or write protection on
+		}
+		return 0;
 	}
-	else {
-		if((SA&0xf0)==IEC_OPEN || listenlf==0x0f) {  /* OPEN */
-			begin_measure();
-			myfilenamelen=0;
-			myfilename=malloc(maxcount);
-			#ifdef DEBUG_PIEC
-				printf("Now receiving data...\n");
-			#endif
-			//first receive something
-			while(1) {
-				/* receive a byte */
-				temp=receive_byte(-1,0);
-				if((temp&0x100)!=0) { change_state(temp); break; }
-				/* byte not under attention: store in input buffer */
-				myfilename[myfilenamelen]=(uchar)temp;
-				myfilenamelen++;
-				/* XXX we should do error handling on too long filenames here. TB */
-				if(myfilenamelen>=maxcount) { 
-					maxcount+=1024; 
-					myfilename=realloc(myfilename,maxcount); 
-				}
+	if((SA&0xf0)==IEC_OPEN || listenlf==0x0f) {  /* OPEN/DOS COMMAND */
+		begin_measure();
+		myfilenamelen=0;
+		myfilename=malloc(maxcount);
+		#ifdef DEBUG_PIEC
+			printf("Now receiving data...\n");
+		#endif
+		//first receive something (filename/command)
+		while(1) {
+			/* receive a byte */
+			temp=receive_byte(-1,0);
+			if((temp&0x100)!=0) { change_state(temp); break; }
+			/* byte not under attention: store in input buffer */
+			myfilename[myfilenamelen]=(uchar)temp;
+			myfilenamelen++;
+			/* XXX we should do error handling on too long filenames here. TB */
+			if(myfilenamelen>=maxcount) { 
+				maxcount+=1024; 
+				myfilename=realloc(myfilename,maxcount); 
 			}
-			myfilename=realloc(myfilename,myfilenamelen+1);
-			myfilename[myfilenamelen]=0;
+		}
+		myfilename=realloc(myfilename,myfilenamelen+1);
+		myfilename[myfilenamelen]=0;
 
-			/* we are commanded to open, either a file or a command, lets decide further */
-			if(listenlf==0x0f) {
-				myfilename[myfilenamelen]=0;
-				/* Data received was a command */
-				#ifdef DEBUG_PIEC
-					printf("Received command \"%s\"\n", myfilename);
-				#endif
-				strcpy(dos_command[last_unit],myfilename);
-				dos_comm_len[last_unit]=myfilenamelen;
-				if (dos_comm_len[last_unit]!=0) do_dos_command();
-				if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; } 
-			}
-			else {
-				/* Data received was a filename to open */
-				debug_msg ("*** Opening [%s] on channel $%02x\n", myfilename, listenlf);
-				//XXX openfile seems to be a bit buggy, has sometimes file open though it doesn't exist or is a dir.
-				if(fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], myfilename, &logical_files[file_unit][listenlf])!=0) {
-					logical_files[file_unit][listenlf].open=0;
-				}
-			}
-		}
-		if((SA&0xf0)==IEC_CLOSE) { /* CLOSE */
-			end_measure();
-			if (logical_files[file_unit][listenlf].open == 1) { 
-				fs64_closefile_g (&logical_files[last_unit][listenlf]);
-				set_error(0,0,0);
-			}
-			/* Close file from SA */
+		/* we are commanded to open, either a file or a command, lets decide further */
+		if(listenlf==0x0f) {
+			myfilename[myfilenamelen]=0;
+			/* Data received was a command */
 			#ifdef DEBUG_PIEC
-				printf("Closing logical file %d\n",listenlf);
+				printf("Received command \"%s\"\n", myfilename);
 			#endif
-			/* do nothing except cleaning up */
-			if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; }
+			strcpy(dos_command[last_unit],myfilename);
+			dos_comm_len[last_unit]=myfilenamelen;
+			if (dos_comm_len[last_unit]!=0) do_dos_command();
+			if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; } 
 		}
+		else {
+			/* Data received was a filename to open */
+			debug_msg ("*** Opening [%s] on channel $%02x\n", myfilename, listenlf);
+			//XXX openfile seems to be a bit buggy, has sometimes file.open==1 though it doesn't exist or is a dir.
+			if(fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], myfilename, &logical_files[file_unit][listenlf])!=0) {
+				logical_files[file_unit][listenlf].open=0;
+			}
+		}
+		return 0;
 	}
+	if((SA&0xf0)==IEC_CLOSE) { /* CLOSE */
+		end_measure();
+		if (logical_files[file_unit][listenlf].open == 1) { 
+			fs64_closefile_g (&logical_files[last_unit][listenlf]);
+			set_error(0,0,0);
+		}
+		/* Close file from SA */
+		#ifdef DEBUG_PIEC
+			printf("Closing logical file %d\n",listenlf);
+		#endif
+		/* do nothing except cleaning up */
+		if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; }
+		return 0;
+	}
+	//if non of the above SAs applies, interpret as new command.
+	//TASS does such buggy things for example like sending 
+	//$29, $29, $F0 = listen, listen, SA :-/
+	change_state(temp);
 	return 0;
 }
 
