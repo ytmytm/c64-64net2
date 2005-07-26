@@ -401,20 +401,10 @@ unsigned int iec_listen() {
 					#endif
 					//if (logical_files[file_unit][listenlf].open == 1) fs64_closefile_g (&logical_files[last_unit][listenlf]);
 					debug_msg ("*** Opening [%s] on channel $%02x\n", myfilename, listenlf);
-					//hier checken ob dir, falls ja merken damit wir spätrt
-					//0 bytes schicken
-					//dann auch noch cd:new dir
-					//fs64_findnext_g(&de);					
-					//printf("filetype: %s\n",curr_dir[last_unit][curr_par[last_unit]]);
-					//printf("filetype: %s\n",myfilename);
-					//printf("filetype: %s\n",de.realname);
-					//printf("filetype: %s\n",de.realname);
-					if(fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], myfilename, &logical_files[file_unit][listenlf])==-1) {
-					printf("filetype: %x\n",logical_files[file_unit][listenlf].isdir);
-					logical_files[file_unit][listenlf].open=0;
-					
+					//XXX openfile seems to be a bit buggy, has sometimes file open though it doesn't exist or is a dir.
+					if(fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], myfilename, &logical_files[file_unit][listenlf])!=0) {
+						logical_files[file_unit][listenlf].open=0;
 					}
-					
 				}
 			break;
 			case IEC_CLOSE: /* CLOSE */
@@ -493,6 +483,7 @@ unsigned int iec_talk() {
 	unsigned int temp=0;
 	unsigned char data=0;
 	unsigned char buffer=0;
+	int i;
 	change_state(IEC_IDLE);
 	temp=receive_byte(-1,0); 
 	/* we expect a SA coming under ATN high, if something is suspect we fall back to idle */
@@ -522,17 +513,34 @@ unsigned int iec_talk() {
 		//if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; }
 		//do we have an open file?
 		if (logical_files[file_unit][listenlf].open != 1) {
-			if (logical_files[file_unit][listenlf].isdir != 1) {
-				/* File not found, now signal it with sending a dummy 
-				 * char followed by a timeout */
-				set_error(62,0,0);
-				if(send_byte(0,ERROR_FILE_NOT_FOUND)==-1) return -1;
+			/* File not found, now signal it with sending a dummy 
+			 * char followed by a timeout */
+			//maybe we just tried to load a dir?
+			//if so, let's change to that dir!
+			
+			dos_comm_len[last_unit]=3+myfilenamelen;
+			dos_command[last_unit][0]='C';
+			dos_command[last_unit][1]='D';
+			dos_command[last_unit][2]=':';
+			
+			for(i=0;i<myfilenamelen;i++) {
+				dos_command[last_unit][3+i]=myfilename[i];
+			}
+			printf("cd-string: %s\n", dos_command[last_unit]);
+			printf("len: %d\n", dos_comm_len[last_unit]);
+			if(do_dos_command()==0) {
+				printf("changed sucessful\n");
+		//		set_error(0,0,0);
+				if(send_byte(0x01,-1)==-1) return -1;
+				if(send_byte(0x8,-1)==-1) return -1;
+				if(send_byte(0,-1)==-1) return -1;
+				if(send_byte(0,ERROR_EOI)==-1) return -1;
+		//		if(send_byte(0,ERROR_FILE_NOT_FOUND)==-1) return -1;
 				return 0;
 			}
 			else {
-				printf("loading a dir...\n");
-				set_error(0,0,0);
-				if(send_byte(0,ERROR_EOI)==-1) return -1;
+				set_error(62,0,0);
+				if(send_byte(0,ERROR_FILE_NOT_FOUND)==-1) return -1;
 				return 0;
 			}
 		}
