@@ -973,7 +973,9 @@ fs_dxx_readblock (fs64_file * f)
 	f->curr_track = -1;
 	f->curr_sector = -1;
 	f->bp = 2;
-	f->be = f->buffer[1] + 2;
+	//XXX +2 is one too much, it means position of last byte, but +2 would
+	//point to next free byte in block
+	f->be = f->buffer[1] + 1; 
       }
       else
       {
@@ -1009,7 +1011,10 @@ fs_dxx_writeblock (fs64_file * f)
     /* SO.. Dont allocate another block */
     /* set end of file block pointers */
     f->buffer[0] = 0;
-    f->buffer[1] = (f->bp - 2);
+    //XXX it is the pointer to the current and not to the next free byte, 
+    //so we have to subtract 1 only, not 2!
+    f->buffer[1] = (f->bp - 1); 
+    
     f->blocks++;
   }
   else
@@ -1060,7 +1065,8 @@ fs_dxx_writeblock (fs64_file * f)
       f->curr_track = -1;
       f->curr_sector = -1;
       f->bp = 2;
-      f->be = f->buffer[1] + 2;
+      //XXX see comments above: +1 not +2. TB
+      f->be = f->buffer[1] + 1;
     }
     else
     {
