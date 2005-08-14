@@ -181,6 +181,7 @@ int start_server();
 int send_error(unsigned char err);
 void begin_measure();
 void end_measure();
+void acknowledge();
 
 
 //todo: maybe we add also the resetpin? If the c64 resets also the 64net/2 can
@@ -434,10 +435,6 @@ void end_measure() {
 	rate=(float)transferred_amount/time;
 	printf("Transferred bytes:%ld\n", transferred_amount);
 	printf("Time needed:%f\n", time);
-//	printf("Starttime:%d\n", transfertime);
-//	printf("Endtime:%d\n", endtime);
-//	printf("Timediff:%d\n", timediff);
-//	printf("CLK_TCK:%d\n", CLOCKS_PER_SEC);
 	printf("Transferrate:%8.2f bps (%8.3fKB/sec)\n", rate,rate/1024);
 	return;	
 }
@@ -493,7 +490,7 @@ unsigned int iec_talk() {
 			}
 			if(do_dos_command()==0) {
 				printf("changed sucessful\n");
-		//		set_error(0,0,0);
+				set_error(0,0,0);
 				if(send_byte(0x01,-1)==-1) return -1;
 				if(send_byte(0x8,-1)==-1) return -1;
 				if(send_byte(0,-1)==-1) return -1;
@@ -660,12 +657,17 @@ int receive_byte(int error_code, int wait) {
 	return data;
 }
 
+void acknowledge() {
+	set_lpt_control(VALID_OUT);
+	set_lpt_control(0);
+}
+
 int send_error(unsigned char err) {
 	int status;
 	int a;
 	struct timeval time;
 	time.tv_sec = 0;
-	time.tv_usec = 10; //5탎 is on teh save side! with 1탎 i sometimes fail to send the error! TB
+	time.tv_usec = 1000; //5탎 is on teh save side! with 1탎 i sometimes fail to send the error! TB
 
 	#ifdef DEBUG_PIEC
 	printf("Triggering CNT...\n");
@@ -682,11 +684,13 @@ int send_error(unsigned char err) {
 	for(a=0;a<8;a++) {
 		status=ERROR_CLOCK;				
 		if((err&0x80)!=0) status|=ERROR_DATA;
+		set_lpt_control(status);
 		select(1,NULL,NULL,NULL,&time);	//wait 1탎
+		//usleep(1);
+		status^=ERROR_CLOCK;				
 		set_lpt_control(status);
-		status^=ERROR_CLOCK;					
 		select(1,NULL,NULL,NULL,&time); //wait 1탎
-		set_lpt_control(status);
+		//usleep(1);
 		err=err<<1;
 	}
 	return 0;
