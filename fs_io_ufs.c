@@ -364,14 +364,14 @@ fs_ufs_findnext (fs64_direntry * de)
 
   /* read raw entry */
   dirent = readdir (de->dir);
-  //if (dirent)
-  //{
+  if (dirent)
+  {
   //  /* skip . & .. */
-  //  if (dirent && (!strcmp (".", dirent->d_name)))
-  //    dirent = readdir (de->dir);
+    if (dirent && (!strcmp (".", dirent->d_name)))
+      dirent = readdir (de->dir);
   //  if (dirent && (!strcmp ("..", dirent->d_name)))
   //    dirent = readdir (de->dir);
-  //}
+  }
 
   if (dirent)
   {
