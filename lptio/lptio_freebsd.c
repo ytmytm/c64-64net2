@@ -55,11 +55,6 @@ void set_lpt_control(int status)
   ioctl(lpt_fd,PPISCTRL,&status);
 }
 
-void acknowledge() {
-  set_lpt_control(VALID_OUT);
-  set_lpt_control(0);
-}
-
 void write_data(unsigned char data) 
 {
   /* outb(portout,data); */
