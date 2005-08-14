@@ -15,6 +15,7 @@ fs64_resolve_partition (uchar *partition, uchar *path, int *dirtrack, int *dirse
      to the right place */
 
   uchar temp[1024];
+  int i;
 
   if (partition[0] == 0)
   {
@@ -61,7 +62,7 @@ fs64_resolve_partition (uchar *partition, uchar *path, int *dirtrack, int *dirse
     }
   }
 
-  if ((path[0] == 95) && (path[1] == 0))
+  if (((path[0] == 95) && (path[1] == 0)) || (path[0]=='.' && path[1]=='.' && path[2]==0))
   {
     /* <- */
     /* This is unchanged from the old resolve partition */
@@ -134,6 +135,44 @@ fs64_resolve_partition (uchar *partition, uchar *path, int *dirtrack, int *dirse
   {
     /* not <- */
     /* This is the changed section of code, which checks each section */
+	  i=strlen(path);
+    if(strcmp(path,"/../")==0 
+     || strcmp(path,"/./")==0
+     || strcmp(path,"/~/")==0
+     || strcmp(path,"/*")==0
+     || strcmp(path,"/*/")==0
+     || strcmp(path,"/.*")==0
+     || strcmp(path,"/.*/")==0
+     || strcmp(path,"/.?/")==0
+     || strcmp(path,"/?./")==0
+     || strcmp(path,"/??/")==0
+     || strcmp(path,"/..*/")==0
+     || (i>=2 && path[i-1]=='.' && path[i-2]=='/')
+     || (i>=3 && path[i-1]=='.' && path[i-2]=='.' && path[i-3]=='/')
+     || (i>=2 && path[i-1]=='?' && path[i-2]=='/')
+     || (i>=3 && path[i-1]=='?' && path[i-2]=='.' && path[i-3]=='/')
+     || (i>=2 && path[i-1]=='*' && path[i-2]=='/')
+     || (i>=2 && path[i-1]=='~' && path[i-2]=='/')
+     
+     || (i>=2 && path[0]=='.' && path[1]=='/')
+     || (i>=3 && path[0]=='.' && path[1]=='.' && path[2]=='/')
+     || (i>=2 && path[0]=='.' && path[1]=='*')
+     || (i>=2 && path[0]=='.' && path[1]=='?')
+     || (i>=2 && path[0]=='?' && path[1]=='?')
+     || (i>=3 && path[0]=='.' && path[1]=='.' && path[2]=='*')
+     || (i>=1 && path[0]=='*')
+     || (i>=2 && path[0]=='~' && path[1]=='/'))
+     {
+
+//     || strcmp(path,"./")==0
+//     || strcmp(path,"../")==0
+//     || strcmp(path,"~/")==0
+//     || strcmp(path,"/.")==strlen(path)-2
+//     || strcmp(path,"/~")==strlen(path)-2
+      debug_msg("Illegal path\n");
+      set_error (71, 0, 0);
+      return (-1);
+    }		  
     if (path[0] == '/')
     {
       /* absolute path */
