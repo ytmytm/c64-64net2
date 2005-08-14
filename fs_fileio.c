@@ -398,9 +398,9 @@ fs64_direntry2block (fs64_file * f)
     break;
   case cbm_PRG:
     if(f->de.filesys.arctype==arc_N64) {
-      f->buffer[f->be++] = 'N';
-      f->buffer[f->be++] = '6';
-      f->buffer[f->be++] = '4';
+      f->buffer[f->be++] = 'P';
+      f->buffer[f->be++] = 'R';
+      f->buffer[f->be++] = 'G';
     }
     else {
       f->buffer[f->be++] = 'P';
