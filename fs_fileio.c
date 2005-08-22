@@ -891,7 +891,9 @@ fs64_openfile_g (uchar *curdir, uchar *filespec, fs64_file * f)
 	/* some sort of error - fs64_scratchfile_g will
 	   have got the error set */
 	client_activity (of_count);
-	return (-1);
+	//return (-1);
+	//XXX what if the file didn't exist like save"@:foo",8 
+	//we still have to create it then, right?
       }
     }
 
