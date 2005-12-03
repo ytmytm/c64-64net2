@@ -52,7 +52,7 @@ struct fs64_filestructure {
   int char_queuedP;
   int queued_char;
 
-  uchar fs64name[16]; /* C64 filename, 0xa0 padded */
+  uchar fs64name[17]; /* C64 filename, 0xa0 padded */
   uchar realname[MAX_FS_LEN];/* full pathname and filename of realfile/fs object */
   int first_track;  /* First block of file in object */
   int first_sector; /*                               */
