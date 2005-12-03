@@ -13,7 +13,6 @@ int
 fs64_findfirst_g (uchar *path, uchar *glob, fs64_direntry * de, int *dirtrack, int *dirsect)
 {
   if (!fs64_openfind_g (path, glob, de, dirtrack, dirsect)) {
-
     return (fs64_findnext_g (de));
   }
   else
@@ -134,6 +133,7 @@ fs64_findnext_g (fs64_direntry * de)
     else
     {
       if ((de->glob[0][de->filetype & 0x0f]) == 0)	/* filetype check */
+//      if ((de->filetype & 0x0f) == 0)	/* filetype check */
       {
 	/* we cant match this file type */
 	/* for some reason we need the following extra statement,
