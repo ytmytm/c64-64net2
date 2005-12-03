@@ -384,6 +384,9 @@ fs_ufs_findnext (fs64_direntry * de)
 	de->fs64name[i] = dirent->d_name[i];
       else
 	de->fs64name[i] = 0xa0;	/* 0xa0 padding , like 1541 */
+
+    //bugfix: else the strlen is not 16 in later tests/compares!
+    de->fs64name[16]=0;
     fs64_getinfo (de);
     return (0);
   }
@@ -543,7 +546,7 @@ fs_ufs_getinfo (fs64_direntry * de) {
 			//				de->fs64name[i]=0xa0;
 			//			}
 			//		}
-		//			de->fs64name[17]=0xa0;
+					de->fs64name[17]=0xa0;
 					de->filetype &= (cbm_CLOSED | cbm_LOCKED);
 					de->filetype |= cbm_PRG;
 					de->first_track = -1;
