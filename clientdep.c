@@ -5,7 +5,7 @@
  */
 
 #include "config.h"
-#include "comm-lpt.h"
+//#include "comm-lpt.h"
 #include "clientdep.h"
 
 #define	MACH_C64	0

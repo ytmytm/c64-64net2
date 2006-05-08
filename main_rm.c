@@ -3,6 +3,7 @@
 #include "config.h"
 #include "fs.h"
 #include "comm-lpt.h"
+#include "comm-rrnet.h"
 
 int no_net=NONET;
 

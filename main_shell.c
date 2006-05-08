@@ -8,6 +8,7 @@
 #include "dosemu.h"
 #include "misc_func.h"
 #include "comm-lpt.h"
+#include "comm-rrnet.h"
 #include "version.h"
 
 int no_net = NONET;
@@ -63,7 +64,7 @@ main (int argc, char **argv)
 
     printf ("64NET/2 server %s\n",server_version());
     /* read config info */
-    read_config ((uchar*)"./64netrc");
+    read_config ("./64netrc");
     /* initialize dos */
     init_dos ();
     /* all ready, be cute */
@@ -115,7 +116,7 @@ main (int argc, char **argv)
 	    break;
 	  default:
 	    /* do dos command */
-	    strcpy(dos_command[last_unit],comm);
+	    strcpy((char*)dos_command[last_unit],(char*)comm);
 	    dos_comm_len[last_unit]=strlen(comm);
 	    do_dos_command();
 	    break;

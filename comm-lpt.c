@@ -100,7 +100,6 @@ int pathdir;
 int lpt_fd;
 
 
-/* #define DEBUG_PIEC */
 //#define DEBUG_PIEC
 #define FLIPFLOP
 
@@ -616,8 +615,18 @@ int receive_byte(int error_code, int wait) {
 		//an timeout else we might hang here forever as we might have missed
 		//the toggle of REQUEST_IN
 		time=clock();
-		while(clock()-time<(float)(CLOCKS_PER_SEC/(float)10)) {
-			if((get_status()&REQUEST_IN)!=request) break;
+//		while(clock()-time<(float)(CLOCKS_PER_SEC/(float)10)) {
+//                      if((get_status()&REQUEST_IN)!=request) break;
+//            }
+		for(;;) {
+			if( clock()-time < (float)(CLOCKS_PER_SEC/(float)10)) {
+					if ((get_status()&REQUEST_IN)!=request) break;
+			}
+			else {
+				request^=REQUEST_IN;
+				printf("timeout!\n");
+				break; 
+			} //timeout
 		}
 	}
 	else {
@@ -766,7 +775,7 @@ uchar change_state(unsigned int new_state) {
  */
 
 int 
-read_config (uchar *file)
+read_config (char *file)
 {
   /* Read in the 64netrc file */
 

@@ -14,8 +14,10 @@
 #include "fs.h"
 #include "fs_func.h"
 #include "dosemu.h"
-#include "comm-lpt.h"
 #include "misc_func.h"
+
+int which_unit (int);
+void set_drive_status (unsigned char*, int);
 
 /* virtual drive memory */
 uchar drive_memory[MAX_NET_DEVS][0x10000];
@@ -34,7 +36,7 @@ set_current_dir (uchar *foo)
     /* couldnt malloc */
     fatal_error ("Cannot allocate memory.");
   else
-    strcpy (curr_dir[last_unit][curr_par[last_unit]], foo);
+    strcpy ((char*)curr_dir[last_unit][curr_par[last_unit]],(char*) foo);
 }
 
 void
@@ -95,6 +97,7 @@ init_dos (void)
 int
 do_dos_command (void)
 {
+	//XXX missing the rename command
   /* execute the DOS command in the buffer */
   int i = last_unit, dt = -1, ds = -1;
   /* scratch vars */
@@ -207,7 +210,7 @@ do_dos_command (void)
 	  for (j = 4; j < dos_comm_len[i]; j++)
 	    if (dos_command[i][j] == ':')
 	    {
-	      strcpy (lname, &dos_command[i][j + 1]);
+	      strcpy ((char*)lname, (char*)&dos_command[i][j + 1]);
 	      if (!lname[0])
 	      {
 		/* missing filename */
@@ -222,7 +225,7 @@ do_dos_command (void)
 	  if (!lname[0])
 	  {
 	    /* no colon, so its all filename */
-	    strcpy (lname, &dos_command[i][4]);
+	    strcpy ((char*)lname, (char*)&dos_command[i][4]);
 	    dos_command[i][4] = ':';
 	    dos_command[i][5] = 0;
 	  }
@@ -279,16 +282,16 @@ do_dos_command (void)
 	  switch (media)
 	  {
 	  case media_D64:
-	    strcpy (ext, ".d64");
+	    strcpy ((char*)ext, ".d64");
 	    break;
 	  case media_D71:
-	    strcpy (ext, ".d71");
+	    strcpy ((char*)ext, ".d71");
 	    break;
 	  case media_D81:
-	    strcpy (ext, ".d81");
+	    strcpy ((char*)ext, ".d81");
 	    break;
 	  case media_DHD:
-	    strcpy (ext, ".dhd");
+	    strcpy ((char*)ext, ".dhd");
 	    break;
 	  default:
 	    set_error (38, 0, 0);
@@ -299,8 +302,8 @@ do_dos_command (void)
 	    switch (lname[k])
 	    {
 	    case ',':
-	    case '.':
-	    case '+':
+	    //case '.':
+	    //case '+':
 	    case '/':
 	    case '\\':
 	    case '*':
@@ -314,12 +317,12 @@ do_dos_command (void)
 	    default:
 		  break;
 	    }
-	  strcpy (sname, lname);
+	  strcpy ((char*)sname, (char*)lname);
 	  sprintf ((char*)path, "%s%s%s", path, sname, ext);
 	  debug_msg ("Md: create [%s] of %d blocks\n", path, blocks);
 	  /* create physical file */
 	  fs.media = media;
-	  if ((fs.fsfile = fopen (path, "r")) != NULL)
+	  if ((fs.fsfile = fopen ((char*)path, "r")) != NULL)
 	  {
 	    /* already exists */
 	    fclose (fs.fsfile);
@@ -329,7 +332,7 @@ do_dos_command (void)
 	    dos_comm_len[i] = 0;
 	    return (-1);
 	  }
-	  if ((fs.fsfile = fopen (path, "w+")) == NULL)
+	  if ((fs.fsfile = fopen ((char*)path, "w+")) == NULL)
 	  {
 	    /* could not open new file system */
 	    debug_msg ("Could not open new file system\n");
@@ -430,7 +433,7 @@ do_dos_command (void)
 	else
 	{
 	  dos_command[i][j + 3] = 0;
-	  strcpy (id, &dos_command[i][j + 1]);
+	  strcpy ((char*)id, (char*)&dos_command[i][j + 1]);
 	  if (!id[1])
 	    id[1] = 0xa0;
 	  break;
@@ -451,7 +454,7 @@ do_dos_command (void)
 	    /* disk image */
 	    fs64_filesystem fs;
 	    fs.fsfile = 0;
-	    strcpy (fs.fspath, path);
+	    strcpy ((char*)fs.fspath, (char*)path);
 	    fs.media = mt;
 	    switch (mt)
 	    {
@@ -472,7 +475,7 @@ do_dos_command (void)
 	      fs.dirsector = 1;
 	      break;
 	    }
-	    if ((fs.fsfile = fopen (path, "r+")) == NULL)
+	    if ((fs.fsfile = fopen ((char*)path, "r+")) == NULL)
 	    {
 	      set_error (74, 0, 0);
 	      dos_comm_len[i] = 0;
@@ -536,7 +539,7 @@ do_dos_command (void)
 	    /* disk image */
 	    fs64_filesystem fs;
 	    fs.fsfile = 0;
-	    strcpy (fs.fspath, path);
+	    strcpy ((char*)fs.fspath, (char*)path);
 	    fs.media = mt;
 	    switch (mt)
 	    {
@@ -557,7 +560,7 @@ do_dos_command (void)
 	      fs.dirsector = 1;
 	      break;
 	    }
-	    if ((fs.fsfile = fopen (path, "r+")) == NULL)
+	    if ((fs.fsfile = fopen ((char*)path, "r+")) == NULL)
 	    {
 	      set_error (74, 0, 0);
 	      dos_comm_len[i] = 0;
@@ -619,7 +622,7 @@ do_dos_command (void)
 	    /* disk image */
 	    fs64_filesystem fs;
 	    fs.fsfile = 0;
-	    strcpy (fs.fspath, path);
+	    strcpy ((char*)fs.fspath, (char*)path);
 	    fs.media = mt;
 	    switch (mt)
 	    {
@@ -640,7 +643,7 @@ do_dos_command (void)
 	      fs.dirsector = 1;
 	      break;
 	    }
-	    if ((fs.fsfile = fopen (path, "r+")) == NULL)
+	    if ((fs.fsfile = fopen ((char*)path, "r+")) == NULL)
 	    {
 	      set_error (74, 0, 0);
 	      dos_comm_len[i] = 0;
@@ -837,7 +840,7 @@ do_dos_command (void)
 	  debug_msg ("Par: %d, Path [%s]\n", par, &dos_command[i][k]);
 
 	  /* step 2 - fs64_parse_partitions */
-	  strcpy (path, &dos_command[i][k]);
+	  strcpy ((char*)path, (char*)&dos_command[i][k]);
 	  sprintf ((char*)partition, "%d", par);
 	  if (fs64_resolve_partition (partition, path, &dt, &ds))
 	    /* parse_filespec will have set the error */
@@ -845,13 +848,11 @@ do_dos_command (void)
 	    dos_comm_len[i] = 0;
 	    return (-1);
 	  }
-	  if (!par)
-	    par = curr_par[i];
+	  if (!par) par = curr_par[i];
 	  debug_msg ("Parsed path: [%d][%s]\n", par, path);
-	  if (curr_dir[i][par])
-	    free (curr_dir[i][par]);
+	  if (curr_dir[i][par]) free (curr_dir[i][par]);
 	  curr_dir[i][par] = (uchar *) malloc (strlen (path) + 1);
-	  strcpy (curr_dir[i][par], path);
+	  strcpy ((char*)curr_dir[i][par], (char*)path);
 	  /* and update dir block */
 	  curr_dirtracks[i][par] = dt;
 	  curr_dirsectors[i][par] = ds;
@@ -947,3 +948,4 @@ do_dos_command (void)
   return (0);
 
 }
+

@@ -6,7 +6,7 @@
 #include "config.h"
 
 /* string used for filename `~xx' char selection */
-static char *fchar = "0123456789abcdefghijklmnopqrstuvwxyz";
+//static char *fchar = "0123456789abcdefghijklmnopqrstuvwxyz";
 
 int
 shortname (uchar *path, uchar *lname,
@@ -69,7 +69,7 @@ shortname (uchar *path, uchar *lname,
   if (!strlen (sname))
   {
     /* make one up! */
-    strcpy (sname, "unnamed");
+    strcpy ((char*)sname, "unnamed");
   }
 
 //  for (i = 0; i < (36 * 36); i++)
@@ -77,7 +77,7 @@ shortname (uchar *path, uchar *lname,
     /* try to open it */
 	sprintf ((char*)temp, "%s%s%s", path, sname, ext);
 	errno = 0;
-	f = fopen (temp, "r");
+	f = fopen ((char*)temp, "r");
 	if(errno==ENOENT) {
 		/* bingo! 
 		   Either the file doesnt exist, or the path is bad.

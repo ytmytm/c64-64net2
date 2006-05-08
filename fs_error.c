@@ -4,8 +4,9 @@
  */
 
 #include "config.h"
-#include "comm-lpt.h"
 #include "client-comm.h"
+
+void set_drive_status (unsigned char*, int);
 
 int
 set_error (int en, int t, int s)
@@ -75,7 +76,7 @@ set_error (int en, int t, int s)
     client_error (1);
 
   sprintf ((char*)temp, "%02d, %s,%02d,%02d\r", en, mesg[en], t, s);
-  debug_msg ("%s\n", temp);
+  //debug_msg ("%s\n", temp);
 
   /* set the message into the real status variable */
   set_drive_status (temp, strlen (temp));

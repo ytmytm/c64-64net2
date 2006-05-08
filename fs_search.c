@@ -64,7 +64,7 @@ fs64_openfind_g (uchar *path, uchar *glob, fs64_direntry * de, int *dt, int *ds)
      (media_D64,media_D71,media_D81,media_DHD media_UFS or media_T64 )
    */
 
-  strcpy (de->path, path);
+  strcpy ((char*)de->path, (char*)path);
 
   de->filesys.media = fs64_mediatype (path);
   /* FILESYSTEM_SPECIFIC */
@@ -165,7 +165,7 @@ fs64_findfirst (uchar *path, fs64_direntry * de, int *dirtrack, int *dirsect)
      (media_D64,media_D71,media_D81,media_DHD media_UFS or media_T64 )
    */
 
-  strcpy (de->path, path);
+  strcpy ((char*)de->path, (char*)path);
 
   de->filesys.media = fs64_mediatype (path);
   /* FILESYSTEM_SPECIFIC */

@@ -12,10 +12,11 @@ static uchar fname[MAX_FS_LEN] =
 int 
 client_init (uchar *temp)
 {
-  if ((f = fopen (temp, "w")) == NULL)
+  if ((f = fopen ((char*)temp, "w")) == NULL)
   {
     printf ("INIT: Cannot open file for Virtual LED states\n");
     printf ("         (Client will not show correct led states)\n");
+    printf ("         %s\n",temp);
   }
   else
   {
@@ -25,7 +26,7 @@ client_init (uchar *temp)
     fflush (f);
     printf ("INIT: Virtual LED states available for client(s) in file\n");
     printf ("         [%s]\n", temp);
-    strcpy (fname, temp);
+    strcpy ((char*)fname, (char*)temp);
   }
 
   return (0);
@@ -36,7 +37,7 @@ client_error (int foo)
 {
   if (fname[0])
   {
-    if ((f = fopen (fname, "r+")) != NULL)
+    if ((f = fopen ((char*)fname, "r+")) != NULL)
     {
       errno = 0;
       fseek (f, 0, SEEK_SET);
@@ -53,7 +54,7 @@ client_activity (int foo)
 {
   if (fname[0])
   {
-    if ((f = fopen (fname, "r+")) != NULL)
+    if ((f = fopen ((char*)fname, "r+")) != NULL)
     {
       errno = 0;
       fseek (f, 1, SEEK_SET);

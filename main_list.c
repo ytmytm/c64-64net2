@@ -2,6 +2,7 @@
 
 #include "config.h"
 #include "fs.h"
+#include "comm-rrnet.h"
 #include "comm-lpt.h"
 
 int no_net=NONET;
@@ -23,9 +24,9 @@ main (int argc, char **argv)
   /* prepare the 64net file system */
   last_unit = 0;
   partn_dirs[last_unit][1] = (uchar *) malloc (8);
-  strcpy (partn_dirs[last_unit][1], "./");
+  strcpy ((char*)partn_dirs[last_unit][1], "./");
   curr_dir[last_unit][1] = (uchar *) malloc (8);
-  strcpy (curr_dir[last_unit][1], "./");
+  strcpy ((char*)curr_dir[last_unit][1], "./");
   curr_par[last_unit] = 1;
 
   /* okay, open file */

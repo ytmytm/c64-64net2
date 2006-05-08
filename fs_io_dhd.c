@@ -418,8 +418,8 @@ fs_dhd_headername (uchar *path, uchar *header, uchar *id, int par, fs64_file * f
     f->filesys.dirsector = 1;
   }
   ff.media = f->filesys.media;
-  strcpy (ff.fspath, path);
-  if ((ff.fsfile = fopen (path, "r")) != NULL)
+  strcpy ((char*)ff.fspath, (char*)path);
+  if ((ff.fsfile = fopen ((char*)path, "r")) != NULL)
   {
     if (!readts (&ff, f->filesys.dirtrack, f->filesys.dirsector, buff))
     {
@@ -437,8 +437,8 @@ fs_dhd_headername (uchar *path, uchar *header, uchar *id, int par, fs64_file * f
     else
     {
       /* cant read sector - so make it up :) */
-      strcpy (header, "@@@@@@@@@@@@@@@@");
-      strcpy (id, "@@@@@");
+      strcpy ((char*)header, "@@@@@@@@@@@@@@@@");
+      strcpy ((char*)id, "@@@@@");
     }
     fclose (ff.fsfile);
     ff.fsfile = 0;
@@ -447,8 +447,8 @@ fs_dhd_headername (uchar *path, uchar *header, uchar *id, int par, fs64_file * f
   else
   {
     /* cant open file system */
-    strcpy (header, "@@@@@@@@@@@@@@@@");
-    strcpy (id, "@@@@@");
+    strcpy ((char*)header, "@@@@@@@@@@@@@@@@");
+    strcpy ((char*)id, "@@@@@");
     return (0);
   }
 }

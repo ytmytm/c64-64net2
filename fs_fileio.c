@@ -8,9 +8,10 @@
 #include "fs.h"
 #include "fs_func.h"
 #include "client-comm.h"
+#include "comm-lpt.h"
+#include "comm-rrnet.h"
 
 #include "fs_rawdir.h"
-#include "comm-lpt.h"
 
 /* open file count */
 static int of_count = 0;
@@ -20,7 +21,7 @@ fs_pathtofilesystem (fs64_filesystem * fs, uchar *path)
 {
   /* construct filesystem (or abort) */
   int mt = fs64_mediatype (path);
-  strcpy (fs->fspath, path);
+  strcpy ((char*)fs->fspath, (char*)path);
   fs->media = mt;
   switch (mt)
   {
@@ -50,10 +51,10 @@ fs_pathtofilesystem (fs64_filesystem * fs, uchar *path)
 	fs->dirsector = 1;
 	break;
       }
-      if ((fs->fsfile = fopen (path, "r+")) == NULL)
+      if ((fs->fsfile = fopen ((char*)path, "r+")) == NULL)
       {
 	/* Try readonly */
-	if ((fs->fsfile = fopen (path, "r")) == NULL)
+	if ((fs->fsfile = fopen ((char*)path, "r")) == NULL)
 	  {
 	    debug_msg("Error reason: Unable to open path (=%s) for mode r+. errno=%d\n",
 		      path,errno);
@@ -68,10 +69,10 @@ fs_pathtofilesystem (fs64_filesystem * fs, uchar *path)
   case media_LNX:
     {
       /* Copy name, and open file  */
-      if ((fs->fsfile = fopen (path, "r+")) == NULL)
+      if ((fs->fsfile = fopen ((char*)path, "r+")) == NULL)
       {
 	/* Try readonly */
-	if ((fs->fsfile = fopen (path, "r")) == NULL)
+	if ((fs->fsfile = fopen ((char*)path, "r")) == NULL)
 	  {
 	    debug_msg("Error reason: Unable to open path (=%s) for mode r+. errno=%d\n",
 		      path,errno);
@@ -141,7 +142,7 @@ fs64_create_g (uchar *path, uchar *glob, fs64_file * f, int *dirtrack, int *dirs
       {
 	dt = *dirtrack;
 	ds = *dirsect;
-	strcpy (fname, path);
+	strcpy ((char*)fname, (char*)path);
       }
       /* create file (globs[0][31] = rel length */
       return (fs_dxx_createfile (fname, globs[1], t, globs[0][31], f, dt, ds, fs64_mediatype (path)));
@@ -792,11 +793,11 @@ fs64_openfile_g (uchar *curdir, uchar *filespec, fs64_file * f)
     case media_D81:
     case media_DHD:
       f->filesys.media = fs64_mediatype (curr_dir[last_unit][curr_par[last_unit]]);
-      strcpy (f->filesys.fspath, curr_dir[last_unit][curr_par[last_unit]]);
-      if ((f->filesys.fsfile = fopen (path, "r+")) == NULL)
+      strcpy ((char*)f->filesys.fspath, (char*)curr_dir[last_unit][curr_par[last_unit]]);
+      if ((f->filesys.fsfile = fopen ((char*)path, "r+")) == NULL)
       {
 	/* Open readonly if can't do so read write */
-	if ((f->filesys.fsfile = fopen (path, "r")) == NULL)
+	if ((f->filesys.fsfile = fopen ((char*)path, "r")) == NULL)
 	  {
 	    debug_msg("Error reason: Unable to open path (=%s) for mode r+. Errno = %d\n",
 		      path,errno);
@@ -1001,8 +1002,8 @@ fs64_openfile_g (uchar *curdir, uchar *filespec, fs64_file * f)
 	fs_net_headername (path, header, id, par, f);
 	break;
       default:
-	strcpy (header, "-=-  64NET/2 -=-");
-	strcpy (id, "64NET");
+	strcpy ((char*)header, "-=-  64NET/2 -=-");
+	strcpy ((char*)id, "64NET");
       }
       /* PGS - 20050516 - Why would we ever want to send T18S0 in raw
 	 format?  Also, the talklf test here is wrong, as in PIEC the 

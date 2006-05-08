@@ -54,7 +54,7 @@ extern uchar port[1024];
 
 /* function prototypes */
 int commune(void);
-int read_config (uchar *file);
+int read_config (char *file);
 int read_device (FILE * cf);
 int c64peek (long location);
 int c64poke (long location,int val);

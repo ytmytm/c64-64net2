@@ -9,6 +9,7 @@
 #include "dosemu.h"
 #include "misc_func.h"
 #include "comm-lpt.h"
+#include "comm-rrnet.h"
 #include "version.h"
 
 int no_net = NONET;
@@ -96,7 +97,7 @@ main (int argc, char **argv)
   printf ("Network started.\n");
 
   /* do it man! */
-  parallel_iec_commune(0);
+  iec_commune(0);
 
   /* all done */
   return (0);

@@ -15,44 +15,6 @@ typedef struct
 }
 glob_record;
 
-//XXX UNUSED
-int
-glob_comp (uchar *pattern, uchar *test, int filetype)
-{
-  /* do a glob comparison of the 16 byte string `test' to the pattern
-     pattern is a string like "*cheese*,foo?blah*a,S,P,U" */
-
-  int i;
-  uchar glob_array[17][32];
-
-  if (parse_glob (glob_array, pattern))
-  {
-    /* bad glob list */
-    return (0);			/* fail coz of bad input */
-  }
-
-  /* check file type */
-  for (i = 0; i < 8; i++)
-    if ((glob_array[0][i]) && (i == (filetype & 0x0f)))
-      break;
-  if (i == 8)
-  {
-    /* no match */
-    return (0);
-  }
-
-  /* check all match strings */
-  for (i = 1; i < 17; i++)
-  {
-    if (strlen (glob_array[i]))
-      if (glob_match (glob_array[i], test))
-	return (1);
-  }
-
-  /* return no match for now */
-  return (0);
-}
-
 int
 glob_p_comp (uchar glob_array[17][32], uchar *pattern)
 {
@@ -220,7 +182,7 @@ parse_glob (uchar glob_array[17][32], uchar *pattern)
   uchar fnord[1024];
 
   /* work on a copy so we dont muck it up */
-  strcpy (fnord, pattern);
+  strcpy ((char*)fnord, (char*)pattern);
 
 
   /* clear glob_array */

@@ -157,12 +157,12 @@ fs_dxx_createfile (uchar *fsfilename, uchar *name, int ft, int rel_len, fs64_fil
   int t, s;
 
   /* Step 0 - Convert fsfilename to a 64net/2 file system */
-  strcpy (f->filesys.fspath, fsfilename);
+  strcpy ((char*)f->filesys.fspath, (char*)fsfilename);
   f->filesys.dirtrack = dirtrack;
   f->filesys.dirsector = dirsect;
   t = dirtrack;
   s = dirsect;
-  f->filesys.fsfile = fopen (fsfilename, "r+");
+  f->filesys.fsfile = fopen ((char*)fsfilename, "r+");
   if (!f->filesys.fsfile)
   {
     set_error (74, 0, 0);
@@ -332,8 +332,8 @@ fs_dxx_createfile (uchar *fsfilename, uchar *name, int ft, int rel_len, fs64_fil
 	  f->buffer[1] = 0;
 	  /* set buffer and poss infomation etc.. */
 	  f->open = 1;
-	  strcpy (f->fs64name, name);
-	  strcpy (f->realname, fsfilename);
+	  strcpy ((char*)f->fs64name, (char*)name);
+	  strcpy ((char*)f->realname, (char*)fsfilename);
 	  f->first_track = tt;
 	  f->first_sector = ts;
 	  f->first_poss = 0xfe;
@@ -681,8 +681,8 @@ fs_dxx_finddirblock (uchar *path, int *dirtrack, int *dirsector, uchar *fname)
   if (path[i + 1])
   {
     uchar fspath[1024], glob[256], slag[256];
-    strcpy (fspath, path);
-    strcpy (slag, &path[i + 1]);
+    strcpy ((char*)fspath, (char*)path);
+    strcpy ((char*)slag, (char*)&path[i + 1]);
 
     /* now, do fs64_findfirst_g's to dissolve slag and
        deposit to path, until slag is gone or a path segment
@@ -702,7 +702,7 @@ fs_dxx_finddirblock (uchar *path, int *dirtrack, int *dirsector, uchar *fname)
 	    sprintf ((char*)temp, "%s", &slag[i + 1]);
 	  else
 	    temp[0] = 0;
-	  strcpy (slag, temp);
+	  strcpy ((char*)slag, (char*)temp);
 	  break;
 	}
 	else
@@ -726,7 +726,7 @@ fs_dxx_finddirblock (uchar *path, int *dirtrack, int *dirsector, uchar *fname)
 	  /* copy first_track, first_sector from de */
 	  *dirtrack = de.first_track;
 	  *dirsector = de.first_sector;
-	  strcpy (fname, de.filesys.fspath);
+	  strcpy ((char*)fname, (char*)de.filesys.fspath);
 	  return (0);
 	}
       }
@@ -740,7 +740,7 @@ fs_dxx_finddirblock (uchar *path, int *dirtrack, int *dirsector, uchar *fname)
     /* no sub-dir's below disk image */
     if (path[i] == '/')
       path[i] = 0;
-    strcpy (fname, path);
+    strcpy ((char*)fname, (char*)path);
     switch (fs64_mediatype (path))
     {
     case media_D64:
@@ -770,7 +770,7 @@ fs_dxx_finddirblock (uchar *path, int *dirtrack, int *dirsector, uchar *fname)
 int 
 fs_dxx_getopenablename (fs64_file * f, fs64_direntry * de)
 {
-  strcpy (f->realname, de->fs);
+  strcpy ((char*)f->realname, (char*)de->fs);
   return (0);
 }
 
@@ -779,8 +779,8 @@ fs_dxx_openfile (fs64_file * f)
 {
   /* open for read coz this is the open file routine,
      not create file */
-  strcpy (f->filesys.fspath, f->realname);
-  if ((f->filesys.fsfile = fopen (f->realname, "r")) == NULL)
+  strcpy ((char*)f->filesys.fspath, (char*)f->realname);
+  if ((f->filesys.fsfile = fopen ((char*)f->realname, "r")) == NULL)
   {
     /* couldn't open it */
     /* 74,DRIVE NOT READY,00,00 */
@@ -843,13 +843,13 @@ fs_dxx_openfind (fs64_direntry * de, uchar *path, int *dt, int *ds)
   de->filesys.media = fs64_mediatype (path);
 
   /* copy path into the filesystem source descriptor */
-  strcpy (de->fs, path);
-  strcpy (de->realname, path);
+  strcpy ((char*)de->fs, (char*)path);
+  strcpy ((char*)de->realname, (char*)path);
   /* now lets open it */
-  if ((de->filesys.fsfile = fopen (de->fs, "r+")) == NULL)
+  if ((de->filesys.fsfile = fopen ((char*)de->fs, "r+")) == NULL)
   {
     /* try readonly open */
-    if ((de->filesys.fsfile = fopen (de->fs, "r")) == NULL)
+    if ((de->filesys.fsfile = fopen ((char*)de->fs, "r")) == NULL)
     {
       /* open failed */
       /* 74,DRIVE NOT READY,00,00 */
@@ -901,8 +901,8 @@ fs_d47_headername (uchar *path, uchar *header, uchar *id, int par, fs64_file * f
   f->filesys.media = fs64_mediatype (path);
   f->de.filesys.media = f->filesys.media;
   ff.media = f->filesys.media;
-  strcpy (ff.fspath, path);
-  if ((ff.fsfile = fopen (path, "r")) != NULL)
+  strcpy ((char*)ff.fspath, (char*)path);
+  if ((ff.fsfile = fopen ((char*)path, "r")) != NULL)
   {
     if (!readts (&ff, 18, 0, buff))
     {
@@ -920,8 +920,8 @@ fs_d47_headername (uchar *path, uchar *header, uchar *id, int par, fs64_file * f
     else
     {
       /* cant read sector - so make it up :) */
-      strcpy (header, "@@@@@@@@@@@@@@@@");
-      strcpy (id, "@@@@@");
+      strcpy ((char*)header, "@@@@@@@@@@@@@@@@");
+      strcpy ((char*)id, "@@@@@");
     }
     fclose (ff.fsfile);
     ff.fsfile=0;
@@ -930,8 +930,8 @@ fs_d47_headername (uchar *path, uchar *header, uchar *id, int par, fs64_file * f
   else
   {
     /* cant open file system */
-    strcpy (header, "@@@@@@@@@@@@@@@@");
-    strcpy (id, "@@@@@");
+    strcpy ((char*)header, "@@@@@@@@@@@@@@@@");
+    strcpy ((char*)id, "@@@@@");
     return (0);
   }
 }

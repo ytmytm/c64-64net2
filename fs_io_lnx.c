@@ -20,7 +20,7 @@ fs_lnx_createfile (uchar *path, uchar *name, int t, fs64_file * f)
 int
 fs_lnx_getopenablename (fs64_file * f, fs64_direntry * de)
 {
-  strcpy (f->realname, de->fs);
+  strcpy ((char*)f->realname, (char*)de->fs);
   return (0);
 }
 
@@ -29,8 +29,8 @@ fs_lnx_openfile (fs64_file * f)
 {
   /* open for read coz this is the open file routine,
      not create file */
-  strcpy (f->filesys.fspath, f->realname);
-  if ((f->filesys.fsfile = fopen (f->realname, "r")) == NULL)
+  strcpy ((char*)f->filesys.fspath, (char*)f->realname);
+  if ((f->filesys.fsfile = fopen ((char*)f->realname, "r")) == NULL)
   {
     /* couldn't open it */
     /* 74,DRIVE NOT READY,00,00 */
@@ -161,10 +161,10 @@ fs_lnx_headername (uchar *path, uchar *header, uchar *id, int par)
   /* end f the string */
   header[j] = 0;
   /* default */
-  if ((!strcmp (path, "/")) || (header[0] == 0))
+  if ((!strcmp ((char*)path, "/")) || (header[0] == 0))
     sprintf ((char*)header, "LYNX ARCHIVE");
 
-  strcpy (id, " LYNX");
+  strcpy ((char*)id, " LYNX");
 
   return (0);
 }
@@ -179,10 +179,10 @@ fs_lnx_openfind (fs64_direntry * de, uchar *path)
   de->filesys.media = media_LNX;
 
   /* copy path into the filesystem source descriptor */
-  strcpy (de->fs, path);
-  strcpy (de->realname, path);
+  strcpy ((char*)de->fs, (char*)path);
+  strcpy ((char*)de->realname, (char*)path);
   /* now lets open it (readonly) */
-  if ((de->filesys.fsfile = fopen (de->fs, "r")) == NULL)
+  if ((de->filesys.fsfile = fopen ((char*)de->fs, "r")) == NULL)
   {
     /* open failed */
     /* 74,DRIVE NOT READY,00,00 */

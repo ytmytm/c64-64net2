@@ -67,7 +67,7 @@ fs64_mediatype (uchar *path)
     /* try stripping the / off the end */
     if (path[strlen (path) - 1] == '/')
     {
-      strcpy (temp, path);
+      strcpy ((char*)temp, (char*)path);
       temp[strlen (path) - 1] = 0;
       return (fs64_mediatype (temp));
     }

@@ -386,8 +386,8 @@ fs_d81_headername (uchar *path, uchar *header, uchar *id, int par, fs64_file * f
   f->filesys.media = fs64_mediatype (path);
   f->de.filesys.media = f->filesys.media;
   ff.media = f->filesys.media;
-  strcpy (ff.fspath, path);
-  if ((ff.fsfile = fopen (path, "r")) != NULL)
+  strcpy ((char*)ff.fspath, (char*)path);
+  if ((ff.fsfile = fopen ((char*)path, "r")) != NULL)
   {
     if (!readts (&ff, 40, 0, buff))
     {
@@ -405,8 +405,8 @@ fs_d81_headername (uchar *path, uchar *header, uchar *id, int par, fs64_file * f
     else
     {
       /* cant read sector - so make it up :) */
-      strcpy (header, "@@@@@@@@@@@@@@@@");
-      strcpy (id, "@@@@@");
+      strcpy ((char*)header, "@@@@@@@@@@@@@@@@");
+      strcpy ((char*)id, "@@@@@");
     }
     fclose (ff.fsfile);
     ff.fsfile = 0;
@@ -415,8 +415,8 @@ fs_d81_headername (uchar *path, uchar *header, uchar *id, int par, fs64_file * f
   else
   {
     /* cant open file system */
-    strcpy (header, "@@@@@@@@@@@@@@@@");
-    strcpy (id, "@@@@@");
+    strcpy ((char*)header, "@@@@@@@@@@@@@@@@");
+    strcpy ((char*)id, "@@@@@");
     return (0);
   }
 }

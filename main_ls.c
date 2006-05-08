@@ -7,6 +7,7 @@
 #include "config.h"
 #include "fs.h"
 #include "comm-lpt.h"
+#include "comm-rrnet.h"
 
 int no_net=NONET;
 
@@ -23,17 +24,17 @@ main (int argc, char **argv)
   talklf = 0;
 
   if (argc > 1)
-    strcpy (path, argv[1]);
+    strcpy ((char*)path, argv[1]);
   else
-    strcpy (path, ".");
+    strcpy ((char*)path, ".");
 
   if (argc > 2)
   {
-    strcpy (glob, argv[2]);
+    strcpy ((char*)glob, argv[2]);
     strcat ((char*)glob, ",$");
   }
   else
-    strcpy (glob, "*,$");
+    strcpy ((char*)glob, "*,$");
 
   /* ensure path ends in '/' */
   if (fs64_mediatype (path) == media_UFS)

@@ -7,17 +7,21 @@
 #include "fs.h"
 
 #ifdef UNIX
-#ifdef BEOS
-#define EDQUOT 0
-#include <sys/statvfs.h>
-#else
-#ifdef __FreeBSD__
-#include <sys/param.h>
-#include <sys/mount.h>
-#else
-#include <sys/vfs.h>
-#endif
-#endif
+	#ifdef BEOS
+		#define EDQUOT 0
+		#include <sys/statvfs.h>
+	#else
+		#ifdef __FreeBSD__ 
+			#include <sys/param.h>
+			#include <sys/mount.h>
+		#endif
+		#ifdef __APPLE__
+			#include <sys/param.h>
+			#include <sys/mount.h>
+		#else
+			#include <sys/vfs.h>
+		#endif
+	#endif
 #endif
 
 #ifdef WINDOWS
@@ -31,7 +35,6 @@ int
 fs_ufs_createfile (uchar *path, uchar *name, int t, int rel_len, fs64_file * f)
 {
   uchar fname[1024], rname[32];
-  int i;
 
   debug_msg ("ufs: Trying to create file %s%s [%d]\n",
 	     path, name, t);
@@ -50,8 +53,8 @@ fs_ufs_createfile (uchar *path, uchar *name, int t, int rel_len, fs64_file * f)
   /* create file, and put vital info in */
   f->filesys.media = media_UFS;
   f->filesys.arctype = cbm_PRG;
-  strcpy (f->filesys.fspath, path);
-  if ((f->filesys.fsfile = fopen (fname, "w")) == NULL)
+  strcpy ((char*)f->filesys.fspath, (char*)path);
+  if ((f->filesys.fsfile = fopen ((char*)fname, "w")) == NULL)
   {
     /* cant create file */
     switch (errno)
@@ -103,8 +106,8 @@ fs_ufs_createfile (uchar *path, uchar *name, int t, int rel_len, fs64_file * f)
 */
   // set buffer and poss infomation etc.. 
   f->open = 1;
-  strcpy (f->fs64name, name);
-  strcpy (f->realname, fname);
+  strcpy ((char*)f->fs64name, (char*)name);
+  strcpy ((char*)f->realname, (char*)fname);
   f->first_track = 0;
   f->first_sector = 0;
   f->first_poss = 0x00; //0xfe
@@ -126,7 +129,7 @@ fs_ufs_createfile (uchar *path, uchar *name, int t, int rel_len, fs64_file * f)
 int
 fs_ufs_getopenablename (fs64_file * f, fs64_direntry * de)
 {
-  strcpy (f->realname, de->realname);
+  strcpy ((char*)f->realname, (char*)de->realname);
   return (0);
 }
 
@@ -135,8 +138,8 @@ fs_ufs_openfile (fs64_file * f)
 {
   /* open for read coz this is the open file routine,
      not create file */
-  strcpy (f->filesys.fspath, f->realname);
-  if ((f->filesys.fsfile = fopen (f->realname, "r")) == NULL)
+  strcpy ((char*)f->filesys.fspath, (char*)f->realname);
+  if ((f->filesys.fsfile = fopen ((char*)f->realname, "r")) == NULL)
   {
     /* couldn't open it */
     /* 74,DRIVE NOT READY,00,00 */
@@ -326,10 +329,10 @@ fs_ufs_headername (uchar *path, uchar *header, uchar *id, int par)
   /* end f the string */
   header[j] = 0;
   /* default */
-  if ((!strcmp (path, "/")) || (header[0] == 0))
+  if ((!strcmp ((char*)path, "/")) || (header[0] == 0))
     sprintf ((char*)header, "PARTITION %d", par);
 
-  strcpy (id, "64NET");
+  strcpy ((char*)id, "64NET");
 
   return (0);
 }
@@ -340,7 +343,7 @@ fs_ufs_openfind (fs64_direntry * de, uchar *path)
   /* UNIX filesystem file */
   de->filesys.media = media_UFS;
   /* path in use */
-  strcpy (de->fs, path);
+  strcpy ((char*)de->fs, (char*)path);
   /* open a directory stream and check for first file */
   de->dir = opendir ((char*)path);
 
@@ -376,8 +379,8 @@ fs_ufs_findnext (fs64_direntry * de)
   if (dirent)
   {
     /* fill out thing */
-    strcpy (de->realname, de->path);
-    strcat ((char*)de->realname, dirent->d_name);
+    strcpy ((char*)de->realname, (char*)de->path);
+    strcat ((char*)de->realname, (char*)dirent->d_name);
     /* default filename */
     for (i = 0; i < 16; i++)
       if (i < strlen (dirent->d_name))
@@ -412,9 +415,8 @@ fs_ufs_getinfo (fs64_direntry * de) {
 	FILE *temp = 0;
 	long i;
 	unsigned long j;
-	long end,start;
 
-	if ((temp = fopen (de->realname, "r")) == NULL) {
+	if ((temp = fopen ((char*)de->realname, "r")) == NULL) {
 		/* could not open file - might be a directory or something */
 		/* so we will fall back on our dim assumption - */
 		de->filesys.arctype = arc_UFS;

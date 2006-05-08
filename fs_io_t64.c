@@ -16,7 +16,7 @@ fs_t64_getopenablename (fs64_file * f, fs64_direntry * de)
      the null string when referenced, so using the (psuedo) equivalent
      of de->fs) */
 
-  strcpy (f->realname, de->fs);
+  strcpy ((char*)f->realname, (char*)de->fs);
 
   return (0);
 }
@@ -26,8 +26,8 @@ fs_t64_openfile (fs64_file * f)
 {
   /* open for read coz this is the open file routine,
      not create file */
-  strcpy (f->filesys.fspath, f->realname);
-  if ((f->filesys.fsfile = fopen (f->realname, "r")) == NULL)
+  strcpy ((char*)f->filesys.fspath, (char*)f->realname);
+  if ((f->filesys.fsfile = fopen ((char*)f->realname, "r")) == NULL)
   {
     /* couldn't open it */
     /* 74,DRIVE NOT READY,00,00 */
@@ -53,13 +53,13 @@ fs_t64_openfind (fs64_direntry * de, uchar *path)
   /* D64 filesystem block */
   de->filesys.media = media_T64;
   /* copy path into the filesystem source descriptor */
-  strcpy (de->fs, path);
-  strcpy (de->realname, path);
+  strcpy ((char*)de->fs, (char*)path);
+  strcpy ((char*)de->realname, (char*)path);
   /* now lets open it */
-  if ((de->filesys.fsfile = fopen (de->fs, "r+")) == NULL)
+  if ((de->filesys.fsfile = fopen ((char*)de->fs, "r+")) == NULL)
   {
     /* try readonly open */
-    if ((de->filesys.fsfile = fopen (de->fs, "r")) == NULL)
+    if ((de->filesys.fsfile = fopen ((char*)de->fs, "r")) == NULL)
     {
       /* open failed */
       /* 74,DRIVE NOT READY,00,00 */
