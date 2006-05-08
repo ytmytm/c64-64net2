@@ -328,7 +328,7 @@ fs_net_getopenablename (fs64_file * f, fs64_direntry * de)
 
   if(no_net != 1)
   {
-    strcpy (path, de->filesys.fspath);
+    strcpy ((char*)path, (char*)de->filesys.fspath);
     
     /* seperate path elements into a list */
     for (i = 2; i < strlen (path); i++)
@@ -369,7 +369,7 @@ fs_net_getopenablename (fs64_file * f, fs64_direntry * de)
 	      f->ip += atol (pe[3]);
 	      break;
 	    case 2:
-	      if (!strcmp ("LISTEN", pe[0]))
+	      if (!strcmp ("LISTEN", (char*)pe[0]))
 		{
 		  /* listen */
 		  f->ip = 0xffffffff;
@@ -400,7 +400,7 @@ fs_net_getopenablename (fs64_file * f, fs64_direntry * de)
 	    break;
 	  case 1:
 	    /* listen or server */
-	    if (!strcmp (pe[0], "SERVER"))
+	    if (!strcmp ((char*)pe[0], "SERVER"))
 	      f->ip = 0x7f000001;	/* server */
 	    else
 	      {
@@ -462,10 +462,10 @@ fs_net_headername (uchar *path, uchar *header, uchar *id, int par)
       /* end f the string */
       header[j] = 0;
       /* default */
-      if ((!strcmp (path, "/")) || (header[0] == 0))
+      if ((!strcmp ((char*)path, "/")) || (header[0] == 0))
 	sprintf ((char*)header, "INTERNET");
       
-      strcpy (id, "TCPIP");
+      strcpy ((char*)id, "TCPIP");
       
       return (0);
     }
@@ -493,17 +493,17 @@ fs_net_findnext (fs64_direntry * de)
 	  switch (de->intcount)
 	  {
 	  case 0:
-	      strcpy (de->fs64name, "SERVER");
+	      strcpy ((char*)de->fs64name, "SERVER");
 	      break;
 	  case 1:
-	      strcpy (de->fs64name, "HOSTS");
+	      strcpy ((char*)de->fs64name, "HOSTS");
 	      break;
 	  case 2:
-	      strcpy (de->fs64name, "LISTEN");
+	      strcpy ((char*)de->fs64name, "LISTEN");
 	      break;
 	  default:
 	      sprintf ((char*)temp, "%d", de->intcount - 3);
-	      strcpy (de->fs64name, temp);
+	      strcpy ((char*)de->fs64name, (char*)temp);
 	  }
 	  if (de->intcount == 259)
 	  {
@@ -528,13 +528,13 @@ fs_net_findnext (fs64_direntry * de)
 	  switch (de->intcount)
 	  {
 	  case 0:
-	      strcpy (de->fs64name, "SERVICES");
+	      strcpy ((char*)de->fs64name, "SERVICES");
 	      break;
 	  case 1:
-	      strcpy (de->fs64name, "PORTS");
+	      strcpy ((char*)de->fs64name, "PORTS");
 	      break;
 	  case 2:
-	      strcpy (de->fs64name, "ALIASES");
+	      strcpy ((char*)de->fs64name, "ALIASES");
 	      de->filetype = cbm_PRG | cbm_CLOSED | cbm_LOCKED;
 	      break;
 	  default:
@@ -562,7 +562,7 @@ fs_net_findnext (fs64_direntry * de)
 	  {
 	  default:
 	      sprintf ((char*)temp, "%d", de->intcount);
-	      strcpy (de->fs64name, temp);
+	      strcpy ((char*)de->fs64name, (char*)temp);
 	  }
 	  if (de->intcount == 256)
 	  {
@@ -588,7 +588,7 @@ fs_net_findnext (fs64_direntry * de)
 	  {
 	  default:
 	      sprintf ((char*)temp, "%d", de->intcount);
-	      strcpy (de->fs64name, temp);
+	      strcpy ((char*)de->fs64name, (char*)temp);
 	  }
 	  if (de->intcount == 256)
 	  {
@@ -637,7 +637,7 @@ fs_net_findnext (fs64_direntry * de)
 	      temp[16] = 0;
 	      for (j = 0; j < 16; j++)
 		  temp[j] = toupper (temp[j]);
-	      strcpy (de->fs64name, temp);
+	      strcpy ((char*)de->fs64name, (char*)temp);
 	  }
 	  else
 	  {
@@ -675,9 +675,9 @@ fs_net_openfind (fs64_direntry * de, uchar *path2)
     {
 	/* step 1 - get dir of preceding @ if present */
 	if (path2[0] == '@')
-	    strcpy (path, path2);
+	    strcpy ((char*)path, (char*)path2);
 	else
-	    strcpy (path, &path2[1]);
+	    strcpy ((char*)path, (char*)&path2[1]);
 	
 	/* step 2 - work out the directory type */
 	de->dirtype = fs_net_dirtype (path);
@@ -689,7 +689,7 @@ fs_net_openfind (fs64_direntry * de, uchar *path2)
 	de->intcount = 0;
 	
 	/* step 4 - Copy path to de->filesys.fspath */
-	strcpy (de->filesys.fspath, path);
+	strcpy ((char*)de->filesys.fspath, (char*)path);
 	
 	de->active = 1;
 	return (0);
@@ -737,9 +737,9 @@ fs_net_dirtype (uchar *path2)
 
     if(no_net != 1)
     {
-	strcpy (path, &path2[1]);
+	strcpy ((char*)path, (char*)&path2[1]);
 	
-	if (!strcmp (path, "/"))
+	if (!strcmp ((char*)path, "/"))
 	    return (net_ROOTDIR);
 	
 	/* seperate path elements into a list */
@@ -764,15 +764,15 @@ fs_net_dirtype (uchar *path2)
 	    debug_msg ("PE %d [%s]\n", i, pe[i]);
 	
 	/* work out the dir type */
-	if (!strcmp (pe[0], "HOSTS"))
+	if (!strcmp ((char*)pe[0], "HOSTS"))
 	{
 	    if (pec == 0)
 		return (net_HOSTSDIR);
 	    if (pec == 1)
 		return (net_SERVERDIR);
-	    if (!strcmp (pe[2], "SERVICES"))
+	    if (!strcmp ((char*)pe[2], "SERVICES"))
 		return (net_SERVICESDIR);
-	    if (!strcmp (pe[2], "PORTS"))
+	    if (!strcmp ((char*)pe[2], "PORTS"))
 	    {
 		if (pec == 1)
 		    return (net_BYTEDIR);
@@ -780,13 +780,13 @@ fs_net_dirtype (uchar *path2)
 		    return (net_PORTDIR);
 	    }
 	}
-	if (!strcmp (pe[0], "LISTEN"))
+	if (!strcmp ((char*)pe[0], "LISTEN"))
 	{
 	    if (pec == 0)
 		return (net_SERVERDIR);
-	    if (!strcmp (pe[1], "SERVICES"))
+	    if (!strcmp ((char*)pe[1], "SERVICES"))
 		return (net_SERVICESDIR);
-	    if (!strcmp (pe[1], "PORTS"))
+	    if (!strcmp ((char*)pe[1], "PORTS"))
 	    {
 		if (pec == 1)
 		    return (net_BYTEDIR);
@@ -794,13 +794,13 @@ fs_net_dirtype (uchar *path2)
 		    return (net_PORTDIR);
 	    }
 	}
-	if (!strcmp (pe[0], "SERVER"))
+	if (!strcmp ((char*)pe[0], "SERVER"))
 	{
 	    if (pec == 0)
 		return (net_SERVERDIR);
-	    if (!strcmp (pe[1], "SERVICES"))
+	    if (!strcmp ((char*)pe[1], "SERVICES"))
 		return (net_SERVICESDIR);
-	    if (!strcmp (pe[1], "PORTS"))
+	    if (!strcmp ((char*)pe[1], "PORTS"))
 	    {
 		if (pec == 1)
 		    return (net_BYTEDIR);
@@ -815,7 +815,7 @@ fs_net_dirtype (uchar *path2)
 	    return (net_SERVERDIR);
 	if (pec == 4)
 	{
-	    if (!strcmp (pe[4], "SERVICES"))
+	    if (!strcmp ((char*)pe[4], "SERVICES"))
 		return (net_SERVICESDIR);
 	    else
 		return (net_BYTEDIR);
