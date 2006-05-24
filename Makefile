@@ -5,7 +5,8 @@ FSYS_OBJ=fs_error.o fs_media.o fs_readts.o fs_search.o fs_fileio.o fs_rawdir.o\
 	dosemu.o dos_blockio.o misc_func.o debug.o version.o resman.o\
 	datestamp.o
 
-COMM_OBJ=comm-lpt.o client-comm.o
+COMM_OBJ=comm-rrnet.o client-comm.o
+# COMM_OBJ=comm-lpt.o client-comm.o
 
 OBJECTS	= $(FSYS_OBJ) $(COMM_OBJ)
 
@@ -23,7 +24,7 @@ LOPT=-L. -l64net2
 #LOPT=-L. -l64net2 -lsocket -lnsl
 # This is for FreeBSD
 #LOPT=-L. -l64net2 -lcompat
-COPT=-g -O $(CFLAGS) -Wall 
+COPT=-g -O $(CFLAGS) -Wall
 
 .PHONY: all clean spotless depend dep
 
