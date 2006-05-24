@@ -23,11 +23,6 @@
 #include <sys/types.h>
 #include <sys/time.h>
 
-
-//#include <sys/ioctl.h>
-//#include <sys/socket.h>
-//#include <net/if.h>
-
 #define PADDING 1
 
 /* Current talk & listen logical files */
@@ -157,6 +152,7 @@ unsigned char change_state(unsigned int);
 int start_server();
 void begin_measure();
 void end_measure();
+void send_error(unsigned char);
 void send_acknowledge(unsigned char);
 void receive_packet();
 int wait_for_acknowledge();
@@ -356,7 +352,6 @@ void iec_identify() {
 	/* we are asked to idenitfy ourself, so present the deviceumber under
 	 which we listen. */
 	change_state(IEC_IDLE);
-	//send_error(devicenumber);				
 	return;
 }
 
@@ -605,7 +600,7 @@ unsigned int iec_talk() {
 				out_size=3;
 				send_data();
 				if(wait_for_acknowledge()==-1) return -1;
-				send_data();
+				send_error(ERROR_EOI);
 				if(wait_for_acknowledge()==-1) return -1;
 			//	if(packet_type==PACKET_COMMAND) { 
 			//		send_acknowledge(0x00);
@@ -615,15 +610,13 @@ unsigned int iec_talk() {
 			}
 			else {
 				set_error(62,0,0);
-				send_data();
-				if(wait_for_acknowledge()==-1) return -1;
-				return 0;
 			}
 			#ifdef DEBUG_COMM
 			printf("File not found, sending empty data packet...\n",(uchar)SA);
 			#endif
-			send_data();
+			send_error(ERROR_FILE_NOT_FOUND);
 			if(wait_for_acknowledge()==-1) return -1;
+			return 0;
 		}
 		else {
 			#ifdef DEBUG_COMM
@@ -644,7 +637,7 @@ unsigned int iec_talk() {
 				if(wait_for_acknowledge()==-1) return -1;
 			}
 			//signal EOF
-			send_data();
+			send_error(ERROR_EOI);
 			if(wait_for_acknowledge()==-1) return -1;
 			set_error(0,0,0);
 			return 0;
@@ -680,13 +673,19 @@ unsigned int iec_talk() {
 	return 0;
 }
 
+void send_error(unsigned char err) {
+	send_acknowledge(err);
+}
+
 void send_acknowledge(unsigned char err) {
 	unsigned char reply[2];
-	reply[0]=0x41;
+	if(err==0x00) reply[0]=0x41;
+	else reply[0]=0x45;
+	
 	reply[1]=err;
 	sendto(socket_out, reply,2, 0, (struct sockaddr *) &sender, sizeof(sender));
 	#ifdef DEBUG_COMM
-	printf("acknowledge sent.\n");
+	printf("acknowledge sent.$%X $%X\n",reply[0], reply[1]);
 	#endif
 	return;
 }
