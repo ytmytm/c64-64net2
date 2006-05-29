@@ -113,11 +113,16 @@ int pathdir;
 #define DATA_PAYLOAD_SEND	0xfe
 #define DATA_PAYLOAD_RECV	0xfe
 
+#define MODE_READ		0x01
+#define MODE_WRITE		0x02
+
 int socket_out;
 int socket_in;
 int packet_number;
 unsigned char in_buffer[256];
 unsigned char out_buffer[256];
+unsigned char buffer[1024];
+int bsize;
 int in_size;
 int out_size;
 struct sockaddr_in receiver = { 0 };
@@ -129,10 +134,11 @@ char client_mac[1024] = "00:00:00:64:64:64";
 int packet_type;
 
 int devicenumber=9;
-uchar SA;
+int acknowledge;
+unsigned SA;
 int state=IEC_IDLE;
-int myfilenamelen=0;
-unsigned char* myfilename;
+unsigned char myfilename[1024];
+int myfilenamesize;
 
 /* for measuring transfertimes */
 clock_t starttime;
@@ -143,25 +149,33 @@ struct timeb end = { 0 };
 
 long transferred_amount=0;
 
-unsigned int iec_listen();
-unsigned int iec_talk();
-void iec_unlisten();
-void iec_untalk();
-void iec_idle();
-unsigned char change_state(unsigned int);
-int start_server();
+struct packet {
+        unsigned char* data;
+        unsigned char type;
+        int size;
+};
+
+unsigned char* status;
+
+struct packet* out;
+void start_server();
 void begin_measure();
 void end_measure();
-void send_error(unsigned char);
+int openfile(unsigned char*, int);
+int closefile();
 void send_acknowledge(unsigned char);
-void receive_packet();
-int wait_for_acknowledge();
-
+void send_error(unsigned char);
+void change_state(unsigned char);
+void initialize();
+void iec_listen(struct packet*);
+void iec_unlisten(struct packet*);
+void iec_talk(struct packet*);
+void iec_untalk(struct packet*);
+void process_packet(struct packet*);
+void send_packet(struct packet*);
 
 int iec_commune(int unused) {
         struct  hostent *hp, *gethostbyname();
-//	struct arpreq ar = { 0 };
-//	struct sockaddr req_ip = { 0 };
         hp = gethostbyname(client_ip);
 
 	//install receiver socket
@@ -185,357 +199,291 @@ int iec_commune(int unused) {
 	}
 	last_unit=0; file_unit=0;
 	
-//	ar.arp_pa=gethostbyname(client_ip)->h_addr;
-	
-	//open(
-	//ioctl(s, SIOCGARP, (caddr_t)&ar);
-		
-	while(start_server()==-1);
+	initialize();
+	start_server();
 	return 0;
 }
 
-int start_server() {
-	for(;;) {
-		switch(state) {
-			case IEC_IDLE:
-      				iec_idle();
-			break;
-
-			case IEC_LISTEN:
-				iec_listen();
-			break;
-      
-			case IEC_TALK:
-				#ifdef DEBUG_COMM
-				printf("changed state: TALK\n");
-				#endif
-				iec_talk();
-			break;
-      
-			case IEC_UNLISTEN:
-				#ifdef DEBUG_COMM
-				printf("changed state: UNLISTEN\n");
-				#endif
-      				iec_unlisten();
-			break;
-      
-			case IEC_UNTALK:
-				#ifdef DEBUG_COMM
-				printf("changed state: UNTALK\n");
-				#endif
-				iec_untalk();
-			break;
-			
-			case IEC_IDENTIFY:
-				#ifdef DEBUG_COMM
-				printf("changed state: IDENTIFY\n");
-				#endif
-				//iec_identify();
-			break;
-		}
-	}
-	return -1;
+void initialize() {
+        out=malloc(sizeof(struct packet));
+        out->data=malloc(DATA_PAYLOAD_SEND);
+        myfilenamesize=0;
+        out->size=0;
+        acknowledge=0;
+        return;
 }
 
-void iec_idle() {
-	#ifdef DEBUG_COMM
-	printf("changed state: IDLE\n");
-	#endif
-	receive_packet();
-	if(in_buffer[0]==PACKET_COMMAND) {
-//		#ifdef DEBUG_COMM
-//		printf("We got a command packet\n");
-//		#endif
-		change_state(in_buffer[1]);
-	}
-	else {
-		#ifdef DEBUG_COMM
-		printf("We got an unknown packet. ignoring.\n");
-		#endif
-	}
-	send_acknowledge(0x00);
-	return;
-}
+/* this has to be moved elsewhere into a kind of dispatcher which dispatches the appropriate
+   packets to the respective server processes */
 
-int wait_for_acknowledge() {
-//	int i;
-//	int new_size;
-	#ifdef DEBUG_COMM
-	printf("Waiting for acknowledge...");
-	#endif
-	while(1) {
-		receive_packet();
-		if(packet_type==PACKET_ACKNOWLEDGE) {
-			out_size=0;
-			return 0;
-		}
-		if(packet_type==PACKET_COMMAND) {
-//			new_size=in_buffer[2];
-//			for(i=new_size;i<out_size;i++) {
-//				out_buffer[i-new_size]=out_buffer[i];
-//			}
-//			out_size=newsize;	//
-			out_size=0;
-			send_acknowledge(0x00);
-			change_state(in_buffer[1]); return -1; 
-		}
-	}
-}
-
-void receive_packet() {
-	#ifdef DEBUG_COMM
+void start_server() {
 	int i;
-	int packet_size;
-	#endif
-	while(1) {
-		in_size=recv(socket_in, in_buffer, sizeof(in_buffer), 0);
-		in_buffer[in_size]=(char) NULL;
-		#ifdef DEBUG_COMM
-		packet_size=in_size;
-		#endif
-		if(in_size>1) {
-			packet_type=in_buffer[0];
-			if(packet_type==PACKET_ACKNOWLEDGE && in_size==2) break;
-			if(packet_type==PACKET_COMMAND && in_size==2) break;
-			if(packet_type==PACKET_ERROR && in_size==2) break;
-			if(packet_type==PACKET_DATA) {
-				#ifdef DEBUG_COMM
-				printf("packet size: %d\n", in_size);
-				#endif
-				in_size=in_buffer[in_size-1];
-				transferred_amount+=(in_size);
-				#ifdef DEBUG_COMM
-				printf("payload size: %d\n", in_size);
-				for(i=0;i<packet_size;i++) {
-					if(in_buffer[i]<16) printf("$0%X ",in_buffer[i]);
-					else printf("$%X ",in_buffer[i]);
-					if((i+1)%8==0) printf("\n");
-				}
-				if((i)%8!=0) printf("\n");
-				#endif
-				
-				break;	
-			}
-		}
-	}
-	#ifdef DEBUG_COMM
-	if(packet_type!=PACKET_ACKNOWLEDGE) {
-		printf("Received %d bytes large packet with content: %s\n",in_size, in_buffer);
-	}
-	else {
-		printf("OK\n");
-	}
-	#endif
-}
-
-void send_data() {
-	unsigned char reply[out_size+1];
-	int i=0;
-	reply[0]=0x44;
-	reply[1]=out_size;
-	while(i<out_size) { reply[2+i]=out_buffer[i]; i++; }
-//	if(out_size&1==1) out_size++;
-	sendto(socket_out, reply,out_size+2, 0, (struct sockaddr *) &sender, sizeof(sender));
-	transferred_amount+=out_size;
-	#ifdef DEBUG_COMM
-	printf("$%X bytes of data sent.\n", out_size);
-	for(i=0;i<out_size+2;i++) {
-		if(reply[i]<16) printf("$0%X ",reply[i]);
-		else printf("$%X ",reply[i]);
-		if((i+1)%8==0) printf("\n");
-	}
-	if((i)%8!=0) printf("\n");
-	#endif
-}
-
-void iec_identify() {
-	/* we are asked to idenitfy ourself, so present the deviceumber under
-	 which we listen. */
-	change_state(IEC_IDLE);
-	return;
-}
-
-void iec_untalk() {
-	/* all we should do si stop talking, and that we do anyway as
-	 * atn came high. So we just fall into idle mode and wait
-	 * for new commands */
-	change_state(IEC_IDLE);
-	return;
-}
-
-void iec_unlisten() {
-	if (dos_comm_len[last_unit]!=0) do_dos_command();
-	change_state(IEC_IDLE);
-	//now we can clear the pos, as we closed the file anyway and clear the status;
-	//now we can fall into IDLE state to wait for new challanges.
-	return;
-}
-
-unsigned int iec_listen() {
-	int i;
-	int maxcount=1024;
-	#ifdef DEBUG_COMM
-	printf("changed state: LISTEN\n");
-	#endif
-	receive_packet(); //we acknowledge later, either with ack or err!
-	/* we expect a SA coming under ATN high, if something is suspect we fall back to idle */
-	if(packet_type!=PACKET_COMMAND) return -1;
-	change_state(IEC_IDLE);
-	SA=in_buffer[1];
+	struct packet* p;
+        p=malloc(sizeof(struct packet));
+        p->data=malloc(1024);
 	
-#ifdef DEBUG_COMM
-	printf("listen SA=$%X\n",(uchar)SA);
-#endif
-	/* Record file number for listen */
-	listenlf=SA&0xf;
-
-	/* the data we'll receive should be saved, so we prepare for that */
-	if((SA&0xf0)==IEC_SAVE && listenlf!=0xf) {
-		#ifdef DEBUG_COMM
-		printf("SA commands us to save\n");
-		#endif
-		
-		/* if the file doesn't exist yet we end up here and try to create it now */
-		if (logical_files[file_unit][listenlf].open != 1) {
-			#ifdef DEBUG_COMM
-			printf("Trying to open file...\n");
-			#endif
-			if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], myfilename, &logical_files[file_unit][listenlf])) {
-				#ifdef DEBUG_COMM
-				printf("Can't find file, creating it...\n");
-				#endif
-				/* file not found */
-				/* postpend ",W" to the filename and try again */
-				strcat ((char*)myfilename, ",W");
-				#ifdef DEBUG_COMM
-				printf("Filename now:%s\n",myfilename);
-				#endif
-				if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], myfilename, &logical_files[file_unit][listenlf])) {
-					send_acknowledge(ERROR_FILE_EXISTS); //signal file exists error
-					/* cannot open file for some reason (missing permissions or such) */
-					/* simply abort */
-//					temp=receive_byte(ERROR_FILE_EXISTS,0);
-//					//unsure about the next line, but should be there for savety
-//					if((temp&0x100)!=0) { change_state(temp); return -1; }
-					return -1;
-				}
-			}
-		}
-		
-		//recheck again after first try, that is why we have an if again and not an else!
-		//we managed to open a file and have write permissions so we can start saving into it now
-		if (logical_files[file_unit][listenlf].open == 1) {
-			#ifdef DEBUG_COMM
-				printf("File is open. Now receiving data to save...\n");
-			#endif
-			send_acknowledge(0x00);
-			set_error(0,0,0);
-			/* pour all data into that file until finished or ATN gets high */
-			while(1) {
-				receive_packet();
-				if(packet_type==PACKET_COMMAND) {	//oops, new command 
-					send_acknowledge(0x00);
-					change_state(in_buffer[1]); break; 
-				}
-				if(packet_type==PACKET_DATA) {
-					for(i=0;i<in_size;i++) {
-						fs64_writechar(&logical_files[file_unit][listenlf], in_buffer[i+2]);
+	while(1) {					
+		bsize=recv(socket_in, buffer, sizeof(buffer), 0);
+		if(bsize>1) {
+			p->type=buffer[0];
+			if(p->type==PACKET_DATA) {			//assemble a data packet (0x44, len, data)
+				if(bsize>1) {
+					for(i=0;i<bsize-2;i++) {
+						p->data[i]=buffer[i+2];
 					}
-					send_acknowledge(0x00);
+					p->size=buffer[i+1];
 				}
+				transferred_amount+=p->size;
 			}
+			else {						//assemble otehr packet (code, data)
+				p->data[0]=buffer[1];
+				p->size=1;
+			}
+			process_packet(p);				//let the respective server process process the packet
 		}
-		else {
-			//XXX missing errorhandling here. TB, could be disk full, or write protection on
-			//at least let's signal an error here
-			send_acknowledge(ERROR_FILE_EXISTS);
-		}
-		return 0;
 	}
-	if((SA&0xf0)==IEC_OPEN || (listenlf==0x0f && (((SA&0xf0)==IEC_OPEN) || (SA&0xf0)==IEC_LOAD))) {  /* OPEN/DOS COMMAND */
-		send_acknowledge(0x00);
-		begin_measure();
-		myfilenamelen=0;
-		myfilename=malloc(maxcount);
-		#ifdef DEBUG_COMM
-			printf("Now receiving data...\n");
-		#endif
-		//first receive something (filename/command)
-		
-		while(1) {
-			receive_packet();
-			if(packet_type==PACKET_COMMAND) {	//oops, new command 
-				change_state(in_buffer[1]); 
-				send_acknowledge(0x00);
-				break;
-			}
-			if(packet_type==PACKET_DATA) {
-				send_acknowledge(0x00);
-				for(i=0;i<in_size;i++) {
-					myfilename[myfilenamelen]=in_buffer[i+2];
-					myfilenamelen++;
-					/* XXX we should do error handling on too long filenames here. TB */
-					if(myfilenamelen>=maxcount) {
-						maxcount+=1024;
-						myfilename=realloc(myfilename,maxcount);
+}
+
+void process_packet(struct packet* p) {
+	#ifdef DEBUG_COMM
+	int i;
+	printf ("received packetsize: $%X\n",p->size);
+	for(i=0;i<p->size;i++) {
+		if((i&0x7)==0) printf("\n");
+		if(p->data[i]>15) printf ("$%X ",p->data[i]);
+		else printf ("$0%X ",p->data[i]);
+	}
+	printf("\n");
+	#endif
+
+	
+        if(p->type==PACKET_ACKNOWLEDGE && p->size==1) acknowledge=1;	//set flag if we got an ack
+        if(p->type==PACKET_COMMAND && p->size==1) {			//got a command? 
+		change_state(p->data[0]);				//then change state 
+		acknowledge=0;						//and kick pending acknowledges
+		send_acknowledge(0x00);					//acknowledge command packet
+	}
+        if(p->type==PACKET_DATA) {
+		send_acknowledge(0x00);					//acknowledge data packet
+	}
+	/* now enter state machine and do the next step */
+        switch(state) {
+                case IEC_TALK:
+                        iec_talk(p);
+                break;
+                case IEC_LISTEN:
+                        iec_listen(p);
+                break;
+                case IEC_UNLISTEN:
+                        iec_unlisten(p);
+                break;
+                case IEC_UNTALK:
+                        iec_untalk(p);
+                break;
+        }
+        return;
+}
+
+
+void change_state(unsigned char command) {
+        /* Change TALK/LISTEN/UNLISTEN/UNTALK state based on character received 
+	   as for talk and listen, mask out devicenumber */
+
+        if((command&0xf0)==IEC_LISTEN) {
+                state=IEC_LISTEN;
+                return;
+        }
+        else if((command&0xf0)==IEC_TALK) {
+                state=IEC_TALK;
+                return;
+        }
+        else if(command==IEC_UNLISTEN) {
+                state=IEC_UNLISTEN;
+                return;
+        }
+        else if(command==IEC_UNTALK) {
+                state=IEC_UNTALK;
+                return;
+        }
+        else if(command==IEC_IDLE) {
+                state=IEC_IDLE;
+                return;
+        }
+        return;
+}
+
+/* the way we act when we are in listen state */
+void iec_listen(struct packet* p) {
+        int i;
+        unsigned char command;
+        if(p->type==PACKET_COMMAND) {							//we receive another command?
+                command=p->data[0];
+                if((command&0xf0)==IEC_SAVE || 
+		   (command&0xf0)==IEC_OPEN || 
+		   (command&0xf0)==IEC_CLOSE) {						//is it something we can handle?
+                        SA=command&0xf0;                        			//set SA and lf
+                        listenlf=command&0x0f;
+
+                        if(SA==IEC_CLOSE) {						//close actual file
+				closefile();
+                        }
+                        if(SA==IEC_SAVE && listenlf!=0x0f) {				//prepare for saving
+                                myfilename[myfilenamesize]=0;				
+                                if(openfile(myfilename, MODE_WRITE)<0) {		//try to get write access on requested file
+                                        send_error(ERROR_FILE_EXISTS);			//failed
+                                }
+                        }
+                        if(SA==IEC_OPEN || listenlf==0xf) { 				//prepare filename
+                                myfilenamesize=0;
+                                myfilename[myfilenamesize]=0;
+                        }
+                }
+                else {									//no idea what we got
+                        if((command&0xf0)!=IEC_LISTEN) {
+                                state=IEC_IDLE;                       			//so drop current state
+                                process_packet(p);                      		//and reinterpret command packet
+                        }
+                }
+		return;
+        }
+        if(p->type==PACKET_DATA) {							//we receive data
+                if(SA==IEC_OPEN || (listenlf==0x0f && SA==IEC_LOAD)) {			//what we get is filename/diskcommand	
+                        for(i=0;i<p->size;i++) {
+                                if(myfilenamesize<1024) myfilename[myfilenamesize]=p->data[i];
+                                myfilenamesize++;
+                        }
+                }
+                if(SA==IEC_SAVE && listenlf!=0x0f) {					//what we get is data to be saved
+                        for(i=0;i<p->size;i++) {
+				fs64_writechar(&logical_files[file_unit][listenlf], p->data[i]);
+                        }
+                }
+        }
+        return;
+}
+
+void iec_talk(struct packet* p) {
+        unsigned char command;
+        unsigned char temp;
+        if(p->type==PACKET_COMMAND) {
+                command=p->data[0];
+                if((command&0xf0)==IEC_LOAD) {
+                        SA=command&0xf0;
+                        talklf=command&0x0f;
+                        acknowledge=1;                          //allow first packet to be recognized
+                        if(talklf!=0x0f) {
+                                out->size=0;
+				myfilename[myfilenamesize]=0;
+                                if(openfile(myfilename,MODE_READ)<0) {
+                        		send_error(ERROR_FILE_NOT_FOUND);
+                                        set_error(62,0,0);
+					acknowledge=0;
+					return;
+                                }
+                        }
+                }
+        }
+        if(SA==IEC_LOAD) {
+                if(acknowledge!=0) {
+			out->type=PACKET_DATA;
+			out->size=0;
+                        if(talklf!=0x0f) {
+				while(out->size<DATA_PAYLOAD_SEND) {
+					if(fs64_readchar(&logical_files[file_unit][talklf],&temp)) break;
+                                	out->data[out->size]=temp;
+                                       	out->size++;
+                                }
+				if(out->size==0) {
+					send_error(ERROR_EOI);
+					set_error(0,0,0);
+				}
+				else send_packet(out);
+                        }
+                        else {
+                                //copy status and if requested more we will send 0-sized packets
+                                while(out->size<DATA_PAYLOAD_SEND) {
+					temp=dos_status[last_unit][dos_stat_pos[last_unit]];
+		                        out->data[out->size]=temp;
+		                        if(temp!=0x0d) {
+               			                out->size++;
+		                                dos_stat_pos[last_unit]++;
+                        		}
+		                        else {
+               			                if(out->size>0) out->size++;
+						break;
 					}
 				}
-			}
-		}
-		myfilename=realloc(myfilename,myfilenamelen+1);
-		myfilename[myfilenamelen]=0;
+                        	send_packet(out);
+                        }
+                        acknowledge=0;                  //lock out until we get an acknowledge
+                }
+        }
+        return;
+}
 
-		/* we are commanded to open, either a file or a command, lets decide further */
-		if(listenlf==0x0f) {
-			myfilename[myfilenamelen]=0;
-			/* Data received was a command */
-			#ifdef DEBUG_COMM
-				printf("Received command \"%s\"\n", myfilename);
-			#endif
-			strcpy((char*)dos_command[last_unit],(char*)myfilename);
-			dos_comm_len[last_unit]=myfilenamelen;
-			if (dos_comm_len[last_unit]!=0); //do_dos_command();
-			if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; } 
-		}
-		else {
-			/* Data received was a filename to open */
-			#ifdef PIEC_DEBUG
-			debug_msg ("*** Opening [%s] on channel $%02x\n", myfilename, listenlf);
-			#endif
-			//XXX openfile seems to be a bit buggy, has sometimes file.open==1 though it doesn't exist or is a dir.
-			if(fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], myfilename, &logical_files[file_unit][listenlf])!=0) {
-				logical_files[file_unit][listenlf].open=0;
-			}
-		}
-		return 0;
-	}
-	if((SA&0xf0)==IEC_CLOSE) { /* CLOSE */
-		send_acknowledge(0x00);
-		end_measure();
-		if (logical_files[file_unit][listenlf].open == 1) { 
-			fs64_closefile_g (&logical_files[last_unit][listenlf]);
-			set_error(0,0,0);
-		}
-		/* Close file from SA */
-		#ifdef DEBUG_COMM
-			printf("Closing logical file %d\n",listenlf);
-		#endif
-		/* do nothing except cleaning up */
-		if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; }
-		return 0;
-	}
-	//if non of the above SAs applies, interpret as new command.
-	//TASS does such buggy things for example like sending 
-	//$29, $29, $F0 = listen, listen, SA :-/
-	send_acknowledge(0x00);
-	change_state(SA);
-	return 0;
+void iec_unlisten(struct packet* p) {
+        myfilename[myfilenamesize]=0;
+        if(listenlf==0x0f) {
+                do_dos_command();
+        }
+        state=IEC_IDLE;
+        return;
+}
+
+void iec_untalk(struct packet* p) {
+        state=IEC_IDLE;
+        return;
+}
+
+
+void send_error(unsigned char err) {
+	send_acknowledge(err);
+}
+
+void send_acknowledge(unsigned char err) {
+        out->size=1;
+        out->data[0]=err;
+	if(err==0x00) out->type=PACKET_ACKNOWLEDGE;
+	else out->type=PACKET_ERROR;
+        send_packet(out);
+        return;
 }
 
 void begin_measure() {
 	transferred_amount=0;
 	ftime(&start);
 	return;
+}
+
+void send_packet(struct packet* p) {
+	unsigned char reply[p->size+2];
+	int size;
+	int i=0;
+	switch(p->type) {
+		case PACKET_DATA:
+			reply[0]=PACKET_DATA;
+			reply[1]=p->size;
+			while(i<p->size) { reply[2+i]=p->data[i]; i++; }
+			size=p->size+2;
+			transferred_amount+=p->size;
+		break;
+		default:
+			reply[0]=p->type;
+			reply[1]=p->data[0];
+			size=p->size+1;
+		break;
+	}
+		
+	sendto(socket_out, reply,size, 0, (struct sockaddr *) &sender, sizeof(sender));
+	#ifdef DEBUG_COMM
+	printf("$%X bytes of data sent.\n", size);
+	for(i=0;i<size;i++) {
+		if(reply[i]<16) printf("$0%X ",reply[i]);
+		else printf("$%X ",reply[i]);
+		if((i+1)%8==0) printf("\n");
+	}
+	if((i)%8!=0) printf("\n");
+	#endif
 }
 
 void end_measure() {
@@ -552,211 +500,100 @@ void end_measure() {
 	return;	
 }
 	
-	
-
-unsigned int iec_talk() {
-	unsigned char data=0;
+int openfile(unsigned char* name, int mode) {
 	int i;
-	change_state(IEC_IDLE);
-	#ifdef DEBUG_COMM
-	printf("waiting for talk SA...\n");
-	#endif
-	receive_packet(); //we acknowledge later, either with ack or err!
-	/* we expect a SA coming under ATN high, if something is suspect we fall back to idle */
-	if(packet_type!=PACKET_COMMAND) return -1;
-	SA=in_buffer[1];
-	#ifdef DEBUG_COMM
-	printf("SA=$%X\n",(uchar)SA);
-	#endif
-	send_acknowledge(0x00);
-
-	talklf=SA&0x0f;
-	if((SA&0xf0)==IEC_LOAD && talklf!=0x0f) {
-		//we can now clear the filename, hopefully
-		//not really needed here, as it will be done on close
-		//if(myfilenamelen>0) { free(myfilename); myfilenamelen=0; }
-		//do we have an open file?
+	if(mode==MODE_WRITE) {
+		/* if the file doesn't exist yet we end up here and try to create it now */
 		if (logical_files[file_unit][listenlf].open != 1) {
+			#ifdef DEBUG_COMM
+			printf("Trying to open file...\n");
+			#endif
+			if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], name, &logical_files[file_unit][listenlf])) {
+				#ifdef DEBUG_COMM
+				printf("Can't find file, creating it...\n");
+				#endif
+				/* file not found */
+				/* postpend ",W" to the myfilename and try again */
+				strcat ((char*)name, ",W");
+				#ifdef DEBUG_COMM
+				printf("Filename now:%s\n",name);
+				#endif
+				if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], name, &logical_files[file_unit][listenlf])) {
+					send_acknowledge(ERROR_FILE_EXISTS); //signal file exists error
+					/* cannot open file for some reason (missing permissions or such) */
+					/* simply abort */
+					return -1;
+				}
+			}
+		}
+			
+		//recheck again after first try, that is why we have an if again and not an else!
+		//we managed to open a file and have write permissions so we can start saving into it now
+		if (logical_files[file_unit][listenlf].open == 1) {
+			begin_measure();
+			set_error(0,0,0);
+			return 0;
+		}
+		return -1;
+	}
+	if(mode==MODE_READ) {
+		//we can now clear the myfilename, hopefully
+		//not really needed here, as it will be done on close
+		//if(mymyfilenamelen>0) { free(mymyfilename); mymyfilenamelen=0; }
+		//do we have an open file?
+		if(fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], name, &logical_files[file_unit][listenlf])!=0) {
+			logical_files[file_unit][listenlf].open=0;
 			/* File not found, now signal it with sending a dummy 
 			 * char followed by a timeout */
 			//maybe we just tried to load a dir?
 			//if so, let's change to that dir!
 			
-			dos_comm_len[last_unit]=3+myfilenamelen;
+			printf("namesize:%d",strlen(name));
+			dos_comm_len[last_unit]=3+strlen(name);
 			dos_command[last_unit][0]='C';
 			dos_command[last_unit][1]='D';
 			dos_command[last_unit][2]=':';
 			
-			for(i=0;i<myfilenamelen;i++) {
-				dos_command[last_unit][3+i]=myfilename[i];
+			for(i=0;i<strlen(name);i++) {
+				dos_command[last_unit][3+i]=name[i];
 			}
 			if(do_dos_command()==0) {
 				printf("changed sucessful\n");
 				set_error(0,0,0);
-				out_buffer[0]=0x01;
-				out_buffer[1]=0x08;
-				out_buffer[2]=0x00;
-				out_buffer[3]=0x00;
-				out_size=3;
-				send_data();
-				if(wait_for_acknowledge()==-1) return -1;
-				send_error(ERROR_EOI);
-				if(wait_for_acknowledge()==-1) return -1;
-			//	if(packet_type==PACKET_COMMAND) { 
-			//		send_acknowledge(0x00);
-			//		change_state(in_buffer[1]); return -1; 
-			//	}
-				return 0;
+				out->data[0]=0x01;
+				out->data[1]=0x08;
+				out->data[2]=0x00;
+				out->data[3]=0x00;
+				out->size=4;
+				set_error(0,0,0);
+				return 1;
 			}
 			else {
 				set_error(62,0,0);
 			}
 			#ifdef DEBUG_COMM
-			printf("File not found, sending empty data packet...\n",(uchar)SA);
+			printf("File not found, sending empty data packet...\n");
 			#endif
-			send_error(ERROR_FILE_NOT_FOUND);
-			if(wait_for_acknowledge()==-1) return -1;
-			return 0;
+			return -1;
 		}
 		else {
-			#ifdef DEBUG_COMM
-			printf("Now trying to send data to C64...\n",(uchar)SA);
-			#endif
-			/* start sending bytes until finished or ATN high */
-			while(!fs64_readchar(&logical_files[file_unit][talklf],&data)) {
-				out_buffer[out_size]=data;
-				out_size++;
-				if(out_size > (DATA_PAYLOAD_SEND - 1) ) {
-					send_data();
-					if(wait_for_acknowledge()==-1) return -1;
-				}
-			}
-			//now send last packet
-			if(out_size>0) {
-				send_data();
-				if(wait_for_acknowledge()==-1) return -1;
-			}
-			//signal EOF
-			send_error(ERROR_EOI);
-			if(wait_for_acknowledge()==-1) return -1;
+			debug_msg ("*** Opening [%s] on channel $%02x\n", name, listenlf);
 			set_error(0,0,0);
+			begin_measure();
 			return 0;
 		}
-	}
-	if(talklf==0x0f) {
-		/* the c64 reads out the error channel, so talk the status */
-		#ifdef DEBUG_COMM
-			printf("Sending status123...\n");
-			//printf("Status: %s", dos_status[last_unit]);
-		#endif
-		while(1) {
-			data=dos_status[last_unit][dos_stat_pos[last_unit]];
-			out_buffer[out_size]=data;
-			if(data==0x0d) {
-				if(out_size>0) out_size++;
-				send_data();
-				if(wait_for_acknowledge()==-1) {
-					set_error(0,0,0);
-					return -1;
-				}
-			}
-			else {
-				out_size++;
-				dos_stat_pos[last_unit]++;
-				if(out_size>(DATA_PAYLOAD_SEND-1)) {
-					send_data();
-					if(wait_for_acknowledge()==-1) return -1;
-				}
-			}  
-		}
-	}
-	return 0;
-}
-
-void send_error(unsigned char err) {
-	send_acknowledge(err);
-}
-
-void send_acknowledge(unsigned char err) {
-	unsigned char reply[2];
-	if(err==0x00) reply[0]=0x41;
-	else reply[0]=0x45;
-	
-	reply[1]=err;
-	sendto(socket_out, reply,2, 0, (struct sockaddr *) &sender, sizeof(sender));
-	#ifdef DEBUG_COMM
-	printf("acknowledge sent.$%X $%X\n",reply[0], reply[1]);
-	#endif
-	return;
-}
-
-uchar change_state(unsigned int new_state) {
-	/* Change TALK/LISTEN/UNLISTEN/UNTALK/IDENTIFY state based on character received under attention. */
-	
-//	#ifdef DEBUG_COMM
-//	printf("New state: 0x%X\n", new_state);
-//	#endif
-	new_state=(new_state&0xff);
-		if((new_state&0xf0)==IEC_LISTEN) {
-			if(devicenumber==(new_state&0x0f)) {
-				state=IEC_LISTEN;
-				#ifdef DEBUG_COMM
-				printf("Received Listen command\n");
-				#endif
-    			}
-			else {
-				#ifdef DEBUG_COMM
-				printf("Received Listen, but for different device.\n");
-				#endif
-			}
-			return 0;
-		}
-		else if((new_state&0xf0)==IEC_TALK) {
-			if(devicenumber==(new_state&0x0f)) {
-				state=IEC_TALK;
-				#ifdef DEBUG_COMM
-				printf("Received Talk command\n");
-				#endif
-			}
-			else {
-				#ifdef DEBUG_COMM
-				printf("Received Talk, but for different device\n");
-				#endif
-			}
-			return 0;
-		}
-		else if((new_state&0xff)==IEC_UNLISTEN) {
-			state=IEC_UNLISTEN;
-			#ifdef DEBUG_COMM
-			printf("Received Unlisten command\n");
-			#endif
-			return 0;
-		}	
-		else if((new_state&0xff)==IEC_UNTALK) {
-			state=IEC_UNTALK;
-			#ifdef DEBUG_COMM
-			printf("Received Untalk command\n");
-			#endif
-			return 0;
-		}
-
-		else if((new_state&0xff)==IEC_IDLE) {
-			state=IEC_IDLE;
-//			#ifdef DEBUG_COMM
-//			printf("Going into IDLE mode...\n");
-//			#endif
-			return 0;
-		}
-		else {
-		/* Some unknown command has been received, so lets go back to IDLE,
-		 * and wait for the next command char */
-		#ifdef DEBUG_COMM
-		printf("Received unknown char: 0x%X\n", new_state);
-		#endif
-		state=IEC_IDLE;
-		return -1;
-	}
+	}	
 	return -1;
+}
+
+int closefile() {
+	if (logical_files[file_unit][listenlf].open == 1) {
+                 fs64_closefile_g (&logical_files[last_unit][listenlf]);
+                 set_error(0,0,0);
+        }
+	end_measure();
+	return 1;
+
 }
 
 /* These configuration reading routines really should be in another module,
