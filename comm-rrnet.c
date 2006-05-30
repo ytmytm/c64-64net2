@@ -121,8 +121,6 @@ int socket_in;
 int packet_number;
 unsigned char in_buffer[256];
 unsigned char out_buffer[256];
-unsigned char buffer[1024];
-int bsize;
 int in_size;
 int out_size;
 struct sockaddr_in receiver = { 0 };
@@ -163,8 +161,9 @@ void begin_measure();
 void end_measure();
 int openfile(unsigned char*, int);
 int closefile();
-void send_acknowledge(unsigned char);
+void send_acknowledge();
 void send_error(unsigned char);
+void send_data(struct packet* p);
 void change_state(unsigned char);
 void initialize();
 void iec_listen(struct packet*);
@@ -219,6 +218,8 @@ void initialize() {
 void start_server() {
 	int i;
 	struct packet* p;
+	unsigned char buffer[1024];
+	int bsize;
         p=malloc(sizeof(struct packet));
         p->data=malloc(1024);
 	
@@ -235,13 +236,16 @@ void start_server() {
 				}
 				transferred_amount+=p->size;
 			}
-			else {						//assemble otehr packet (code, data)
+			else {						//assemble other packet (code, data)
 				p->data[0]=buffer[1];
 				p->size=1;
 			}
 			process_packet(p);				//let the respective server process process the packet
 		}
 	}
+	free(p->data);
+	free(p);
+	return;
 }
 
 void process_packet(struct packet* p) {
@@ -261,10 +265,10 @@ void process_packet(struct packet* p) {
         if(p->type==PACKET_COMMAND && p->size==1) {			//got a command? 
 		change_state(p->data[0]);				//then change state 
 		acknowledge=0;						//and kick pending acknowledges
-		send_acknowledge(0x00);					//acknowledge command packet
+		send_acknowledge();					//acknowledge command packet
 	}
         if(p->type==PACKET_DATA) {
-		send_acknowledge(0x00);					//acknowledge data packet
+		send_acknowledge();					//acknowledge data packet
 	}
 	/* now enter state machine and do the next step */
         switch(state) {
@@ -370,88 +374,89 @@ void iec_talk(struct packet* p) {
                 if((command&0xf0)==IEC_LOAD) {
                         SA=command&0xf0;
                         talklf=command&0x0f;
-                        acknowledge=1;                          //allow first packet to be recognized
-                        if(talklf!=0x0f) {
-                                out->size=0;
-				myfilename[myfilenamesize]=0;
-                                if(openfile(myfilename,MODE_READ)<0) {
-                        		send_error(ERROR_FILE_NOT_FOUND);
-                                        set_error(62,0,0);
-					acknowledge=0;
+                        acknowledge=1;                          			//fake acknowledge, so that we get can immediatedly send first packet
+                        if(talklf!=0x0f) {						//file or command?				
+				myfilename[myfilenamesize]=0;				//finish filename
+                                if(openfile(myfilename,MODE_READ)<0) {			//try to open file
+                        		send_error(ERROR_FILE_NOT_FOUND);		//failed
+                                        set_error(62,0,0);				//signal it
+					acknowledge=0;					//clear ack flag, to recognize new acks
 					return;
                                 }
                         }
                 }
         }
-        if(SA==IEC_LOAD) {
-                if(acknowledge!=0) {
-			out->type=PACKET_DATA;
-			out->size=0;
-                        if(talklf!=0x0f) {
-				while(out->size<DATA_PAYLOAD_SEND) {
-					if(fs64_readchar(&logical_files[file_unit][talklf],&temp)) break;
-                                	out->data[out->size]=temp;
+        if(SA==IEC_LOAD) {								//c64 wants to load?
+                if(acknowledge!=0) {							//already got our okay for next package?
+                        acknowledge=0;                  				//allow next acknowledge again
+                        if(talklf!=0x0f) {						//file? yes, send file data
+				while(out->size<DATA_PAYLOAD_SEND) {			//still bytes free in packet?
+					if(fs64_readchar(&logical_files[file_unit][talklf],&temp)) break;	//oops, reached file end
+                                	out->data[out->size]=temp;			//all okay, add byte
                                        	out->size++;
                                 }
-				if(out->size==0) {
-					send_error(ERROR_EOI);
+				if(out->size==0) {					//didn't manage to get a single byte into packet
+					send_error(ERROR_EOI);				//so must be end of file
 					set_error(0,0,0);
 				}
-				else send_packet(out);
+				else {							//have some bytes, send them
+					send_data(out);
+				}
                         }
-                        else {
-                                //copy status and if requested more we will send 0-sized packets
-                                while(out->size<DATA_PAYLOAD_SEND) {
+                        else {								//hmm, command, so send status
+                                //send status until we reach end mark with 0x0d, then reset status
+                                while(out->size<DATA_PAYLOAD_SEND) {			//still place in packet?
 					temp=dos_status[last_unit][dos_stat_pos[last_unit]];
-		                        out->data[out->size]=temp;
-		                        if(temp!=0x0d) {
-               			                out->size++;
-		                                dos_stat_pos[last_unit]++;
-                        		}
-		                        else {
-               			                if(out->size>0) out->size++;
+		                        out->data[out->size]=temp;			//add byte
+               			        out->size++;					 
+		                        if(temp==0x0d) {				//end reached?
+						set_error(0,0,0);			//reset status and send last packet
 						break;
 					}
+					dos_stat_pos[last_unit]++;			//count consumed byte
 				}
-                        	send_packet(out);
+                        	send_data(out);						//now send packet
                         }
-                        acknowledge=0;                  //lock out until we get an acknowledge
                 }
         }
         return;
 }
 
 void iec_unlisten(struct packet* p) {
-        myfilename[myfilenamesize]=0;
-        if(listenlf==0x0f) {
-                do_dos_command();
-        }
+        myfilename[myfilenamesize]=0;							//finalize filename/command
+        if(listenlf==0x0f) do_dos_command();						//try to execute command if we should
         state=IEC_IDLE;
         return;
 }
 
-void iec_untalk(struct packet* p) {
+void iec_untalk(struct packet* p) {							//we just need to shut up, so let's IDLE
         state=IEC_IDLE;
         return;
 }
 
 
-void send_error(unsigned char err) {
-	send_acknowledge(err);
-}
-
-void send_acknowledge(unsigned char err) {
+void send_error(unsigned char err) {							//assemble error packet
         out->size=1;
         out->data[0]=err;
-	if(err==0x00) out->type=PACKET_ACKNOWLEDGE;
-	else out->type=PACKET_ERROR;
+	out->type=PACKET_ERROR;
         send_packet(out);
+	out->size=0;
         return;
 }
 
-void begin_measure() {
-	transferred_amount=0;
-	ftime(&start);
+void send_acknowledge() {								//assemble acknowledge packet
+        out->size=1;
+        out->data[0]=0x00;
+	out->type=PACKET_ACKNOWLEDGE;
+        send_packet(out);
+	out->size=0;
+        return;
+}
+
+void send_data(struct packet* p) {							//send data packet
+	out->type=PACKET_DATA;
+        send_packet(out);
+	out->size=0;
 	return;
 }
 
@@ -460,14 +465,14 @@ void send_packet(struct packet* p) {
 	int size;
 	int i=0;
 	switch(p->type) {
-		case PACKET_DATA:
+		case PACKET_DATA:							//data packet, so add size too (code, size, data)
 			reply[0]=PACKET_DATA;
 			reply[1]=p->size;
 			while(i<p->size) { reply[2+i]=p->data[i]; i++; }
 			size=p->size+2;
 			transferred_amount+=p->size;
 		break;
-		default:
+		default:								//other packets, just do code, data
 			reply[0]=p->type;
 			reply[1]=p->data[0];
 			size=p->size+1;
@@ -486,7 +491,13 @@ void send_packet(struct packet* p) {
 	#endif
 }
 
-void end_measure() {
+void begin_measure() {									//set measure start point
+	transferred_amount=0;
+	ftime(&start);
+	return;
+}
+
+void end_measure() {									//end of measure, calculate time needed
 	float time;
 	float rate;
 	long timediff;
@@ -500,97 +511,64 @@ void end_measure() {
 	return;	
 }
 	
-int openfile(unsigned char* name, int mode) {
+int openfile(unsigned char* name, int mode) {						//try to open a file/dir/whatever
 	int i;
-	if(mode==MODE_WRITE) {
-		/* if the file doesn't exist yet we end up here and try to create it now */
-		if (logical_files[file_unit][listenlf].open != 1) {
-			#ifdef DEBUG_COMM
-			printf("Trying to open file...\n");
-			#endif
-			if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], name, &logical_files[file_unit][listenlf])) {
-				#ifdef DEBUG_COMM
-				printf("Can't find file, creating it...\n");
-				#endif
+	/* if the file doesn't exist yet we end up here and try to create it now */
+	if (logical_files[file_unit][listenlf].open != 1) {			//open already?
+		if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], name, &logical_files[file_unit][listenlf])) {
+			logical_files[file_unit][listenlf].open=0;
+			if(mode==MODE_WRITE) {
 				/* file not found */
 				/* postpend ",W" to the myfilename and try again */
 				strcat ((char*)name, ",W");
-				#ifdef DEBUG_COMM
-				printf("Filename now:%s\n",name);
-				#endif
 				if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], name, &logical_files[file_unit][listenlf])) {
-					send_acknowledge(ERROR_FILE_EXISTS); //signal file exists error
 					/* cannot open file for some reason (missing permissions or such) */
 					/* simply abort */
 					return -1;
 				}
 			}
-		}
-			
-		//recheck again after first try, that is why we have an if again and not an else!
-		//we managed to open a file and have write permissions so we can start saving into it now
-		if (logical_files[file_unit][listenlf].open == 1) {
-			begin_measure();
-			set_error(0,0,0);
-			return 0;
-		}
-		return -1;
-	}
-	if(mode==MODE_READ) {
-		//we can now clear the myfilename, hopefully
-		//not really needed here, as it will be done on close
-		//if(mymyfilenamelen>0) { free(mymyfilename); mymyfilenamelen=0; }
-		//do we have an open file?
-		if(fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], name, &logical_files[file_unit][listenlf])!=0) {
-			logical_files[file_unit][listenlf].open=0;
-			/* File not found, now signal it with sending a dummy 
-			 * char followed by a timeout */
-			//maybe we just tried to load a dir?
-			//if so, let's change to that dir!
-			
-			printf("namesize:%d",strlen(name));
-			dos_comm_len[last_unit]=3+strlen(name);
-			dos_command[last_unit][0]='C';
-			dos_command[last_unit][1]='D';
-			dos_command[last_unit][2]=':';
-			
-			for(i=0;i<strlen(name);i++) {
-				dos_command[last_unit][3+i]=name[i];
-			}
-			if(do_dos_command()==0) {
-				printf("changed sucessful\n");
-				set_error(0,0,0);
-				out->data[0]=0x01;
-				out->data[1]=0x08;
-				out->data[2]=0x00;
-				out->data[3]=0x00;
-				out->size=4;
-				set_error(0,0,0);
-				return 1;
-			}
-			else {
+			if(mode==MODE_READ) {
+				//maybe we just tried to load a dir?
+				//if so, let's change to that dir!
+		
+				printf("namesize:%d",strlen(name));
+				dos_comm_len[last_unit]=3+strlen(name);
+				dos_command[last_unit][0]='C';
+				dos_command[last_unit][1]='D';
+				dos_command[last_unit][2]=':';
+		
+				for(i=0;i<strlen(name);i++) {
+					dos_command[last_unit][3+i]=name[i];
+				}
+				if(do_dos_command()==0) {
+					printf("changed sucessful\n");
+					set_error(0,0,0);
+					out->data[0]=0x01;
+					out->data[1]=0x08;
+					out->data[2]=0x00;
+					out->data[3]=0x00;
+					out->size=4;
+					set_error(0,0,0);
+					return 0;
+				}
 				set_error(62,0,0);
+				return -1;
 			}
-			#ifdef DEBUG_COMM
-			printf("File not found, sending empty data packet...\n");
-			#endif
-			return -1;
 		}
-		else {
-			debug_msg ("*** Opening [%s] on channel $%02x\n", name, listenlf);
-			set_error(0,0,0);
-			begin_measure();
-			return 0;
-		}
-	}	
+	}
+	if (logical_files[file_unit][listenlf].open == 1) {
+		debug_msg ("*** Opening [%s] on channel $%02x\n", name, listenlf);
+		begin_measure();
+		return 0;
+	}
 	return -1;
 }
 
 int closefile() {
 	if (logical_files[file_unit][listenlf].open == 1) {
                  fs64_closefile_g (&logical_files[last_unit][listenlf]);
-                 set_error(0,0,0);
         }
+        set_error(0,0,0);
 	end_measure();
 	return 1;
 
