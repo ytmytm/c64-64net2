@@ -155,7 +155,7 @@ struct instruction instruction_set[]=
   {"sbc",IM_INDY,0xf1},  {"sbc",IM_ZPX,0xf5},  {"inc",IM_ZPX,0xf6},
   {"sec",IM_IMP,0xf8},  {"sbc",IM_ABSY,0xf9},  {"sbc",IM_ABSX,0xfd},
   {"inc",IM_ABSX,0xfe},
-  {NULL,NULL,NULL}
+  {NULL,(int)NULL,(int)NULL}
 };
 
 #define T_INSTRUCTION 1
@@ -212,7 +212,7 @@ int section_count=0;
 struct assembled_byte *current_section=NULL;
 struct assembled_byte *current_byte=NULL;
 
-int special_section=NULL;
+int special_section=(int)NULL;
 
 struct assembled_byte *pre_relocate=NULL;
 int pre_relocate_address=0;
@@ -510,7 +510,7 @@ int parseFile(FILE *f)
 	    return syntaxError("Cannot label a PATCH directive");
 	  current_section=NULL;
 	  current_byte=NULL;
-	  special_section=NULL;
+	  special_section=(int)NULL;
 	  getNextToken(f);
 	  if (token_type!=T_NUMERIC)
 	    return syntaxError("Expect $nnnn after .patch");
@@ -524,7 +524,7 @@ int parseFile(FILE *f)
 	    return syntaxError("Cannot label a SECTION directive");
 	  current_section=sections[section_count];
 	  current_byte=NULL;
-	  special_section=NULL;
+	  special_section=(int)NULL;
 	  break;
 	case T_K_PRERELOCATE:
 	  if (pending_labels)
@@ -914,7 +914,7 @@ int commitByte(struct assembled_byte *ab)
 
   /* dumpSections(); */
 
-	if(special_section==NULL) {
+	if(special_section==(int)NULL) {
 		if ((!current_section)) { /* ||(!current_byte)) */
 			/* Start first section */
 		        section_lines[section_count]=linenum;
