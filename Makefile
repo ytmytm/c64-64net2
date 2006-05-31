@@ -89,7 +89,7 @@ bin/build_wedge:	tools/build_wedge.o
 #
 
 clean:
-	-rm *.o *.a tools/*.o .depend
+	-rm *.o *.a tools/*.o .depend bin/*
 
 spotless: clean
 	-rm bin/*
