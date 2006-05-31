@@ -424,7 +424,11 @@ void iec_talk(struct packet* p) {
 
 void iec_unlisten(struct packet* p) {
         myfilename[myfilenamesize]=0;							//finalize filename/command
-        if(listenlf==0x0f) do_dos_command();						//try to execute command if we should
+        if(listenlf==0x0f) {
+		strcpy((char*)dos_command[last_unit],(char*)myfilename);
+		dos_comm_len[last_unit]=myfilenamesize;
+		do_dos_command();							//try to execute command if we should
+	}
         state=IEC_IDLE;
         return;
 }
