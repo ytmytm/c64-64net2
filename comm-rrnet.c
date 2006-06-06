@@ -23,6 +23,7 @@
 #include <sys/types.h>
 #include <sys/time.h>
 
+
 #define PADDING 1
 
 /* Current talk & listen logical files */
@@ -116,8 +117,8 @@ int pathdir;
 #define MODE_READ		0x01
 #define MODE_WRITE		0x02
 
-int socket_out;
-int socket_in;
+int sendfd;
+int receivefd;
 int packet_number;
 unsigned char in_buffer[256];
 unsigned char out_buffer[256];
@@ -174,27 +175,39 @@ void process_packet(struct packet*);
 void send_packet(struct packet*);
 
 int iec_commune(int unused) {
-        struct  hostent *hp, *gethostbyname();
-        hp = gethostbyname(client_ip);
+//        struct  hostent *hp, *gethostbyname();
 
+#ifdef _WIN32
+	WSADATA wsaData;
+	if (WSAStartup (MAKEWORD (1, 1), &wsaData) != 0) {
+		fprintf (stderr, "WSAStartup (): Can't initialize Winsock.\n");
+		exit (EXIT_FAILURE);
+		return 0;
+	}
+#endif
+	
+//        hp = gethostbyname(client_ip);
+	
 	//install receiver socket
         receiver.sin_family=AF_INET;
         receiver.sin_port=htons(client_port);
         receiver.sin_addr.s_addr=htonl(INADDR_ANY);
-        socket_in = socket (AF_INET,SOCK_DGRAM, IPPROTO_UDP);
+        receivefd = socket (AF_INET,SOCK_DGRAM, IPPROTO_UDP);
 
 	//install sender socket
         sender.sin_family = AF_INET;
         sender.sin_port = htons(client_port);
-        socket_out = socket (AF_INET,SOCK_DGRAM,IPPROTO_UDP);
-        bcopy ( hp->h_addr, &(sender.sin_addr.s_addr), hp->h_length);
+        sendfd = socket (AF_INET,SOCK_DGRAM,IPPROTO_UDP);
+//        bcopy ( hp->h_addr, &(sender.sin_addr.s_addr), hp->h_length);
 
-        bind(socket_in, (struct sockaddr *) &receiver, sizeof(receiver));
+        bind(receivefd, (struct sockaddr *) &receiver, sizeof(receiver));
 
 	//bind input socket
-	if (socket_out<0 || socket_in<0) {
+	if (sendfd<0 || receivefd<0) {
 		fprintf(stderr,"Failed to bind to port %d to listen for UDP packets.\n",client_port);
 		perror("open_port");
+		exit (EXIT_FAILURE);
+		return 0;
 	}
 	last_unit=0; file_unit=0;
 	
@@ -224,7 +237,7 @@ void start_server() {
         p->data=malloc(1024);
 	
 	while(1) {					
-		bsize=recv(socket_in, buffer, sizeof(buffer), 0);
+		bsize=recv(receivefd, buffer, sizeof(buffer), 0);
 		if(bsize>1) {
 			p->type=buffer[0];
 			if(p->type==PACKET_DATA) {			//assemble a data packet (0x44, len, data)
@@ -374,7 +387,7 @@ void iec_talk(struct packet* p) {
                 if((command&0xf0)==IEC_LOAD) {
                         SA=command&0xf0;
                         talklf=command&0x0f;
-                        acknowledge=1;                          			//fake acknowledge, so that we get can immediatedly send first packet
+                        acknowledge=1;                          			//fake acknowledge, so that we get can immediatedly send first packet (passing if statement with acknowlegde!=0)
                         if(talklf!=0x0f) {						//file or command?				
 				myfilename[myfilenamesize]=0;				//finish filename
                                 if(openfile(myfilename,MODE_READ)<0) {			//try to open file
@@ -483,7 +496,7 @@ void send_packet(struct packet* p) {
 		break;
 	}
 		
-	sendto(socket_out, reply,size, 0, (struct sockaddr *) &sender, sizeof(sender));
+	sendto(sendfd, reply,size, 0, (struct sockaddr *) &sender, sizeof(sender));
 	#ifdef DEBUG_COMM
 	printf("$%X bytes of data sent.\n", size);
 	for(i=0;i<size;i++) {
@@ -517,11 +530,12 @@ void end_measure() {									//end of measure, calculate time needed
 	
 int openfile(unsigned char* name, int mode) {						//try to open a file/dir/whatever
 	int i;
-	/* if the file doesn't exist yet we end up here and try to create it now */
-	if (logical_files[file_unit][listenlf].open != 1) {			//open already?
+	if (logical_files[file_unit][listenlf].open != 1) {				//open already?
 		if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], name, &logical_files[file_unit][listenlf])) {
+			/* open failed, got to react on that */
 			logical_files[file_unit][listenlf].open=0;
 			if(mode==MODE_WRITE) {
+				/* if the file doesn't exist yet we end up here and try to create it now */
 				/* file not found */
 				/* postpend ",W" to the myfilename and try again */
 				strcat ((char*)name, ",W");
