@@ -18,15 +18,15 @@ shortname (uchar *path, uchar *lname,
    */
 
   FILE *f = 0;
-  int i;
+  unsigned int i;
   uchar temp[1024];
 #ifdef MS_DOS
   /* spit! caugh! etc.. */
-  int maxlen = 8;
+  unsigned int maxlen = 8;
 #else
   /* amiga's only have 32 char files, and it wont hurt to limit
      UNIX to this number */
-  int maxlen = 27;
+  unsigned int maxlen = 27;
 #endif
 
   sname[0] = 0;

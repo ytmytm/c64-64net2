@@ -322,8 +322,8 @@ int
 fs_net_getopenablename (fs64_file * f, fs64_direntry * de)
 {
   uchar pe[8][17];
-  int pec = 0, pel = 0;
-  int i;
+  unsigned int pec = 0, pel = 0;
+  unsigned int i;
   uchar path[256];
 
   if(no_net != 1)
@@ -731,8 +731,8 @@ fs_net_dirtype (uchar *path2)
        BUG: Doesnt allow for transparent FTP access yet */
     
     uchar pe[8][17];
-    int pec = 0, pel = 0;
-    int i;
+    unsigned int pec = 0, pel = 0;
+    unsigned int i;
     uchar path[256];
 
     if(no_net != 1)

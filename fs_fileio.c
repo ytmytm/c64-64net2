@@ -259,7 +259,7 @@ fs64_dirtail (fs64_file * f)
   f->buffer[f->be++] = b >> 8;
 
   /* "BLOCKS FREE.             " */
-  for (i = 0; i < strlen ("BLOCKS FREE.             "); i++)
+  for (i = 0; i < (int)strlen ("BLOCKS FREE.             "); i++)
     f->buffer[f->be++] = "BLOCKS FREE.             "[i];
 
   /* terminating zeros */
@@ -301,7 +301,7 @@ fs64_dirheader (fs64_file * f, int par, uchar *label, uchar *id)
 
   /* 16 chars of par */
   for (i = 0; i < 16; i++)
-    if (i < strlen (label))
+    if (i < (int)strlen (label))
       f->buffer[f->be++] = label[i];
     else
       f->buffer[f->be++] = 0x20;
@@ -314,7 +314,7 @@ fs64_dirheader (fs64_file * f, int par, uchar *label, uchar *id)
 
   /* id */
   for (i = 0; i < 5; i++)
-    if (i < strlen (id))
+    if (i < (int)strlen (id))
       f->buffer[f->be++] = id[i];
     else
       f->buffer[f->be++] = 0x20;
@@ -869,7 +869,7 @@ fs64_openfile_g (uchar *curdir, uchar *filespec, fs64_file * f)
 
     /* check for * or ? in glob
        BUT: only upto a comma, so REL record sizes can still work */
-    for (i = 0; i < strlen (glob); i++)
+    for (i = 0; i < (int)strlen (glob); i++)
     {
       if (glob[i] == ',')
 	break;

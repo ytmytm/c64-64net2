@@ -47,7 +47,7 @@ fs64_rawdirheader (fs64_file * f, int par, uchar *label, uchar *id)
     /* now the name */
     /* 16 chars of par */
     for (i = 0; i < 16; i++)
-	if (i < strlen (label))
+	if (i < (int)strlen (label))
 	    f->buffer[f->be++] = label[i];
 	else
 	    f->buffer[f->be++] = 0xa0;
@@ -58,7 +58,7 @@ fs64_rawdirheader (fs64_file * f, int par, uchar *label, uchar *id)
 
     /* id */
     for (i = 0; i < 5; i++)
-	if (i < strlen (id))
+	if (i < (int)strlen (id))
 	    f->buffer[f->be++] = id[i];
 	else
 	    f->buffer[f->be++] = 0xa0;

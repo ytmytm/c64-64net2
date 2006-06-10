@@ -56,7 +56,7 @@ glob_match_old (uchar *glob, uchar *pattern)
   globs[0].c = 0xa0;
   globs[0].star = 0;
 
-  for (i = 0; i < strlen (glob); i++)
+  for (i = 0; i < (int)strlen (glob); i++)
   {
     switch (glob[i])
     {
@@ -142,9 +142,9 @@ int glob_match (uchar *glob, uchar *pattern) {
 	//by just loading "foo". now we need to load
 	//"foo*", "foo01" or alike to make that happen. TB
 	int i;
-	for(i=0; i < strlen(pattern); i++) {
+	for(i=0; i < (int)strlen(pattern); i++) {
 		//still within glob, so compare
-		if(i<strlen(glob)) {
+		if(i<(int)strlen(glob)) {
 			if(glob[i]=='?') {
 				//we can assume any char, but take care we have not
 				//reached the padding already
@@ -359,7 +359,7 @@ parse_glob (uchar glob_array[17][32], uchar *pattern)
   snum = 1;
   sposs = 0;
   i = 0;
-  while (i < strlen (fnord))
+  while (i < (int)strlen (fnord))
   {
     if (sposs > 31)
     {

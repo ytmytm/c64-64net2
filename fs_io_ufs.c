@@ -363,7 +363,7 @@ int
 fs_ufs_findnext (fs64_direntry * de)
 {
   struct dirent *dirent;
-  int i;
+  unsigned int i;
 
   /* read raw entry */
   dirent = readdir (de->dir);

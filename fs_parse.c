@@ -217,7 +217,8 @@ fs64_resolve_partition (uchar *partition, uchar *path, int *dirtrack, int *dirse
     /* I think a state diagram would be shiny here */
     if (strlen (path))
     {
-      int state = 1, i = 0, j;
+      int state = 1, j;
+      unsigned int i = 0;
       char pathelement[256];
       fs64_direntry de;
 
@@ -357,7 +358,7 @@ fs64_parse_filespec (uchar *filespec2, uchar *path,
      directory etc
      Also, glob the path part of this */
 
-  int i, j;
+  int i,j;
   uchar *tmp;
   uchar partition[256];
   uchar filespec_snoz[1024];
@@ -412,11 +413,11 @@ fs64_parse_filespec (uchar *filespec2, uchar *path,
   /* STEP 2 - look for ':' (or '<-') for partition reference */
   /* and resolve path and partition */
 
-  for (i = 0; i < strlen (filespec); i++)
+  for (i = 0; i < (int)strlen (filespec); i++)
     if ((filespec[i] == ':') || (filespec[i] == 95))
       break;
 
-  if (i < strlen (filespec))
+  if (i < (int)strlen (filespec))
   {
     /* we have a partition reference */
     /* now, get partition name */
@@ -437,7 +438,7 @@ fs64_parse_filespec (uchar *filespec2, uchar *path,
     /* if the leftmost char is a '/' then strip it */
     if (filespec[0] == '/')
       filespec++;
-    for (j = 0; j <= strlen (filespec); j++)
+    for (j = 0; j <= (int)strlen (filespec); j++)
       if (filespec[j] == ':')
       {
 	/* found end of path */
@@ -549,11 +550,11 @@ fs64_parse_path (uchar *filespec2, uchar *path, int *par, int *dirtrack, int *di
   /* STEP 2 - look for ':' (or '<-') for partition reference */
   /* and resolve path and partition */
 
-  for (i = 0; i < strlen (filespec); i++)
+  for (i = 0; i < (int)strlen (filespec); i++)
     if ((filespec[i] == ':') || (filespec[i] == 95))
       break;
 
-  if (i < strlen (filespec))
+  if (i < (int)strlen (filespec))
   {
     /* we have a partition reference */
     /* now, get partition name */
@@ -574,7 +575,7 @@ fs64_parse_path (uchar *filespec2, uchar *path, int *par, int *dirtrack, int *di
     /* if the leftmost char is a '/' then strip it */
     if (filespec[0] == '/')
       filespec++;
-    for (j = 0; j <= strlen (filespec); j++)
+    for (j = 0; j <= (int)strlen (filespec); j++)
       if (filespec[j] == ':')
       {
 	/* found end of path */
