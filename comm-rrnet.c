@@ -153,10 +153,10 @@ struct packet {
         unsigned char type;
         int size;
 };
+struct packet* out;
 
 unsigned char* status;
 
-struct packet* out;
 void start_server();
 void begin_measure();
 void end_measure();
@@ -217,8 +217,8 @@ int iec_commune(int unused) {
 }
 
 void initialize() {
-        out=malloc(sizeof(struct packet));
-        out->data=malloc(DATA_PAYLOAD_SEND);
+        out=(struct packet*)malloc(sizeof(struct packet));
+        out->data=(unsigned char*)malloc(DATA_PAYLOAD_SEND);
         myfilenamesize=0;
         out->size=0;
         acknowledge=0;
@@ -233,8 +233,8 @@ void start_server() {
 	struct packet* p;
 	unsigned char buffer[1024];
 	int bsize;
-        p=malloc(sizeof(struct packet));
-        p->data=malloc(1024);
+        p=(struct packet*)malloc(sizeof(struct packet));
+        p->data=(unsigned char*)malloc(1024);
 	
 	while(1) {					
 		bsize=recv(receivefd, buffer, sizeof(buffer), 0);
@@ -555,7 +555,7 @@ int openfile(unsigned char* name, int mode) {						//try to open a file/dir/what
 				dos_command[last_unit][1]='D';
 				dos_command[last_unit][2]=':';
 		
-				for(i=0;i<strlen(name);i++) {
+				for(i=0;i<(int)strlen(name);i++) {
 					dos_command[last_unit][3+i]=name[i];
 				}
 				if(do_dos_command()==0) {
@@ -798,10 +798,10 @@ read_device (FILE * cf)
 	{
 	  /* partition for drive */
 	  /* find first comma */
-	  for (i = 9; i < strlen (temp); i++)
+	  for (i = 9; i < (int)strlen (temp); i++)
 	    if (temp[i] == ',')
 	      break;
-	  if (i >= strlen (temp))
+	  if (i >= (int)strlen (temp))
 	    fatal_error ("Bad partition line (no commas).");
 	  pn = atol (&temp[9]);
 	  if ((pn < 1) || (pn > 255))

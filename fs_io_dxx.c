@@ -637,7 +637,7 @@ fs_dxx_finddirblock (uchar *path, int *dirtrack, int *dirsector, uchar *fname)
   struct stat sb;
 #endif
   path[strlen (path) + 1] = 0;	/* for poorly inserted '/'s */
-  for (i = 0; i < strlen (path); i++)
+  for (i = 0; i < (int)strlen (path); i++)
     if (path[i] == '/')
     {
       path[i] = 0;
@@ -693,7 +693,7 @@ fs_dxx_finddirblock (uchar *path, int *dirtrack, int *dirsector, uchar *fname)
       fs64_direntry de;
       de.dir = 0;
       glob[0] = 0;
-      for (i = 0; i <= strlen (slag); i++)
+      for (i = 0; i <= (int)strlen (slag); i++)
 	if ((slag[i] == '/') || (slag[i] == 0))
 	{
 	  /* strip from slag */
@@ -1157,11 +1157,11 @@ fs_dxx_bamalloc (fs64_filesystem * fs, int t, int s, void *bam)
   case media_D64:
     return (fs_d64_bamalloc (t, s, (uchar *) bam));
   case media_D71:
-    return (fs_d71_bamalloc (t, s, bam));
+    return (fs_d71_bamalloc (t, s, (unsigned char (*)[256])(bam)));
   case media_D81:
-    return (fs_d81_bamalloc (t, s, bam));
+    return (fs_d81_bamalloc (t, s, (unsigned char (*)[256])(bam)));
   case media_DHD:
-    return (fs_dhd_bamalloc (t, s, bam));
+    return (fs_dhd_bamalloc (t, s, (unsigned char (*)[256])(bam)));
   default:
     debug_msg ("fs_dxx_bamalloc: unsupported media\n");
     set_error (38, 0, 0);

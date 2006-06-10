@@ -155,7 +155,7 @@ struct instruction instruction_set[]=
   {"sbc",IM_INDY,0xf1},  {"sbc",IM_ZPX,0xf5},  {"inc",IM_ZPX,0xf6},
   {"sec",IM_IMP,0xf8},  {"sbc",IM_ABSY,0xf9},  {"sbc",IM_ABSX,0xfd},
   {"inc",IM_ABSX,0xfe},
-  {NULL,(int)NULL,(int)NULL}
+  {NULL,(int)0,(int)0}
 };
 
 #define T_INSTRUCTION 1
@@ -212,7 +212,7 @@ int section_count=0;
 struct assembled_byte *current_section=NULL;
 struct assembled_byte *current_byte=NULL;
 
-int special_section=(int)NULL;
+int special_section=(int)0;
 
 struct assembled_byte *pre_relocate=NULL;
 int pre_relocate_address=0;
@@ -510,7 +510,7 @@ int parseFile(FILE *f)
 	    return syntaxError("Cannot label a PATCH directive");
 	  current_section=NULL;
 	  current_byte=NULL;
-	  special_section=(int)NULL;
+	  special_section=(int)0;
 	  getNextToken(f);
 	  if (token_type!=T_NUMERIC)
 	    return syntaxError("Expect $nnnn after .patch");
@@ -524,7 +524,7 @@ int parseFile(FILE *f)
 	    return syntaxError("Cannot label a SECTION directive");
 	  current_section=sections[section_count];
 	  current_byte=NULL;
-	  special_section=(int)NULL;
+	  special_section=(int)0;
 	  break;
 	case T_K_PRERELOCATE:
 	  if (pending_labels)
@@ -602,7 +602,7 @@ int dumpFreeSpace()
 int main(int argc,char **argv)
 {
   FILE *f;
-  char template[1024]="/tmp/build_wedge.XXXXXXXX";
+  char tpl[1024]="/tmp/build_wedge.XXXXXXXX";
 
   if (argc!=3)
     {
@@ -624,15 +624,15 @@ int main(int argc,char **argv)
     char cmd[8192];
     int fd;
     cmd[8191]=0;
-    fd=mkstemp(template);
+    fd=mkstemp(tpl);
     if (fd==-1) 
       { 
-	fprintf(stderr,"Could not create temporary file %s\n",template);
+	fprintf(stderr,"Could not create temporary file %s\n",tpl);
 	exit(1);
       }
     close(fd);
     snprintf(cmd,8192,"cpp -D__64net2__=%d.%d -D__64net__=2.0 -C %s > %s",
-	     VER_MAJ,VER_MIN,argv[1],template);
+	     VER_MAJ,VER_MIN,argv[1],tpl);
     if (cmd[8191])
       {
 	fprintf(stderr,"C Pre-processor command too long.\n");
@@ -641,10 +641,10 @@ int main(int argc,char **argv)
     printf("%s\n",cmd);
     system(cmd);
 
-    f=fopen(template,"r");
+    f=fopen(tpl,"r");
     if (!f) 
       return fprintf(stderr,"Failed to open pre-processed input file '%s'\n",
-		     template);    
+		     tpl);    
   }
 
   printf("\nPass 1 - Parse and assemble\n-----------------------\n");
@@ -663,7 +663,7 @@ int main(int argc,char **argv)
   writeWedge(argv[2]);
 
   /* Clean up the temporary file */
-  unlink(template);
+  unlink(tpl);
 
   return 0;
 }
@@ -708,7 +708,7 @@ struct label *newLabel(char *name,
   /* Allocate structure */
   if (!l) 
     {
-      l=malloc(sizeof(struct label));
+      l=(struct label*)malloc(sizeof(struct label));
       bzero(l,sizeof(struct label));
       l->next=next;
     }
@@ -843,7 +843,7 @@ struct assembled_byte *parseValueOperand(FILE *f)
 		    NULL,NULL,NULL);	    
 	  }
 	
-	ab=calloc(1,sizeof(struct assembled_byte));
+	ab=(struct assembled_byte*)calloc(1,sizeof(struct assembled_byte));
 	if (!ab) 
 	  {
 	    syntaxError("malloc() failure in assembleInstruction()");
@@ -858,7 +858,7 @@ struct assembled_byte *parseValueOperand(FILE *f)
       }
       break;
     case T_NUMERIC:
-      ab=calloc(1,sizeof(struct assembled_byte));
+      ab=(struct assembled_byte*)calloc(1,sizeof(struct assembled_byte));
       if (!ab) 
 	{
 	  syntaxError("malloc() failure in assembleInstruction()");
@@ -914,7 +914,7 @@ int commitByte(struct assembled_byte *ab)
 
   /* dumpSections(); */
 
-	if(special_section==(int)NULL) {
+	if(special_section==0) {
 		if ((!current_section)) { /* ||(!current_byte)) */
 			/* Start first section */
 		        section_lines[section_count]=linenum;

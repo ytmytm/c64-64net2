@@ -298,7 +298,7 @@ do_dos_command (void)
 	    return (-1);
 	  }
 	  /* filter crusty chars */
-	  for (k = 0; k < strlen (lname); k++)
+	  for (k = 0; k < (int)strlen (lname); k++)
 	    switch (lname[k])
 	    {
 	    case ',':
@@ -872,9 +872,9 @@ do_dos_command (void)
 	{
 	  if (dos_command[i][2] == ':')
 	    /* skip colon */
-	    j = atof (&dos_command[i][3]);
+	    j = (int)(atof (&dos_command[i][3]));
 	  else
-	    j = atof (&dos_command[i][2]);
+	    j = (int)(atof (&dos_command[i][2]));
 	}
 	if (j == 0)
 	{

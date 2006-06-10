@@ -22,12 +22,12 @@ void do_quit(void) {
     /* a dummy routine that should shut down 64net/2 */
 }
 
-void sigint() {
+void sigint(int dummy) {
     do_quit();
     fatal_error("SIGINT caught");
 }
 
-void sigterm() {
+void sigterm(int dummy) {
     do_quit();
     fatal_error("SIGTERM caught");
 }

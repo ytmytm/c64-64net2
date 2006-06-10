@@ -996,10 +996,10 @@ fs64_openfile_g (uchar *curdir, uchar *filespec, fs64_file * f)
 	fs_dhd_headername (path, header, id, par, f);
 	break;
       case media_LNX:
-	fs_lnx_headername (path, header, id, par, f);
+	fs_lnx_headername (path, header, id, par);
 	break;
       case media_NET:
-	fs_net_headername (path, header, id, par, f);
+	fs_net_headername (path, header, id, par);
 	break;
       default:
 	strcpy ((char*)header, "-=-  64NET/2 -=-");

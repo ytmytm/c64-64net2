@@ -32,9 +32,93 @@ int blinkflag = 0, derror = 1, active = 0;
 FILE *f = 0;
 
 int 
-main (argc, argv)
-     int argc;
-     char **argv;
+blink ()
+{
+  /* update led status */
+
+  blinkflag ^= 1;
+  if (derror && blinkflag)
+  {
+    /* power led dim */
+    xcolour.red = 0x4000;
+  }
+  else
+  {
+    /* power led bright */
+    xcolour.red = 0xffff;
+  }
+  xcolour.pixel = colours[2];
+  xcolour.flags = DoRed;
+  XStoreColor (display, DefaultColormap (display, screen), &xcolour);
+
+  if (active)
+    xcolour.green = 0xffff;
+  else
+    xcolour.green = 0x4000;
+  xcolour.pixel = colours[3];
+  xcolour.flags = DoGreen;
+  XStoreColor (display, DefaultColormap (display, screen), &xcolour);
+
+}
+
+int 
+check64net ()
+{
+  /* check the $HOME/.64net2state file */
+#ifndef LINUX
+  fpurge (f);
+#endif
+  fseek (f, 0, SEEK_SET);
+  derror = fgetc (f);
+  active = fgetc (f);
+}
+
+
+int 
+read_pixmap ()
+{
+  int x, y, c, lc = -1;
+
+  for (x = 0; x < 400; x++)
+    for (y = 0; y < 150; y++)
+    {
+      c = p15xx_xpm[y + 7][x];
+      if (c != lc)
+      {
+	lc = c;
+	switch (c)
+	{
+	case ' ':
+	  XSetForeground (display, gc, BlackPixel (display, screen));
+	  break;
+	case '+':
+	  XSetForeground (display, gc, WhitePixel (display, screen));
+	  break;
+	case '.':
+	  XSetForeground (display, gc, colours[0]);
+	  break;
+	case 'X':
+	  XSetForeground (display, gc, colours[1]);
+	  break;
+	case 'o':
+	  XSetForeground (display, gc, colours[2]);
+	  break;
+	case 'O':
+	  XSetForeground (display, gc, colours[3]);
+	  break;
+	}
+      }
+      XDrawPoint (display, pm, gc, x, y);
+    }
+
+  return (0);
+}
+
+
+int 
+main (int argc, char** argv)
+//     int argc;
+//     char **argv;
 {
   char temp[1024];
 
@@ -127,7 +211,7 @@ main (argc, argv)
 
   }
   /* load pixmap data */
-  read_pixmap ();
+  read_pixmap();
 
 
   /* initialize size hints property for window managers */
@@ -196,84 +280,4 @@ draw_drive ()
   XCopyArea (display, pm, win, gc, 0, 0, width, height, 0, 0);
 }
 
-int 
-read_pixmap ()
-{
-  int x, y, c, lc = -1;
 
-  for (x = 0; x < 400; x++)
-    for (y = 0; y < 150; y++)
-    {
-      c = p15xx_xpm[y + 7][x];
-      if (c != lc)
-      {
-	lc = c;
-	switch (c)
-	{
-	case ' ':
-	  XSetForeground (display, gc, BlackPixel (display, screen));
-	  break;
-	case '+':
-	  XSetForeground (display, gc, WhitePixel (display, screen));
-	  break;
-	case '.':
-	  XSetForeground (display, gc, colours[0]);
-	  break;
-	case 'X':
-	  XSetForeground (display, gc, colours[1]);
-	  break;
-	case 'o':
-	  XSetForeground (display, gc, colours[2]);
-	  break;
-	case 'O':
-	  XSetForeground (display, gc, colours[3]);
-	  break;
-	}
-      }
-      XDrawPoint (display, pm, gc, x, y);
-    }
-
-  return (0);
-}
-
-int 
-blink ()
-{
-  /* update led status */
-
-  blinkflag ^= 1;
-  if (derror && blinkflag)
-  {
-    /* power led dim */
-    xcolour.red = 0x4000;
-  }
-  else
-  {
-    /* power led bright */
-    xcolour.red = 0xffff;
-  }
-  xcolour.pixel = colours[2];
-  xcolour.flags = DoRed;
-  XStoreColor (display, DefaultColormap (display, screen), &xcolour);
-
-  if (active)
-    xcolour.green = 0xffff;
-  else
-    xcolour.green = 0x4000;
-  xcolour.pixel = colours[3];
-  xcolour.flags = DoGreen;
-  XStoreColor (display, DefaultColormap (display, screen), &xcolour);
-
-}
-
-int 
-check64net ()
-{
-  /* check the $HOME/.64net2state file */
-#ifndef LINUX
-  fpurge (f);
-#endif
-  fseek (f, 0, SEEK_SET);
-  derror = fgetc (f);
-  active = fgetc (f);
-}

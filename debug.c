@@ -62,7 +62,8 @@ void trap_free(int addr)
     }
 
   /* test for corruption */
-  p=(void *)((char*)addr-16);
+//  p=(void *)((char*)addr-16);
+  p=(uchar*)(addr-16);
   for(j=0;j<16;j++) {
       if (p[j]!=0xbd)
 	  printf("DEBUG: free() show memory corruption at (-) %d (%08x)\n",16-j,addr);
