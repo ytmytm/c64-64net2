@@ -4,7 +4,7 @@
 /* debug messages flag */
 int debug_mode=0;
 
-static int mallocList[128]={-1};
+static long mallocList[128]={-1};
 static int sizeList[128];
 
 int initDebug(void)
@@ -30,7 +30,7 @@ void *trap_malloc(int size)
       return(0);
     }
 
-  mallocList[i]=(int)malloc(size+32);
+  mallocList[i]=(unsigned long)malloc(size+32);
   sizeList[i]=size;
   
   p=(uchar *)mallocList[i];
