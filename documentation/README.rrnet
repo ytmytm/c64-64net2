@@ -1,0 +1,107 @@
+How to use this software:
+unzip and untar the tarball if needed, then change into the directory 'server' and type 'make' to build the binaries.
+In the bin directory you will then find a bunch of executeables if the compilation is passed successfully.
+
+Edit the 64netrc file, for example with vim.
+Most of all you need to set the Path correctly, for e.g. to your home directory. The rest should work fine with the set defaults.
+
+Then get root privileges and add the arp resolve for our c64 manually by typing the command:
+arp -s [c64-ip] [c64-mac-address]
+The IP depends on your network setting, just give your c64 a free IP within your subnet. 
+Then invent some MAC-address that is not used in your network, maybe take one of a defective NIC to be on the safe side. 
+The default is 00:00:00:64:64:64 that is rather fine for home use, but not if you happen to use it in a network where more than one rr-net cardridges operate this will definitedly bring you into trouble.
+You also need to patch the IP and MAC-address in the kernal image. The offstes are $xxxx for the IP and $xxxx for the c64's MAC-address. Just use an hexeditor for that.
+
+For a first try then start 64net/2 manuall by entering: ./bin/64net2 and there should appear something like:
+
+64net:/home/bitbreaker/server# ./bin/64net2
+64NET/2 server V01.00 ALPHA
+INIT: Communication port set to /dev/parport0
+64NET/2 will be seen from client as device 9
+INIT: Virtual LED states available for client(s) in file
+         [/home/bitbreaker/.64net2.leds]
+INIT: Debug mode messages will be displayed.
+Networked device $00 assigned to IEC device $09
+	/HOME/BITBREAKER/FILES/ added as partition 1 on unit $00
+	(/home/bitbreaker/files/ T-1 S-1)
+	@/ added as partition 3 on unit $00
+64NET/2 will look in partition 2 for programmes
+Network started.
+
+Else an appropriate error should be shown that will hopefully tell you what you should fix (mostly an wrong or unknown path in the 64netrc config-file). If not, have a look into the troubleshooting-section first, before bothering the developers :-)
+
+Now place the new kernal in your c64 (you'll need a kernal-adaptor for that, for example have a look at http://www.ihlaid.de/rom_adapter.html to see how to build your own), switch on your c64 and see if your link LED at your rr-net comes on. 
+It is time for a first test, how's about loading the dir? Use the command load"$",9 on your C64 and see if you get something like this:
+
+load"$",9
+searching for $
+loading $0801 $xxxx
+ready.
+
+On the PC there will be the following output:
+
+*** Opening [$] on channel $00
+Transferred bytes:2368
+Time needed:3.566000 sec
+Transferrate:  664.05 bps (   0.648KB/sec)
+
+Fine, you are now using 64net/2 successfully with your rr-net, have fun.
+
+For more convenience add the following script to your startupscripts: (also have a look at examples-directory)
+
+64net:/home/bitbreaker/server# cat /etc/init.d/64net
+#!/bin/sh
+#
+
+PATH=/bin:/usr/bin:/sbin:/usr/sbin:/home/bitbreaker/server/
+DAEMON=/home/bitbreaker/server/bin/64net2
+WORKINGDIR=/home/bitbreaker/server
+DIROWNER=bitbreaker
+C64IP="192.168.2.64"
+C64MAC="00:00:00:64:64:64"
+
+OPTIONS=""
+
+#test -x $DAEMON -a -f /usr/sbin/pac || exit 0
+
+case "$1" in
+  start)
+        echo -n "Starting c64-fileserver: 64net "
+        if start-stop-daemon --quiet --stop --signal 0 --chdir $WORKINGDIR --chuid $DIROWNER --exec $DAEMON
+        then
+                echo "[already running]"
+        else
+                arp -s $C64IP $C64MAC
+                /sbin/start-stop-daemon -b --start --quiet --chdir $WORKINGDIR --chuid $DIROWNER --exec $DAEMON -- $OPTIONS
+                echo "."
+        fi
+        ;;
+  stop)
+        echo -n "Stopping c64-fileserver: 64net "
+        if start-stop-daemon --quiet --stop --signal 0 --chdir $WORKINGDIR --chuid $DIROWNER --exec $DAEMON
+        then
+                start-stop-daemon --quiet --stop --chdir $WORKINGDIR --chuid $DIROWNER --exec $DAEMON
+                echo "."
+        else
+                echo "[not running]";
+        fi
+        ;;
+  restart)
+        $0 stop
+        sleep 1
+        $0 start
+        ;;
+  *)
+        echo "Usage: /etc/init.d/64net {start|stop|restart}"
+        exit 1
+esac
+
+exit 0
+
+Now you can start and stop the 64net-Server by using /etc/init.d/64net start|stop
+
+
+
+troubleshooting: firewall? port 5000 belegt? tcpdump -XX um mitzuhorchen, kein link?
+blinkt die rxtx LED kurz bei @9 ?
+
