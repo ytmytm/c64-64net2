@@ -175,7 +175,8 @@ void process_packet(struct packet*);
 void send_packet(struct packet*);
 
 int iec_commune(int unused) {
-//        struct  hostent *hp, *gethostbyname();
+        struct hostent *hp;
+        hp = gethostbyname(client_ip);
 
 #ifdef _WIN32
 	WSADATA wsaData;
@@ -186,7 +187,6 @@ int iec_commune(int unused) {
 	}
 #endif
 	
-//        hp = gethostbyname(client_ip);
 	
 	//install receiver socket
         receiver.sin_family=AF_INET;
@@ -198,7 +198,7 @@ int iec_commune(int unused) {
         sender.sin_family = AF_INET;
         sender.sin_port = htons(client_port);
         sendfd = socket (AF_INET,SOCK_DGRAM,IPPROTO_UDP);
-//        bcopy ( hp->h_addr, &(sender.sin_addr.s_addr), hp->h_length);
+        bcopy (hp->h_addr, &(sender.sin_addr.s_addr), hp->h_length);
 
         bind(receivefd, (struct sockaddr *) &receiver, sizeof(receiver));
 
