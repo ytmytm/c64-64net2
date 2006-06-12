@@ -1,0 +1,48 @@
+#!/bin/sh
+#
+
+PATH=/bin:/usr/bin:/sbin:/usr/sbin:
+DAEMON=/home/bitbreaker/server/bin/64net2	# if necessary, adapt path
+WORKINGDIR=/home/bitbreaker/server		# choose your working directory
+DIROWNER=bitbreaker				# who is the owner of the dir? we will do a chuid for safety reasons
+C64IP="192.168.2.64"				# the IP you have choosen for your c64 (might nove to 64netrc soon)
+C64MAC="00:00:00:64:64:64"			# the MAC-address you have choosen for you c64 (might move to 64netrc soon)
+
+
+OPTIONS=""
+
+#test -x $DAEMON -a -f /usr/sbin/pac || exit 0
+
+case "$1" in
+  start)
+	echo -n "Starting c64-fileserver: 64net "
+        if start-stop-daemon --quiet --stop --signal 0 --chdir $WORKINGDIR --chuid $DIROWNER --exec $DAEMON
+	then
+		echo "[already running]"
+	else
+		arp -s $C64IP $C64MAC
+		/sbin/start-stop-daemon -b --start --quiet --chdir $WORKINGDIR --chuid $DIROWNER --exec $DAEMON -- $OPTIONS
+		echo "."
+	fi
+	;;
+  stop)
+	echo -n "Stopping c64-fileserver: 64net "
+	if start-stop-daemon --quiet --stop --signal 0 --chdir $WORKINGDIR --chuid $DIROWNER --exec $DAEMON
+	then
+		start-stop-daemon --quiet --stop --chdir $WORKINGDIR --chuid $DIROWNER --exec $DAEMON 
+		echo "."
+	else
+		echo "[not running]";
+	fi
+	;;
+  restart)
+	$0 stop
+	sleep 1
+	$0 start
+	;;
+  *)
+	echo "Usage: /etc/init.d/64net {start|stop|restart}"
+	exit 1
+esac
+
+exit 0
