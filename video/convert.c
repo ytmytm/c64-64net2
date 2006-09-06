@@ -238,6 +238,10 @@ int main(int argc, char **argv) {
 			a++;
 			if(argc>a) {
 				charset_lifetime=atoi(argv[a]);
+				if(charset_lifetime<=0) {
+					fprintf(stderr, "ERROR: lifetime must be > 0.\n");
+					exit(2);
+				}
 			}
 			else {
 				fprintf(stderr, "ERROR: Missing lifetime value.\n");
@@ -383,7 +387,7 @@ int load_frame(char* name) {
 	int x, y;
 	int data_start;
 	sprintf(read_name, filemask, filenr);
-	printf("Processing frame '%s'...\n",read_name);
+	printf("Loading frame '%s'...\n",read_name);
 	fdr = fopen (name, read_mode);
 	if(fdr==NULL) { fprintf(stderr,"No more frames found. Finishing...\n"); return -1; }
 	c=0; fread(&c,1,1,fdr); if(c!=0x42) { fprintf(stderr,"ERROR: No bmp file!\n"); return -1; }
@@ -495,6 +499,8 @@ void convert_to_multicol() {
 			rgb_to_multicol_bitmap(multicol_frame_counter);
 			multicol_frame_counter++;
 		}	
+		if(charset_lifetime>1) printf("Processing %d frames...\n",charset_lifetime);
+		else  printf("Processing frame...\n");
 		multicol_frame_counter=0;
 		
 		extract_multicol_charset(charset_lifetime);		//get charset over those x frames
