@@ -183,7 +183,7 @@ int *multicol_charset_stats;
 int *multicol_charset_errors;
 
 int *diffplanes;
-int charset_lifetime = 2;	//over how many farmes should the charset be valid?
+int charset_lifetime;	//over how many farmes should the charset be valid?
 //unsigned char multicol_charmap[1000];
 unsigned char bitmap_block[8];
 int multicol_frame_counter;
@@ -192,6 +192,11 @@ char* write_name="output.a64";
 char* charset_name="chargen";
 char* write_mode="w+";
 char* read_name;
+char* basename;
+char* filemask;
+char* suffix;
+char* prefix;
+char* startnumber;
 char* read_mode="r";
 unsigned char *result;
 unsigned char *data;
@@ -207,10 +212,13 @@ void convert_to_petscii();
 void convert_to_multicol(); 
 
 int main(int argc, char **argv) {
+	unsigned char temp[128];
 	int c;
 	int a;
+	int b;
+	charset_lifetime=0;
 	if(argc==1) {
-		fprintf(stderr, "Usage: convert -m <mode> <first file> [<output file>]\n");
+		fprintf(stderr, "Usage: convert -m <mode> -f <firstfile> [-o <output file> -l <lifetime>]\n");
 		fprintf(stderr, "  Converts sequence of bmp-files into .a64 format.\n");
 		fprintf(stderr, "  The following modes are accepted: petscii, multi, ecm.\n");
 		exit(2);
@@ -219,11 +227,20 @@ int main(int argc, char **argv) {
 		if(strcmp(argv[a],"-f")==0) {
 			a++;
 			if(argc>a) {
-				printf("%s\n",argv[a]);
-				read_name=argv[a];
+				basename=argv[a];
 			}
 			else {
 				fprintf(stderr, "ERROR: No input file given.\n");
+				exit(2);
+			}
+		}  
+		if(strcmp(argv[a],"-l")==0) {
+			a++;
+			if(argc>a) {
+				charset_lifetime=atoi(argv[a]);
+			}
+			else {
+				fprintf(stderr, "ERROR: Missing lifetime value.\n");
 				exit(2);
 			}
 		}  
@@ -231,7 +248,6 @@ int main(int argc, char **argv) {
 		if (strcmp(argv[a],"-m")==0) {
 			a++;
 			if(argc>a) {
-				printf("%s\n",argv[a]);
 				if(strcmp(argv[a],"petscii")==0) mode=PETSCII;
 				else if(strcmp(argv[a],"multi")==0) mode=MULTICOL_CHARSET;
 				else if(strcmp(argv[a],"ecm")==0) mode=ECM_COLOR;
@@ -251,7 +267,6 @@ int main(int argc, char **argv) {
 		if (strcmp(argv[a],"-o")==0) {
 			a++;
 			if(argc>a) {
-				printf("%s\n",argv[a]);
 				write_name=argv[a];
 			}
 			else {
@@ -264,13 +279,39 @@ int main(int argc, char **argv) {
 		//	//-> nachfolgendes arg als mode holen
 		//}
 	}
-//	mode = MULTICOL_CHARSET;
-//	mode = PETSCII;
-	filenr=10000;
-	charset_lifetime = 1;
+	if(charset_lifetime==0 && mode==MULTICOL_CHARSET) {
+		fprintf(stderr, "No charset lifetime set, setting it to default value of 2.\n");
+		charset_lifetime=2;
+	}
+		
+	for(a=strlen(basename);a>=0;a--) {
+		if(basename[a]>='0' && basename[a]<='9') break;
+	}
+	for(b=a;b>=0;b--) {
+		if(basename[b]<'0' || basename[b]>'9') break;
+	}
+	a++;
+	b++;
+	
+	suffix=(unsigned char *)malloc(strlen(basename)-a+1);
+	strncpy(suffix, basename+a, strlen(basename)-a);
+	
+	prefix=(unsigned char *)malloc(b+1);
+	strncpy(prefix,basename,b);
+	
+	startnumber=(unsigned char *)malloc(a-b+1);
+	strncpy(startnumber, basename+b, a-b);
+	filenr=atoi(startnumber);
+	
+	filemask=(unsigned char *)malloc(strlen(basename)+1);
+	read_name=(unsigned char *)malloc(strlen(basename)+1);
+	
+//	sprintf(filemask,"%s%%0%dd%s", prefix,suffix);
+
+	sprintf(filemask,"%s%%0%dd%s", prefix,a-b,suffix);
 	
 	fdw = fopen (write_name, write_mode);
-	if(fdw==NULL) { printf("Error: can't open output file\n"); exit(0); }
+	if(fdw==NULL) { fprintf(stderr, "ERROR: can't open output file\n"); exit(0); }
 	c=address&255;
 	fwrite(&c,1,1,fdw);
 	c=address>>8;
@@ -290,7 +331,7 @@ int main(int argc, char **argv) {
 		break;
 
 		default:
-			printf("Error: Mode not supported!\n");
+			fprintf(stderr,"ERROR: Mode not supported!\n");
 			exit (0);
 		break;
 	}
@@ -330,7 +371,7 @@ int load_charset(char* name) {
 	int c=0;
 	int a=0;
 	fd = fopen (name, read_mode);
-	if(fd==NULL) { printf("Error: file '%s' not found!\n", name); exit(0); }
+	if(fd==NULL) { fprintf(stderr, "ERROR: Commodore charsetfile '%s' not found, aborting...\n", name); exit(2); }
 	while(a<4096 && fread(&c,1,1,fd)) { hires_charset[a]=c; a++; c=0; }
 	fclose(fd);
 }
@@ -341,12 +382,12 @@ int load_frame(char* name) {
 	int c;
 	int x, y;
 	int data_start;
-	sprintf(read_name, "test%d.bmp", filenr);
+	sprintf(read_name, filemask, filenr);
 	printf("Processing frame '%s'...\n",read_name);
 	fdr = fopen (name, read_mode);
-	if(fdr==NULL) { printf("Error: file '%s' not found!\n", name); return -1; }
-	c=0; fread(&c,1,1,fdr); if(c!=0x42) { printf("Error: No bmp file!\n"); return -1; }
-	c=0; fread(&c,1,1,fdr); if(c!=0x4d) { printf("Error: No bmp file!\n"); return -1; }
+	if(fdr==NULL) { fprintf(stderr,"No more frames found. Finishing...\n"); return -1; }
+	c=0; fread(&c,1,1,fdr); if(c!=0x42) { fprintf(stderr,"ERROR: No bmp file!\n"); return -1; }
+	c=0; fread(&c,1,1,fdr); if(c!=0x4d) { fprintf(stderr,"ERROR: No bmp file!\n"); return -1; }
 	fseek(fdr,8,SEEK_CUR); //skip 8 bytes;
 	c=0; fread(&c,1,1,fdr); data_start=(int)c;
 	c=0; fread(&c,1,1,fdr); data_start+=(int)c<<8;
@@ -366,7 +407,7 @@ int load_frame(char* name) {
 	c=0; fread(&c,1,1,fdr); bpp+=(int)c*256;
 	fseek(fdr,data_start-30,SEEK_CUR); //skip 4 bytes;
 	bpp/=8;
-	if(bpp!=3) { printf("Error: Colourdepth != 24\n"); return -1; }
+	if(bpp!=3) { fprintf(stderr,"ERROR: Colourdepth != 24\n"); return -1; }
 #ifdef DEBUG
 	printf("data_start: %d\n",data_start);
 	printf("sizex: %d\n",sizex);
@@ -573,7 +614,7 @@ int extract_multicol_charset(int charset_lifetime) {
 		//printf("max_erYr: %d\n",max_err);
 		for(charpos=0;charpos<lastchar;charpos++) {
 			for(a=0;a<lastchar;a++) {
-				if(lastchar-killedchars==256) {
+				if(lastchar-killedchars<=256) {
 				//	multicol_sort_charset(lastchar);
 				//	for(y=0;y<lastchar;y++) printf("%d  ",multicol_charset_stats[y]);
 #ifdef DEBUG
