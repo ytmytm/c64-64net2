@@ -117,6 +117,13 @@ int pathdir;
 #define MODE_READ		0x01
 #define MODE_WRITE		0x02
 
+//#define ERRORHANDLING
+
+#define WAITFORACK		0x01
+#define IDLE			0x00
+#define TIMEOUT			1000
+
+
 int sendfd;
 int receivefd;
 int packet_number;
@@ -131,6 +138,14 @@ char client_ip[] = "192.168.2.64";
 unsigned char port[1024]; 
 char client_mac[1024] = "00:00:00:64:64:64"; 
 int packet_type;
+
+#ifdef ERRORHANDLING
+	int offset;
+	int datalen;
+	int ack_expected;
+	struct timeb time_sent = { 0 };
+	struct timeb time_current = { 0 };
+#endif
 
 int devicenumber=9;
 int acknowledge;
@@ -173,6 +188,7 @@ void iec_talk(struct packet*);
 void iec_untalk(struct packet*);
 void process_packet(struct packet*);
 void send_packet(struct packet*);
+int pkt_is_acknowledge(struct packet*);
 
 int iec_commune(int unused) {
         struct hostent *hp;
@@ -222,6 +238,11 @@ void initialize() {
         myfilenamesize=0;
         out->size=0;
         acknowledge=0;
+#ifdef ERRORHANDLING
+	offset=0;
+	datalen=0;
+	ack_expected=0;
+#endif
         return;
 }
 
@@ -237,7 +258,7 @@ void start_server() {
         p->data=(unsigned char*)malloc(1024);
 	
 	while(1) {					
-		bsize=recv(receivefd, buffer, sizeof(buffer), 0);
+		bsize=recv(receivefd, buffer, sizeof(buffer), MSG_DONTWAIT);
 		if(bsize>1) {
 			p->type=buffer[0];
 			if(p->type==PACKET_DATA) {			//assemble a data packet (0x44, len, data)
@@ -255,6 +276,19 @@ void start_server() {
 			}
 			process_packet(p);				//let the respective server process process the packet
 		}
+#ifdef ERRORHANDLING
+		else {
+			if(ack_expected==1) {
+				ftime(&time_current);
+				if ( ((time_current.time*1000+time_current.millitm)-(time_sent.time*1000+time_sent.millitm)) > TIMEOUT) {
+					printf("timeout after %d ms. resending packet...\n",(time_current.time*1000+time_current.millitm)-(time_sent.time*1000+time_sent.millitm));
+        				send_packet(out);
+				}
+				
+				
+			}
+		}
+#endif
 	}
 	free(p->data);
 	free(p);
@@ -264,19 +298,54 @@ void start_server() {
 void process_packet(struct packet* p) {
 	#ifdef DEBUG_COMM
 	int i;
-	printf ("received packetsize: $%X\n",p->size);
+	printf ("Packet type: ");
+	switch(p->type) {
+		case PACKET_DATA:
+			printf("data");
+		break;
+		case PACKET_COMMAND:
+			printf("command");
+		break;
+		case PACKET_ACKNOWLEDGE:
+			printf("acknowledge");
+		break;
+		case PACKET_ERROR:
+			printf("error");
+		break;
+	}
+	
+	printf ("\nreceived packetsize: $%X",p->size);
 	for(i=0;i<p->size;i++) {
 		if((i&0x7)==0) printf("\n");
 		if(p->data[i]>15) printf ("$%X ",p->data[i]);
 		else printf ("$0%X ",p->data[i]);
 	}
 	printf("\n");
+	printf("\n\n");
 	#endif
 
 	
-        if(p->type==PACKET_ACKNOWLEDGE && p->size==1) acknowledge=1;	//set flag if we got an ack
+        if(pkt_is_acknowledge(p)==1) {
+		acknowledge=1;	//set flag if we got an ack
+#ifdef ERRORHANDLING
+		out->size=0;	//now we can clear the packet
+		ack_expected=0;	//received ack, so stop expecting one
+//		printf("ack_expected=0\n");
+#ifdef DEBUG_COMM
+	printf("\n\n");
+#endif
+#endif
+	}
         if(p->type==PACKET_COMMAND && p->size==1) {			//got a command? 
 		change_state(p->data[0]);				//then change state 
+#ifdef ERRORHANDLING
+		out->size=0;
+		ack_expected=0;	//received ack, so stop expecting one
+//		printf("ack_expected=0\n");
+#ifdef DEBUG_COMM
+	printf("\n\n");
+#endif
+#endif
 		acknowledge=0;						//and kick pending acknowledges
 		send_acknowledge();					//acknowledge command packet
 	}
@@ -298,9 +367,21 @@ void process_packet(struct packet* p) {
                         iec_untalk(p);
                 break;
         }
+	
         return;
 }
 
+int pkt_is_acknowledge(struct packet* p) {
+#ifdef ERRORHANDLING
+	if(p->type==PACKET_ACKNOWLEDGE && p->size==1) return 1;
+	//if(p->type==PACKET_ACKNOWLEDGE && p->size==3) {
+	//	if( (p->data[0])==(offset&255) && (p->data[1])==(offset>>8)) return 1;
+	//}
+#else
+	if(p->type==PACKET_ACKNOWLEDGE && p->size==1) return 1;
+#endif
+	return 0;
+}
 
 void change_state(unsigned char command) {
         /* Change TALK/LISTEN/UNLISTEN/UNTALK state based on character received 
@@ -423,7 +504,7 @@ void iec_talk(struct packet* p) {
 		                        out->data[out->size]=temp;			//add byte
                			        out->size++;					 
 		                        if(temp==0x0d) {				//end reached?
-						set_error(0,0,0);			//reset status and send last packet
+						//set_error(0,0,0);			//reset status and send last packet
 						break;
 					}
 					dos_stat_pos[last_unit]++;			//count consumed byte
@@ -447,17 +528,29 @@ void iec_unlisten(struct packet* p) {
 }
 
 void iec_untalk(struct packet* p) {							//we just need to shut up, so let's IDLE
+	if(listenlf==0x0f) {
+		if(dos_status[last_unit][dos_stat_pos[last_unit]]==0x0d) 
+			set_error(0,0,0);						//reset status and send last packet
+	}
         state=IEC_IDLE;
         return;
 }
 
 
 void send_error(unsigned char err) {							//assemble error packet
+#ifdef ERRORHANDLING
+	ack_expected=1;
+	//remember current time for timeout
+//	printf("ack_expected=1\n");
+#endif
         out->size=1;
         out->data[0]=err;
 	out->type=PACKET_ERROR;
         send_packet(out);
+#ifndef ERRORHANDLING
+	//wait with clearing until ack arrived (if waiting for timeout)
 	out->size=0;
+#endif
         return;
 }
 
@@ -471,9 +564,18 @@ void send_acknowledge() {								//assemble acknowledge packet
 }
 
 void send_data(struct packet* p) {							//send data packet
+#ifdef ERRORHANDLING
+	ack_expected=1;
+	//remember current time for timeout
+//	printf("ack_expected=1\n");
+#endif
+	
 	out->type=PACKET_DATA;
         send_packet(out);
+#ifndef ERRORHANDLING
+	//wait with clearing until ack arrived (if waiting for timeout)
 	out->size=0;
+#endif
 	return;
 }
 
@@ -497,15 +599,40 @@ void send_packet(struct packet* p) {
 	}
 		
 	sendto(sendfd, reply,size, 0, (struct sockaddr *) &sender, sizeof(sender));
-	#ifdef DEBUG_COMM
-	printf("$%X bytes of data sent.\n", size);
+#ifdef DEBUG_COMM
+	printf ("Packet type: ");
+	switch(p->type) {
+		case PACKET_DATA:
+			printf("data");
+		break;
+		case PACKET_COMMAND:
+			printf("command");
+		break;
+		case PACKET_ACKNOWLEDGE:
+			printf("acknowledge");
+		break;
+		case PACKET_ERROR:
+			printf("error");
+		break;
+	}
+	printf("\nsent packet size: $%X\n", p->size);
 	for(i=0;i<size;i++) {
 		if(reply[i]<16) printf("$0%X ",reply[i]);
 		else printf("$%X ",reply[i]);
 		if((i+1)%8==0) printf("\n");
 	}
 	if((i)%8!=0) printf("\n");
+
+	#ifdef ERRORHANDLING
+	if(ack_expected==1) printf ("Expecting ack\n");
+	if(ack_expected==0) printf ("Not expecting ack\n");
 	#endif
+	printf("\n\n");
+#endif
+	
+#ifdef ERRORHANDLING
+	ftime(&time_sent);
+#endif
 }
 
 void begin_measure() {									//set measure start point
@@ -519,7 +646,9 @@ void end_measure() {									//end of measure, calculate time needed
 	float rate;
 	long timediff;
 	ftime(&end);
-	timediff=(end.time-start.time)*1000+(end.millitm-start.millitm);
+	timediff= (end.time*1000+end.millitm)-(start.time*1000+start.millitm);
+					
+//	timediff=(end.time-start.time)*1000+(end.millitm-start.millitm);
 	time=((float)timediff/(float)1000);
 	rate=(float)transferred_amount/time;
 	printf("Transferred bytes:%ld\n", transferred_amount);
