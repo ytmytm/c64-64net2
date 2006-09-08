@@ -530,6 +530,10 @@ void end_measure() {									//end of measure, calculate time needed
 	
 int openfile(unsigned char* name, int mode) {						//try to open a file/dir/whatever
 	int i;
+	if (logical_files[file_unit][listenlf].open == 1) {
+		debug_msg ("*** Closing previous opened file first");
+		closefile();
+	}
 	if (logical_files[file_unit][listenlf].open != 1) {				//open already?
 		if (fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], name, &logical_files[file_unit][listenlf])) {
 			/* open failed, got to react on that */
