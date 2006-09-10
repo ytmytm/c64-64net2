@@ -142,6 +142,17 @@ int glob_match (uchar *glob, uchar *pattern) {
 	//by just loading "foo". now we need to load
 	//"foo*", "foo01" or alike to make that happen. TB
 	int i;
+//	printf("pattern: ");
+//	for(i=0; i < (int)strlen(pattern); i++) {
+//		printf("%02X ",pattern[i]);
+//	}
+//	printf("\n");
+//	printf("glob: ");
+//	for(i=0; i < (int)strlen(glob); i++) {
+//		printf("%02X ",glob[i]);
+//	}
+//	printf("\n");
+	//XXX pattern with characters above $e0 are same as value ^0x20 as they appear twice in petscii set
 	for(i=0; i < (int)strlen(pattern); i++) {
 		//still within glob, so compare
 		if(i<(int)strlen(glob)) {
@@ -157,7 +168,17 @@ int glob_match (uchar *glob, uchar *pattern) {
 				}
 				else {
 					//the regular case, compare both
-					if(glob[i]!=pattern[i]) return 0;
+				//	if(glob[i]>=0xc0 && glob[i]<=0xda) { 
+				//		if((glob[i]^0x80)!=pattern[i]) return 0;
+				//	}
+				//	else {
+						if(glob[i]!=pattern[i]) {
+							if(pattern[i]>=0xe0) {
+								if((pattern[i]^0x40)!=glob[i]) return 0;
+							}
+							else return 0;
+						}
+				//	}
 				}
 			}
 		}
