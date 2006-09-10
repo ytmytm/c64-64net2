@@ -52,13 +52,18 @@ shortname (uchar *path, uchar *lname,
       case '~':
 	break;
       default:
-	sprintf ((char*)sname, "%s%c", sname, tolower(lname[i]));
+	if((lname[i]>=0x40) && (lname[i]<=0x5a)) { sname[i]=lname[i]^0x20; break; }
+	if((lname[i]>=0xc0) && (lname[i]<=0xda)) { sname[i]=lname[i]^0x80; break; }
+	sname[i]=lname[i];
+	
+//	sprintf ((char*)sname, "%s%c", sname, tolower(lname[i]));
 	//XXX $40-$5a -> eor $20, $80-$9a eor $40
 	break;
       }				/* end switch */
 //    }				/* end if */
   }				/* end for */
 
+  sname[i]=0;
   /* step 2: Is the name too long? */
   if (strlen (sname) > maxlen)
   {
