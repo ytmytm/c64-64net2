@@ -121,7 +121,17 @@ int pathdir;
 
 #define WAITFORACK		0x01
 #define IDLE			0x00
-#define TIMEOUT			1000
+#define TIMEOUT			10
+
+
+//current state: 64net: resent of data,command,ack if answer missing. check on correct pktnumber on ack, cmd. check on received data still missing?
+//rrnet: receive command: sends ack with pktnumber it is up to c64 to resend. packet should get one byte bigger to accomodate a real packet#. at the moment the commandvalue is used as packetnumber
+//rrnet: receive data:    sends ack with pktnumber from datapacket it is up to c64 to resend
+//rrnet: send data:	  resend until receiving correct ack.
+//rrnet: receive ack:	  check if it is for recent sent data. if yes, stop resending and start with next packet
+//
+//c64: receive data:	  just send ack when fitting packet received
+//c64: send data/command: resend i until correct ack received
 
 
 int sendfd;
@@ -140,7 +150,7 @@ char client_mac[1024] = "00:00:00:64:64:64";
 int packet_type;
 
 #ifdef ERRORHANDLING
-	int offset;
+	unsigned char pktnumber;
 	int datalen;
 	int ack_expected;
 	struct timeb time_sent = { 0 };
@@ -165,6 +175,9 @@ long transferred_amount=0;
 
 struct packet {
         unsigned char* data;
+#ifdef ERRORHANDLING
+	unsigned char pktnumber;
+#endif
         unsigned char type;
         int size;
 };
@@ -239,7 +252,7 @@ void initialize() {
         out->size=0;
         acknowledge=0;
 #ifdef ERRORHANDLING
-	offset=0;
+	pktnumber=0;
 	datalen=0;
 	ack_expected=0;
 #endif
@@ -267,12 +280,16 @@ void start_server() {
 						p->data[i]=buffer[i+2];
 					}
 					p->size=buffer[i+1];
+#ifdef ERRORHANDLING
+					p->pktnumber=buffer[1];
+#endif
 				}
 				transferred_amount+=p->size;
 			}
 			else {						//assemble other packet (code, data)
 				p->data[0]=buffer[1];
 				p->size=1;
+				p->pktnumber=buffer[1];
 			}
 			process_packet(p);				//let the respective server process process the packet
 		}
@@ -281,7 +298,7 @@ void start_server() {
 			if(ack_expected==1) {
 				ftime(&time_current);
 				if ( ((time_current.time*1000+time_current.millitm)-(time_sent.time*1000+time_sent.millitm)) > TIMEOUT) {
-					printf("timeout after %d ms. resending packet...\n",(time_current.time*1000+time_current.millitm)-(time_sent.time*1000+time_sent.millitm));
+					printf("timeout after %d ms. resending packet...\n",(int)((time_current.time*1000+time_current.millitm)-(time_sent.time*1000+time_sent.millitm)));
         				send_packet(out);
 				}
 				
@@ -328,6 +345,7 @@ void process_packet(struct packet* p) {
         if(pkt_is_acknowledge(p)==1) {
 		acknowledge=1;	//set flag if we got an ack
 #ifdef ERRORHANDLING
+		pktnumber++;	//increase pktnumber/pkt number	
 		out->size=0;	//now we can clear the packet
 		ack_expected=0;	//received ack, so stop expecting one
 //		printf("ack_expected=0\n");
@@ -339,17 +357,22 @@ void process_packet(struct packet* p) {
         if(p->type==PACKET_COMMAND && p->size==1) {			//got a command? 
 		change_state(p->data[0]);				//then change state 
 #ifdef ERRORHANDLING
+		pktnumber=p->pktnumber;
 		out->size=0;
-		ack_expected=0;	//received ack, so stop expecting one
+		ack_expected=0;						//stop expecting acks, we got a command and new task and thus start from scratch
 //		printf("ack_expected=0\n");
 #ifdef DEBUG_COMM
 	printf("\n\n");
 #endif
 #endif
-		acknowledge=0;						//and kick pending acknowledges
+		acknowledge=0;						//ignore pending acknowledges
 		send_acknowledge();					//acknowledge command packet
 	}
         if(p->type==PACKET_DATA) {
+#ifdef ERRORHANDLING
+		out->size=0;
+		pktnumber=p->pktnumber;
+#endif
 		send_acknowledge();					//acknowledge data packet
 	}
 	/* now enter state machine and do the next step */
@@ -373,10 +396,12 @@ void process_packet(struct packet* p) {
 
 int pkt_is_acknowledge(struct packet* p) {
 #ifdef ERRORHANDLING
-	if(p->type==PACKET_ACKNOWLEDGE && p->size==1) return 1;
-	//if(p->type==PACKET_ACKNOWLEDGE && p->size==3) {
-	//	if( (p->data[0])==(offset&255) && (p->data[1])==(offset>>8)) return 1;
-	//}
+	if(p->type==PACKET_ACKNOWLEDGE && p->size==1) {			//new ack with pktnumber
+		if(p->pktnumber==pktnumber) {
+			//offste was okay, so advance
+			return 1;
+		}
+	}
 #else
 	if(p->type==PACKET_ACKNOWLEDGE && p->size==1) return 1;
 #endif
@@ -539,7 +564,7 @@ void iec_untalk(struct packet* p) {							//we just need to shut up, so let's ID
 
 void send_error(unsigned char err) {							//assemble error packet
 #ifdef ERRORHANDLING
-	ack_expected=1;
+//	ack_expected=1;
 	//remember current time for timeout
 //	printf("ack_expected=1\n");
 #endif
@@ -547,19 +572,25 @@ void send_error(unsigned char err) {							//assemble error packet
         out->data[0]=err;
 	out->type=PACKET_ERROR;
         send_packet(out);
-#ifndef ERRORHANDLING
+//#ifndef ERRORHANDLING
 	//wait with clearing until ack arrived (if waiting for timeout)
 	out->size=0;
-#endif
+//#endif
         return;
 }
 
 void send_acknowledge() {								//assemble acknowledge packet
         out->size=1;
+#ifdef ERRORHANDLING
+        out->data[0]=pktnumber;
+#else
         out->data[0]=0x00;
+#endif
 	out->type=PACKET_ACKNOWLEDGE;
         send_packet(out);
+#ifdef ERRORHANDLING
 	out->size=0;
+#endif
         return;
 }
 
@@ -586,9 +617,19 @@ void send_packet(struct packet* p) {
 	switch(p->type) {
 		case PACKET_DATA:							//data packet, so add size too (code, size, data)
 			reply[0]=PACKET_DATA;
+#ifdef ERRORHANDLING
+			//add pktnumber to packet
+			printf("paketnumber: %d\n",pktnumber);
+			reply[1]=pktnumber;
+			reply[2]=0;
+			reply[3]=p->size;
+			while(i<p->size) { reply[4+i]=p->data[i]; i++; }
+			size=p->size+4;
+#else
 			reply[1]=p->size;
 			while(i<p->size) { reply[2+i]=p->data[i]; i++; }
 			size=p->size+2;
+#endif			
 			transferred_amount+=p->size;
 		break;
 		default:								//other packets, just do code, data
@@ -659,6 +700,9 @@ void end_measure() {									//end of measure, calculate time needed
 	
 int openfile(unsigned char* name, int mode) {						//try to open a file/dir/whatever
 	int i;
+#ifdef ERRORHANDLING
+	pktnumber=0;
+#endif
 	if (logical_files[file_unit][listenlf].open == 1) {
 		debug_msg ("*** Closing previous opened file first");
 		closefile();
