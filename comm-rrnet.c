@@ -289,7 +289,9 @@ void start_server() {
 			else {						//assemble other packet (code, data)
 				p->data[0]=buffer[1];
 				p->size=1;
+#ifdef ERRORHANDLING
 				p->pktnumber=buffer[1];
+#endif
 			}
 			process_packet(p);				//let the respective server process process the packet
 		}
@@ -588,9 +590,9 @@ void send_acknowledge() {								//assemble acknowledge packet
 #endif
 	out->type=PACKET_ACKNOWLEDGE;
         send_packet(out);
-#ifdef ERRORHANDLING
+//#ifdef ERRORHANDLING
 	out->size=0;
-#endif
+//#endif
         return;
 }
 
