@@ -382,11 +382,14 @@ fs_ufs_findnext (fs64_direntry * de)
     strcpy ((char*)de->realname, (char*)de->path);
     strcat ((char*)de->realname, (char*)dirent->d_name);
     /* default filename */
-    for (i = 0; i < 16; i++)
-      if (i < strlen (dirent->d_name))
-	de->fs64name[i] = dirent->d_name[i];
-      else
-	de->fs64name[i] = 0xa0;	/* 0xa0 padding , like 1541 */
+    for (i = 0; i < 16; i++) {
+      if (i < strlen (dirent->d_name)) de->fs64name[i] = dirent->d_name[i];
+      else de->fs64name[i] = 0xa0;	/* 0xa0 padding , like 1541 */
+if( ((de->fs64name[i]>=0x40) && (de->fs64name[i]<=0x5a)) ) de->fs64name[i]=de->fs64name[i]^0x80;
+//printf("$%02X ",de->fs64name[i]);
+      
+    }
+//    printf("%s\n",(const char*)de->fs64name);
 
     //bugfix: else the strlen is not 16 in later tests/compares!
     de->fs64name[16]=0;
