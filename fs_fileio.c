@@ -191,52 +191,43 @@ fs64_scratchfile (fs64_direntry * de)
   }
 }
 
-int
-fs64_scratchfile_g (uchar *filespec)
-{
-  /* scratch a set of files */
-  fs64_direntry de;
-  uchar path[1024], glob[256];
-  int dirflag, mode, replace, par;
-  int nf = 0, flag = 0, dt = -1, ds = -1;
-  de.dir = 0;
+int fs64_scratchfile_g (uchar *filespec) {
+	/* scratch a set of files */
+	fs64_direntry de;
+	uchar path[1024], glob[256];
+	int dirflag, mode, replace, par;
+	int nf = 0, flag = 0, dt = -1, ds = -1;
+	de.dir = 0;
 
-  /* parse things out */
-  if (fs64_parse_filespec (filespec, path, glob, &dirflag, &mode, &replace, &par, &dt, &ds))
-  {
-    /* error of some sort */
-    return (-1);
-  }
+	/* parse things out */
+	if (fs64_parse_filespec (filespec, path, glob, &dirflag, &mode, &replace, &par, &dt, &ds)) {
+		/* error of some sort */
+		return (-1);
+	}
 
-  if (!fs64_findfirst_g (path, glob, &de, &dt, &ds))
-  {
-    /* okay.. scratch away! */
-    while (!flag)
-    {
-      if (!fs64_scratchfile (&de))
-	/* scratched */
-	nf++;
-      else
-      {
-	/* couldnt scratch file */
-	debug_msg("Error reason: Unable to scratch file\n");
-	set_error (1, nf, 0);
-	return (0);
-      }
-      flag = fs64_findnext_g (&de);
-    }
-    /* done */
-    set_error (1, nf, 0);
-    return (0);
-  }
-  else
-  {
-    /* no files or an error */
-    /* file not found error will do */
-    debug_msg("Error reason: No files to scratch, or mysterious error\n");
-    set_error (62, 0, 0);
-    return (-1);
-  }
+	if (!fs64_findfirst_g (path, glob, &de, &dt, &ds)) {
+		/* okay.. scratch away! */
+		while (!flag) {
+			if (!fs64_scratchfile (&de)) nf++;
+			else {
+				/* couldnt scratch file */
+				debug_msg("Error reason: Unable to scratch file\n");
+				set_error (1, nf, 0);
+				return (0);
+			}
+			flag = fs64_findnext_g (&de);
+		}
+		/* done */
+		set_error (1, nf, 0);
+		return (0);
+	}
+	else {
+		/* no files or an error */
+		/* file not found error will do */
+		debug_msg("Error reason: No files to scratch, or mysterious error\n");
+		set_error (62, 0, 0);
+		return (-1);
+	}
 }
 
 int

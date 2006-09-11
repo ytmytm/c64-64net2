@@ -47,7 +47,9 @@ set_error (int en, int t, int s)
     "RECORD NOT PRESENT",
     "OVERFLOW IN RECORD",
     "FILE TOO LARGE",
-    "53", "54", "55", "56", "57", "58", "59",
+    "FILENAME TOO LONG", 
+    "ILLEGAL FILENAME", 
+    "55", "56", "57", "58", "59",
     "WRITE FILE OPEN",
     "FILE NOT OPEN",
     "FILE NOT FOUND",
@@ -68,6 +70,8 @@ set_error (int en, int t, int s)
     "RECURSIVE FILESYSTEM",
     "INVALID MEDIA",
     "END OF FILE"
+	    //illegal filelength
+	    //illegal filename
   };
 
   if ((en < 20) || (en == 73) || (en == 80))

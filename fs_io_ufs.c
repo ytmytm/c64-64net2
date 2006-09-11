@@ -5,6 +5,7 @@
 
 #include "config.h"
 #include "fs.h"
+#include "misc_func.h"
 
 #ifdef UNIX
 	#ifdef BEOS
@@ -26,257 +27,249 @@
 
 #ifdef WINDOWS
 #include <sys/stat.h>
-#include "misc_func.h"
 #define EDQUOT 0
 #define ELOOP -1
 #endif
 
-int
-fs_ufs_createfile (uchar *path, uchar *name, int t, int rel_len, fs64_file * f)
-{
-  uchar fname[1024], rname[32];
+//more advanced versions by Toby, now used at all occasions where we need to convert:
 
-  debug_msg ("ufs: Trying to create file %s%s [%d]\n",
-	     path, name, t);
-
-  /* get shortened name for file */
-  if (shortname (path, name, rname, (uchar*)"")) //.prg
-  {
-    /* disk full (or dir full etc..) */
-    set_error (72, 0, 0);
-    return (-1);
-  }
-
-  sprintf ((char*)fname, "%s%s", path, rname); //%s%s.prg
-  debug_msg ("ufs: rendered filename to: %s\n", fname);
-
-  /* create file, and put vital info in */
-  f->filesys.media = media_UFS;
-  f->filesys.arctype = cbm_PRG;
-  strcpy ((char*)f->filesys.fspath, (char*)path);
-  if ((f->filesys.fsfile = fopen ((char*)fname, "w")) == NULL)
-  {
-    /* cant create file */
-    switch (errno)
-    {
-    case EACCES:
-    case EROFS:
-      set_error (26, 0, 0);
-      break;
-    case ENOTDIR:
-    case ENAMETOOLONG:
-      set_error (39, 0, 0);
-      break;
-    case ELOOP:
-      set_error (62, 0, 0);
-      break;
-    case EISDIR:
-    case EEXIST:
-      set_error (63, 0, 0);
-      break;
-    case EMFILE:
-    case ENFILE:
-    case ENOSPC:
-    case EDQUOT:
-      set_error (72, 0, 0);
-      break;
-    case EIO:
-      set_error (21, 0, 0);
-      break;
-    }
-    return (-1);
-  }				/* end if file not created */
-
-/* only needed if we want to store in .n64 fileformat
- * TB
-  // put default stuff into file 
-  // header & filetype & filesize placeholders 
-   fprintf (f->filesys.fsfile, "C64%c%c%c%c%c%c", 0x01, t | 0x80, 0, 0, 0, 0);
-  // padding (reserved) 
-  for (i = 0; i < 22; i++)
-    fprintf (f->filesys.fsfile, "%c", 0);
-  // filename 
-  for (i = 16; i > strlen (name); i--)
-    name[i] = 0;
-  for (i = 0; i < 16; i++)
-    fprintf (f->filesys.fsfile, "%c", (char) name[i]);
-  // padding to actual start of file 
-  for (i = 0; i < 0xcf; i++)
-    fprintf (f->filesys.fsfile, "%c", 0);
-*/
-  // set buffer and poss infomation etc.. 
-  f->open = 1;
-  strcpy ((char*)f->fs64name, (char*)name);
-  strcpy ((char*)f->realname, (char*)fname);
-  f->first_track = 0;
-  f->first_sector = 0;
-  f->first_poss = 0x00; //0xfe
-  f->mode = mode_WRITE;
-  f->curr_track = 0;
-  f->curr_sector = 0;
-  f->curr_poss = 0x00; //0xfe
-  f->blocks = 0;
-  f->realsize = 0;
-  f->filetype = 0x80 | t;
-  f->bp = 2;
-  f->be = 2;
-
-  /* done! */
-  return (0);
-
+void ascii2petscii (uchar *message, int len) {
+        int i;
+        for (i=0;i<len;i++) {
+                if( ((message[i]>0x40) && (message[i]<=0x5a)) ) message[i]^=0x80;
+                else if( ((message[i]>0x60) && (message[i]<=0x7a)) ) message[i]^=0x20;
+        }
+        return;
 }
 
-int
-fs_ufs_getopenablename (fs64_file * f, fs64_direntry * de)
-{
-  strcpy ((char*)f->realname, (char*)de->realname);
-  return (0);
+void petscii2ascii (uchar *message, int len) {
+        int i;
+        for (i=0;i<len;i++) {
+                if((message[i]>0x40) && (message[i]<=0x5a)) message[i]^=0x20;
+                else if((message[i]>0xc0) && (message[i]<=0xda)) message[i]^=0x80;
+        }
+        return;
 }
 
-int
-fs_ufs_openfile (fs64_file * f)
-{
-  /* open for read coz this is the open file routine,
-     not create file */
-  strcpy ((char*)f->filesys.fspath, (char*)f->realname);
-  if ((f->filesys.fsfile = fopen ((char*)f->realname, "r")) == NULL)
-  {
-    /* couldn't open it */
-    /* 74,DRIVE NOT READY,00,00 */
-    set_error (74, 0, 0);
-    return (-1);
-  }
-  /* OKAY, all things are done */
-  f->open = 1;
-  return (0);
+int fs_ufs_createfile (uchar *path, uchar *name, int t, int rel_len, fs64_file * f) {
+	int i;
+	
+	uchar fname[1024];
+
+//add all these checks also when scratching. 
+//
+	//filename too long anyway
+	if(strlen(name)>=16) {
+		/* filename too long */
+		set_error (53, 0, 0);
+		return -1;
+	}
+
+	/* get a proper ascii name first */
+	petscii2ascii(name,strlen(name));
+
+	debug_msg ("ufs: Trying to create file %s%s [%d]\n", path, name, t);
+	
+	/* check for nasty chars */
+	for(i=0;i<=(int)strlen(name);i++) {
+		switch (name[i]) {
+                        case ',':
+                        case '/':
+                        case '\\':
+                        case '*':
+                        case '?':
+                        case ':':
+                        case ';':
+                        case '~':
+				/* illegal filename */
+				set_error(54,0,0);
+				return 1;
+                        break;
+                        default:
+                        break;
+                }
+	}
+
+	sprintf ((char*)fname, "%s%s", path, name); //%s%s.prg
+//	debug_msg ("ufs: rendered filename to: %s\n", fname);
+
+	/* create file, and put vital info in */
+	if ((f->filesys.fsfile = fopen ((char*)fname, "w")) == NULL) {
+		/* cant create file */
+		switch (errno) {
+			case EACCES:
+			case EROFS:
+				set_error (26, 0, 0);
+			break;
+			case ENOTDIR:
+			case ENAMETOOLONG:
+				set_error (39, 0, 0);
+			break;
+			case ELOOP:
+				set_error (62, 0, 0);
+			break;
+			case EISDIR:
+			case EEXIST:
+				set_error (63, 0, 0);
+			break;
+			case EMFILE:
+			case ENFILE:
+			case ENOSPC:
+			case EDQUOT:
+				set_error (72, 0, 0);
+			break;
+			case EIO:
+				set_error (21, 0, 0);
+			break;
+		}
+		return (-1);
+	}				/* end if file not created */
+
+	/* maybe this must move before if-statement above */
+	f->filesys.media = media_UFS;
+	f->filesys.arctype = cbm_PRG;
+	strcpy ((char*)f->filesys.fspath, (char*)path);
+
+	// set buffer and poss infomation etc.. 
+	f->open = 1;
+	strcpy ((char*)f->fs64name, (char*)name);
+	strcpy ((char*)f->realname, (char*)fname);
+	f->first_track = 0;
+	f->first_sector = 0;
+	f->first_poss = 0x00;
+	f->mode = mode_WRITE;
+	f->curr_track = 0;
+	f->curr_sector = 0;
+	f->curr_poss = 0x00;
+	f->blocks = 0;
+	f->realsize = 0;
+	f->filetype = UFS_mask | t;
+	f->bp = 2;
+	f->be = 2;
+
+	/* done! */
+	return (0);
 }
 
-int
-fs_ufs_allocateblock (fs64_filesystem * fs, int track, int sector)
-{
-  /* stub routine coz UFS doesnt look blocky to 64net */
-  return (0);
+int fs_ufs_getopenablename (fs64_file * f, fs64_direntry * de) {
+	strcpy ((char*)f->realname, (char*)de->realname);
+	return (0);
+}
+
+int fs_ufs_openfile (fs64_file * f) {
+	/* open for read coz this is the open file routine,
+	   not create file */
+	strcpy ((char*)f->filesys.fspath, (char*)f->realname);
+	if ((f->filesys.fsfile = fopen ((char*)f->realname, "r")) == NULL) {
+		/* couldn't open it */
+		/* 74,DRIVE NOT READY,00,00 */
+		set_error (74, 0, 0);
+		return (-1);
+	}
+	/* OKAY, all things are done */
+	f->open = 1;
+	return (0);
+}
+
+int fs_ufs_allocateblock (fs64_filesystem * fs, int track, int sector) {
+	/* stub routine coz UFS doesnt look blocky to 64net */
+	return (0);
 }
 
 
-int
-fs_ufs_blocksfree (fs64_filesystem * fs)
-{
+int fs_ufs_blocksfree (fs64_filesystem * fs) {
 #ifdef AMIGA
-  struct InfoData info;
+	struct InfoData info;
 
-  if (getdfs (0, &info) != 0)
-    return (2);
-  else
-    return ((info.id_NumBlocks - info.id_NumBlocksUsed) * info.id_BytesPerBlock
-	    / 254);
+	if (getdfs (0, &info) != 0) return (2);
+	else return ((info.id_NumBlocks - info.id_NumBlocksUsed) * info.id_BytesPerBlock / 254);
 #endif
 #ifdef UNIX
-  /* unix file system */
-  struct statfs buf;
+	/* unix file system */
+	struct statfs buf;
 
-  errno = 0;
+	errno = 0;
 
-  statfs ((char*)fs->fspath, &buf);
+	statfs ((char*)fs->fspath, &buf);
 
-  if (!errno)
-    return ((buf.f_bsize * buf.f_bavail) / 254);
-  else
-    return (2);
+	if (!errno) return ((buf.f_bsize * buf.f_bavail) / 254);
+	else return (2);
 #endif
 #ifdef WINDOWS
-    /* XXX - fixme */
-    debug_msg("fs_ufs_blocksfree: unimplemented\n");
-    return (2);
+	/* XXX - fixme */
+	debug_msg("fs_ufs_blocksfree: unimplemented\n");
+	return (2);
 #endif
-  /* dead code */
-  return(0);
+	/* dead code */
+	return(0);
 }
 
 
-int
-fs_ufs_findfreeblock (fs64_filesystem * fs, int *track, int *sector)
-{
-  /* unix file system */
-  /* BUGS: always say there is a free block for now.. will fix later */
-  *track = 0;
-  *sector = 0;
-  return (0);
+int fs_ufs_findfreeblock (fs64_filesystem * fs, int *track, int *sector) {
+	/* unix file system */
+	/* BUGS: always say there is a free block for now.. will fix later */
+	*track = 0;
+	*sector = 0;
+	return (0);
 }
 
-int
-fs_ufs_deallocateblock (fs64_filesystem * fs, int track, int sector)
-{
-  return (0);
+int fs_ufs_deallocateblock (fs64_filesystem * fs, int track, int sector) {
+	return (0);
 }
 
-int
-fs_ufs_isblockfree (fs64_filesystem * fs, int track, int sector)
-{
-  /* BUGS: always returns true - should check for space */
-  return (0);
+int fs_ufs_isblockfree (fs64_filesystem * fs, int track, int sector) {
+	/* BUGS: always returns true - should check for space */
+	return (0);
 }
 
-int
-fs_ufs_scratchfile (fs64_direntry * de)
-{
-  /* delete file currently pointed to in the de */
-//XXX erlauben!
-  debug_msg ("Pretending to delete UFS [%s]\n", de->realname);
-  /* if (unlink(de->realname))
-     return(-1);
-   */
-  return (-1);
+int fs_ufs_scratchfile (fs64_direntry * de) {
+	//if (unlink((const char*)de->realname)) return(-1);
+	//else return (0);
+	return 0;
 }
 
-int
-fs_ufs_writeblock (fs64_file * f)
-{
-  /* BUGS: Doesnt check for free "blocks" aka diskspace */
+int fs_ufs_writeblock (fs64_file * f) {
+	/* BUGS: Doesnt check for free "blocks" aka diskspace */
 
-  //debug_msg ("ufs: Write block %d,%d\n", f->be, f->bp);
+	//debug_msg ("ufs: Write block %d,%d\n", f->be, f->bp);
 
-  /* seek_set the file pointer right */
-  fseek (f->filesys.fsfile, f->curr_poss, SEEK_SET);
+	/* seek_set the file pointer right */
+	fseek (f->filesys.fsfile, f->curr_poss, SEEK_SET);
 
-  /* write the last 254 bytes of the block */
-  if (f->bp == 256)
-  {
-    /* whole sector - allocate another */
-    /* is irrelevant for this file system! */
-    if (fs64_blocksfree (&f->filesys) < 1)
-    {
-      /* partition full */
-      set_error (72, 0, 0);
-      return (-1);
-    }
-    /* ok (fall through) */
-  }
-  else
-  {
-    /* partial sector */
-    /* irrelevant for this file system */
-    /* dont allocate another block as it is the end of the file */
-    f->buffer[0] = 0;
-    f->buffer[1] = (f->bp - 2);
-    /* ok (fallthrough) */
-  }
-  for (f->be = 2; f->be < (f->bp); f->be++)
-  {
-    fputc (f->buffer[f->be], f->filesys.fsfile);
-    f->curr_poss++;
-    f->realsize++;
-  }
-  /* update file size stuff */
-  //This destroys our .prg file, we better avoid. TB
-  //fseek (f->filesys.fsfile, 7, SEEK_SET);
-  //fprintf (f->filesys.fsfile, "%c%c%c%c", (int) f->realsize & 0xff,
-  // (int) (0xff & (f->realsize / 256)), (int) (0xff & (f->realsize / 65536)),
-//	   (int) (0xff & (f->realsize / (65536 * 256))));
-  /* set buffer pointer */
-  f->bp = 2;
-  f->be = 2;
-  return (0);
+	/* write the last 254 bytes of the block */
+	if (f->bp == 256) {
+		/* whole sector - allocate another */
+		/* is irrelevant for this file system! */
+		if (fs64_blocksfree (&f->filesys) < 1) {
+			/* partition full */
+			set_error (72, 0, 0);
+			return (-1);
+		}
+		/* ok (fall through) */
+	}
+	else {
+		/* partial sector */
+		/* irrelevant for this file system */
+		/* dont allocate another block as it is the end of the file */
+		f->buffer[0] = 0;
+		f->buffer[1] = (f->bp - 2);
+		/* ok (fallthrough) */
+	}
+	for (f->be = 2; f->be < (f->bp); f->be++) {
+		fputc (f->buffer[f->be], f->filesys.fsfile);
+		f->curr_poss++;
+		f->realsize++;
+	}
+	/* update file size stuff */
+	//This destroys our .prg file, we better avoid. TB
+	//fseek (f->filesys.fsfile, 7, SEEK_SET);
+	//fprintf (f->filesys.fsfile, "%c%c%c%c", (int) f->realsize & 0xff,
+	//(int) (0xff & (f->realsize / 256)), (int) (0xff & (f->realsize / 65536)),
+	//(int) (0xff & (f->realsize / (65536 * 256))));
+	/* set buffer pointer */
+	f->bp = 2;
+	f->be = 2;
+	return (0);
 }
 
 int fs_ufs_readblock (fs64_file * f) {
@@ -300,114 +293,89 @@ int fs_ufs_readblock (fs64_file * f) {
 	return 0;					//read block without problems
 }
 
-int
-fs_ufs_headername (uchar *path, uchar *header, uchar *id, int par)
-{
-  /* use right 16 chars from path */
-  int i, j;
+int fs_ufs_headername (uchar *path, uchar *header, uchar *id, int par) {
+	/* use right 16 chars from path */
+	int i, j;
 
-  header[0] = 0;
+	header[0] = 0;
 
-  i = strlen (path) - 1;
-  /* strip trailing '/' */
-  if (path[i] == '/')
-    i--;
-  /* find start of this "bit" */
-  while ((i) && (path[i] != '/'))
-    i--;
-  /* strip leading '/' on name */
-  if (path[i] == '/')
-    i++;
-  /* copy  chars */
-  j = 0;
-  for (; !((path[i] == '/') || (path[i] == 0)); i++)
-  {
-    header[j++] = path[i];
-    if (isalpha (header[j - 1]))
-      header[j - 1] ^= 0x20;
-  }
-  /* end f the string */
-  header[j] = 0;
-  /* default */
-  if ((!strcmp ((char*)path, "/")) || (header[0] == 0))
-    sprintf ((char*)header, "PARTITION %d", par);
-
-  strcpy ((char*)id, "64NET");
-
-  return (0);
+	i = strlen (path) - 1;
+	/* strip trailing '/' */
+	if (path[i] == '/') i--;
+	/* find start of this "bit" */
+	while ((i) && (path[i] != '/')) i--;
+	/* strip leading '/' on name */
+	if (path[i] == '/') i++;
+	/* copy  chars */
+	j = 0;
+	for (; !((path[i] == '/') || (path[i] == 0)); i++) {
+		header[j++] = path[i];
+	}
+	ascii2petscii(header,j);
+	/* end f the string */
+	header[j] = 0;
+	/* default */
+	if ((!strcmp ((char*)path, "/")) || (header[0] == 0)) sprintf ((char*)header, "PARTITION %d", par);
+	strcpy ((char*)id, "64NET");
+	return (0);
 }
 
-int
-fs_ufs_openfind (fs64_direntry * de, uchar *path)
-{
-  /* UNIX filesystem file */
-  de->filesys.media = media_UFS;
-  /* path in use */
-  strcpy ((char*)de->fs, (char*)path);
-  /* open a directory stream and check for first file */
-  de->dir = opendir ((char*)path);
+int fs_ufs_openfind (fs64_direntry * de, uchar *path) {
+	/* UNIX filesystem file */
+	de->filesys.media = media_UFS;
+	/* path in use */
+	strcpy ((char*)de->fs, (char*)path);
+	/* open a directory stream and check for first file */
+	de->dir = opendir ((char*)path);
 
-  if (!de->dir)
-  {
-    /* file system error of some evil sort no doubt */
-    /* 74,DRIVE NOT READY,00,00 */
-	  printf("dreck\n");
-    set_error (74, 0, 0);
-    return (-1);
-  }
-  de->active = 1;
-  return (0);
+	if (!de->dir) {
+		/* file system error of some evil sort no doubt */
+		/* 74,DRIVE NOT READY,00,00 */
+		set_error (74, 0, 0);
+		return (-1);
+	}
+	de->active = 1;
+	return (0);
 }
 
-int
-fs_ufs_findnext (fs64_direntry * de)
-{
-  struct dirent *dirent;
-  unsigned int i;
+int fs_ufs_findnext (fs64_direntry * de) {
+	struct dirent *dirent;
+	unsigned int i;
 
-  /* read raw entry */
-  dirent = readdir (de->dir);
-  if (dirent)
-  {
-  //  /* skip . & .. */
-    if (dirent && (!strcmp (".", dirent->d_name)))
-      dirent = readdir (de->dir);
-  //  if (dirent && (!strcmp ("..", dirent->d_name)))
-  //    dirent = readdir (de->dir);
-  }
+	/* read raw entry */
+	dirent = readdir (de->dir);
+	if (dirent) {
+		//  /* skip . & .. */
+		if (dirent && (!strcmp (".", dirent->d_name))) dirent = readdir (de->dir);
+		//  if (dirent && (!strcmp ("..", dirent->d_name)))
+		//    dirent = readdir (de->dir);
+	}
 
-  if (dirent)
-  {
-    /* fill out thing */
-    strcpy ((char*)de->realname, (char*)de->path);
-    strcat ((char*)de->realname, (char*)dirent->d_name);
-    /* default filename */
-    for (i = 0; i < 16; i++) {
-      if (i < strlen (dirent->d_name)) de->fs64name[i] = dirent->d_name[i];
-      else de->fs64name[i] = 0xa0;	/* 0xa0 padding , like 1541 */
-if( ((de->fs64name[i]>=0x40) && (de->fs64name[i]<=0x5a)) ) de->fs64name[i]=de->fs64name[i]^0x80;
-//printf("$%02X ",de->fs64name[i]);
-      
-    }
-//    printf("%s\n",(const char*)de->fs64name);
-
-    //bugfix: else the strlen is not 16 in later tests/compares!
-    de->fs64name[16]=0;
-    fs64_getinfo (de);
-    return (0);
-  }
-  else
-  {
-    /* no more entries */
-    closedir (de->dir);
-    de->dir = 0;
-    de->active = 0;
-    return (-1);
-  }
+	if (dirent) {
+		/* fill out thing */
+		strcpy ((char*)de->realname, (char*)de->path);
+		strcat ((char*)de->realname, (char*)dirent->d_name);
+		/* default filename */
+		for (i = 0; i < 16; i++) {
+			if (i < strlen (dirent->d_name)) de->fs64name[i] = dirent->d_name[i];
+			else de->fs64name[i] = 0xa0;	/* 0xa0 padding , like 1541 */
+		}
+		
+		//bugfix: else the strlen is not 16 in later tests/compares!
+		de->fs64name[16]=0;
+		fs64_getinfo(de);	//will also convert name if necessary
+		return (0);
+	}
+	else {
+		/* no more entries */
+		closedir (de->dir);
+		de->dir = 0;
+		de->active = 0;
+		return (-1);
+	}
 }
 
-int
-fs_ufs_getinfo (fs64_direntry * de) {
+int fs_ufs_getinfo (fs64_direntry * de) {
 	uchar tarr[1025];	/* buffer for first kb of file */
 #ifdef AMIGA
 	BPTR filelock;
@@ -569,16 +537,10 @@ fs_ufs_getinfo (fs64_direntry * de) {
 
 			}
 			if ((de->filetype & 0xf) == cbm_DIR) {
-				/* mono case */
-				for (i = 0; i < 16; i++) {
-					if (isalpha (de->fs64name[i])) de->fs64name[i] = toupper (de->fs64name[i]);
-				}
+				ascii2petscii(de->fs64name,16);
 			}
 			else {
-				/* case invert */
-				for (i = 0; i < 16; i++) {
-					if (isalpha (de->fs64name[i])) de->fs64name[i] ^= 0x20;
-				}
+				ascii2petscii(de->fs64name,16);
 			}
 			return (0);
 		}
@@ -608,3 +570,4 @@ fs_ufs_getinfo (fs64_direntry * de) {
 						/* end switch de.arctype */
 	}
 }
+
