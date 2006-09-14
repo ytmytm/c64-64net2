@@ -51,27 +51,15 @@ void petscii2ascii (uchar *message, int len) {
         return;
 }
 
-int fs_ufs_createfile (uchar *path, uchar *name, int t, int rel_len, fs64_file * f) {
+int check_filename(uchar* name, int len) {
 	int i;
-	
-	uchar fname[1024];
-
-//add all these checks also when scratching. 
-//
-	//filename too long anyway
-	if(strlen(name)>=16) {
+	if(len>=16) {
 		/* filename too long */
 		set_error (53, 0, 0);
+		debug_msg ("ufs: Filename too long %s length: %d\n", name, len);
 		return -1;
 	}
-
-	/* get a proper ascii name first */
-	petscii2ascii(name,strlen(name));
-
-	debug_msg ("ufs: Trying to create file %s%s [%d]\n", path, name, t);
-	
-	/* check for nasty chars */
-	for(i=0;i<=(int)strlen(name);i++) {
+	for(i=0;i<=len;i++) {
 		switch (name[i]) {
                         case ',':
                         case '/':
@@ -83,12 +71,27 @@ int fs_ufs_createfile (uchar *path, uchar *name, int t, int rel_len, fs64_file *
                         case '~':
 				/* illegal filename */
 				set_error(54,0,0);
-				return 1;
+				debug_msg ("ufs: Illegal chars in filename %s\n", name);
+				return -1;
                         break;
                         default:
                         break;
                 }
 	}
+	return 1;
+}
+
+int fs_ufs_createfile (uchar *path, uchar *name, int t, int rel_len, fs64_file * f) {
+	
+	uchar fname[1024];
+
+	/* get a proper ascii name first */
+	petscii2ascii(name,strlen(name));
+	if(!check_filename(name,strlen(name))) {
+			return -1;
+	}
+
+	debug_msg ("ufs: Trying to create file %s%s [%d]\n", path, name, t);
 
 	sprintf ((char*)fname, "%s%s", path, name); //%s%s.prg
 //	debug_msg ("ufs: rendered filename to: %s\n", fname);
@@ -223,8 +226,8 @@ int fs_ufs_isblockfree (fs64_filesystem * fs, int track, int sector) {
 }
 
 int fs_ufs_scratchfile (fs64_direntry * de) {
-	//if (unlink((const char*)de->realname)) return(-1);
-	//else return (0);
+//	if (unlink((const char*)de->realname)) return(-1);
+//	else return (0);
 	return 0;
 }
 

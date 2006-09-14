@@ -206,9 +206,12 @@ int fs64_scratchfile_g (uchar *filespec) {
 	}
 
 	if (!fs64_findfirst_g (path, glob, &de, &dt, &ds)) {
+
 		/* okay.. scratch away! */
 		while (!flag) {
-			if (!fs64_scratchfile (&de)) nf++;
+			if (!fs64_scratchfile (&de)) {
+				nf++;
+			}
 			else {
 				/* couldnt scratch file */
 				debug_msg("Error reason: Unable to scratch file\n");
