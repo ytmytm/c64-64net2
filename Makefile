@@ -1,5 +1,5 @@
 FSYS_OBJ=fs_error.o fs_media.o fs_readts.o fs_search.o fs_fileio.o fs_rawdir.o\
-	fs_glob.o fs_parse.o fs_hostdep.o\
+	fs_glob.o fs_parse.o\
 	fs_io_ufs.o fs_io_t64.o fs_io_lnx.o fs_io_net.o\
 	fs_io_dxx.o fs_io_d64.o fs_io_d71.o fs_io_d81.o fs_io_dhd.o\
 	dosemu.o dos_blockio.o misc_func.o debug.o version.o resman.o\
@@ -14,7 +14,7 @@ PROGS	= main_64net2.o main_rm.o main_list.o main_ls.o main_cat.o main_shell.c
 XPROGS	= x/x64net.o
 
 AR =ar
-CC =gcc
+CC =g++
 XFLAGS =$(CFLAGS) -L/usr/X11R6/lib -lX11 -I/usr/X11R6/include
 # This is for Linux and BeOS
 LOPT=-L. -l64net2
