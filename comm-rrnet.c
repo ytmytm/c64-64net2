@@ -15,6 +15,7 @@
 #include "comm-work.h"
 #include "datestamp.h"
 #include "dosemu.h"
+#include "arp.h"
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -146,7 +147,7 @@ struct sockaddr_in sender = { 0 };
 int client_port = 5000; 
 char client_ip[] = "192.168.2.64"; 
 unsigned char port[1024]; 
-char client_mac[1024] = "00:00:00:64:64:64"; 
+char client_mac[] = "00:00:00:64:64:64"; 
 int packet_type;
 
 #ifdef ERRORHANDLING
@@ -184,24 +185,6 @@ struct packet {
 struct packet* out;
 
 unsigned char* status;
-
-void start_server();
-void begin_measure();
-void end_measure();
-int openfile(unsigned char*, int);
-int closefile();
-void send_acknowledge();
-void send_error(unsigned char);
-void send_data(struct packet* p);
-void change_state(unsigned char);
-void initialize();
-void iec_listen(struct packet*);
-void iec_unlisten(struct packet*);
-void iec_talk(struct packet*);
-void iec_untalk(struct packet*);
-void process_packet(struct packet*);
-void send_packet(struct packet*);
-int pkt_is_acknowledge(struct packet*);
 
 int iec_commune(int unused) {
         struct hostent *hp;
@@ -241,8 +224,21 @@ int iec_commune(int unused) {
 	last_unit=0; file_unit=0;
 	
 	initialize();
-	start_server();
+	debug_msg("Adding static arp entry (IP=%s MAC=%s)\n",client_ip, client_mac);
+	if(arp_set(client_ip,client_mac)) {
+//		debug_msg(" success!\n");
+		start_server();
+	}
+	else { 
+		debug_msg("\n");
+		fatal_error("Failed to make static arp entry\n"); 
+	}
 	return 0;
+}
+
+void rrnet_quit() {
+	debug_msg("Deleting arp-entry for %s\n",client_ip);
+	arp_del(client_ip);
 }
 
 void initialize() {
@@ -456,6 +452,7 @@ void iec_listen(struct packet* p) {
                                 myfilename[myfilenamesize]=0;				
                                 if(openfile(myfilename, MODE_WRITE)<0) {		//try to get write access on requested file
                                         send_error(ERROR_FILE_EXISTS);			//failed
+					return;
                                 }
                         }
                         if(SA==IEC_OPEN || listenlf==0xf) { 				//prepare filename
@@ -702,6 +699,7 @@ void end_measure() {									//end of measure, calculate time needed
 	
 int openfile(unsigned char* name, int mode) {						//try to open a file/dir/whatever
 	int i;
+	unsigned char fname[strlen(name)];
 #ifdef ERRORHANDLING
 	pktnumber=0;
 #endif
@@ -754,7 +752,9 @@ int openfile(unsigned char* name, int mode) {						//try to open a file/dir/what
 		}
 	}
 	if (logical_files[file_unit][listenlf].open == 1) {
-		debug_msg ("*** Opening [%s] on channel $%02x\n", name, listenlf);
+		strcpy((char*)fname,(char*)name);
+		petscii2ascii(fname,strlen(fname));
+		debug_msg ("*** Opening [%s] on channel $%02x\n", fname, listenlf);
 		begin_measure();
 		return 0;
 	}

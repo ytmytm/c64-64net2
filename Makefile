@@ -5,13 +5,13 @@ FSYS_OBJ=fs_error.o fs_media.o fs_readts.o fs_search.o fs_fileio.o fs_rawdir.o\
 	dosemu.o dos_blockio.o misc_func.o debug.o version.o resman.o\
 	datestamp.o
 
-COMM_OBJ=comm-rrnet.o client-comm.o
+COMM_OBJ=comm-rrnet.o client-comm.o arp.o
 # COMM_OBJ=comm-lpt.o client-comm.o
 
 OBJECTS	= $(FSYS_OBJ) $(COMM_OBJ)
 
 PROGS	= main_64net2.o main_rm.o main_list.o main_ls.o main_cat.o main_shell.c
-XPROGS	= x/x64net.o
+#XPROGS	= x/x64net.o
 
 AR =ar
 CC =g++
@@ -30,7 +30,7 @@ COPT=-g -O $(CFLAGS) -Wall
 
 ifeq (.depend,$(wildcard .depend))
 all : 	bin/64net2 bin/64rm bin/64ls bin/64list bin/64cat \
-	bin/64shell bin/x64net bin/build_wedge
+	bin/64shell bin/build_wedge
 include .depend
 else
 all:	depend
@@ -71,8 +71,8 @@ bin/64ls:	lib64net2.a main_ls.o
 bin/64cat:	lib64net2.a main_cat.o
 	$(CC) main_cat.o -o bin/64cat $(LOPT)
 
-bin/x64net: x/15xx.xpm
-	$(CC) $(XFLAGS) -o bin/x64net x/x64net.c
+#bin/x64net: x/15xx.xpm
+#	$(CC) $(XFLAGS) -o bin/x64net x/x64net.c
 
 bin/build_wedge:	tools/build_wedge.o
 	$(CC) tools/build_wedge.o -o bin/build_wedge $(LOPT)

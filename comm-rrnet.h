@@ -18,6 +18,28 @@ int set_drive_status (uchar *string, int len);
 int which_unit (int);
 
 int iec_commune(int a);
+int ascii2petscii(uchar*,int);
+int petscii2ascii(uchar*,int);
+void rrnet_quit(void);
+
+void start_server();
+void begin_measure();
+void end_measure();
+int openfile(unsigned char*, int);
+int closefile();
+void send_acknowledge();
+void send_error(unsigned char);
+void send_data(struct packet* p);
+void change_state(unsigned char);
+void initialize();
+void iec_listen(struct packet*);
+void iec_unlisten(struct packet*);
+void iec_talk(struct packet*);
+void iec_untalk(struct packet*);
+void process_packet(struct packet*);
+void send_packet(struct packet*);
+int pkt_is_acknowledge(struct packet*);
+void rrnet_quit(void);
 
 extern int listenlf, talklf, lastlf, devnum;
 extern int client_type;

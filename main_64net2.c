@@ -19,6 +19,7 @@ extern Library BSDBase;
 #endif
 
 void do_quit(void) {
+	rrnet_quit();
     /* a dummy routine that should shut down 64net/2 */
 }
 
