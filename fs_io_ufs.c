@@ -411,7 +411,7 @@ int fs_ufs_getinfo (fs64_direntry * de) {
 		/* is it just a raw file?? */
 		//XXX This causes problems if we have a .d64 starting with 0x01 0x08
 		//i had already such cases a .d64 wasn't recgnized :-/ Toby
-		//maybe we have bette checks to make out a LNX archive? maybe we also 
+		//maybe we have better checks to make out a LNX archive? maybe we also 
 		//include the .lnx ending? 
 		//    if ((tarr[0] == 0x01) && ((tarr[1] == 8) || (tarr[1] == 0x1c) || (tarr[1] == 0x20) || (tarr[1] == 0x40))) {
 		/* raw binary file */
@@ -504,32 +504,6 @@ int fs_ufs_getinfo (fs64_direntry * de) {
 					de->first_track = 1;
 					de->first_sector = 1;
 					break;
-					/*
-				case 0x2e505247:		// .PRG 
-				case 0x2e707267:		// .prg 
-			//		end=strlen(de->realname)-4;
-			//		start=strlen(de->realname)-4;
-			//		while(start>0) {
-			//			if(de->realname[start]=='/') { start++; break; }
-			//			start--;
-			//		}
-			//		for (i=0;i<16;i++) {
-			//			if(start<end) {
-			//				de->fs64name[i]=de->realname[start];
-			//				start++;
-			//			}
-			//			else {
-			//				de->fs64name[i]=0xa0;
-			//			}
-			//		}
-					de->fs64name[17]=0xa0;
-					de->filetype &= (cbm_CLOSED | cbm_LOCKED);
-					de->filetype |= cbm_PRG;
-					de->first_track = -1;
-					de->first_sector = -1;
-					
-					break;
-					*/
 				default:
 					if((de->filetype & 0x0f) == cbm_UFS) {
 						de->filetype &= (cbm_CLOSED | cbm_LOCKED);
@@ -539,12 +513,7 @@ int fs_ufs_getinfo (fs64_direntry * de) {
 					}
 
 			}
-			if ((de->filetype & 0xf) == cbm_DIR) {
-				ascii2petscii(de->fs64name,16);
-			}
-			else {
-				ascii2petscii(de->fs64name,16);
-			}
+			ascii2petscii(de->fs64name,16);
 			return (0);
 		}
 		case arc_N64: {
