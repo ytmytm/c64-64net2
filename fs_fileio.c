@@ -938,6 +938,9 @@ fs64_openfile_g (uchar *curdir, uchar *filespec, fs64_file * f)
     /* setup de for search */
     //debug_msg ("openfile_g: running openfind_g\n");
     //debug_msg("Calling findfirst_g with: path=%s, glob=%s,$\n",path,glob);
+    
+    //no glob given vor dir? Bad, else we'll get zero entries, so we wildcard, Toby
+    if(strlen(glob)==0) { glob[0]='*'; glob[1]=0; }
     if (fs64_openfind_g (path, (uchar*)strcat ((char*)glob, ",$"), &f->de, &dirtrack, &dirsect))
     {
       /* cant open directory */
