@@ -190,4 +190,3 @@ extern int     last_drive,last_unit;
 #include "fs_parse.h"
 #include "fs_search.h"
 #include "fs_glob.h"
-#include "fs_hostdep.h"
