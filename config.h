@@ -71,7 +71,7 @@
 /* anything over 32 is useless, as the IEC bus only handles 32 devices! */
 /* note also parallel versions (typically) only support one device, but 
    can possibly handle 255 devices (if such support were implemented!) */
-#define MAX_NET_DEVS 16
+#define MAX_CLIENTS 256
 
 /***********************************************************************/
 
@@ -139,3 +139,4 @@
 #endif
 #endif
 
+extern int curr_client;

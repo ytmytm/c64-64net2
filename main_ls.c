@@ -6,7 +6,6 @@
 
 #include "config.h"
 #include "fs.h"
-#include "comm-lpt.h"
 #include "comm-rrnet.h"
 
 int no_net=NONET;
@@ -21,7 +20,7 @@ main (int argc, char **argv)
 
   fs64_direntry de;
   de.dir = 0;
-  talklf = 0;
+  talklf[curr_client] = 0;
 
   if (argc > 1)
     strcpy ((char*)path, argv[1]);

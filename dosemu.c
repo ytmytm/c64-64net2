@@ -15,12 +15,12 @@
 #include "fs_func.h"
 #include "dosemu.h"
 #include "misc_func.h"
+#include "comm-rrnet.h"
 
 int which_unit (int);
-void set_drive_status (unsigned char*, int);
 
 /* virtual drive memory */
-uchar drive_memory[MAX_NET_DEVS][0x10000];
+uchar drive_memory[MAX_CLIENTS][0x10000];
 
 void
 set_current_dir (uchar *foo)
@@ -28,15 +28,15 @@ set_current_dir (uchar *foo)
   /* set current directory on current partition of current drive */
 
   /* de-allocate current dir */
-  if (curr_dir[last_unit][curr_par[last_unit]])
-    free (curr_dir[last_unit][curr_par[last_unit]]);
+  if (curr_dir[curr_client][curr_par[curr_client]])
+    free (curr_dir[curr_client][curr_par[curr_client]]);
   /* set new one */
-  if (!(curr_dir[last_unit][curr_par[last_unit]] = (uchar *)
+  if (!(curr_dir[curr_client][curr_par[curr_client]] = (uchar *)
 	malloc (strlen (foo) + 1)))
     /* couldnt malloc */
     fatal_error ("Cannot allocate memory.");
   else
-    strcpy ((char*)curr_dir[last_unit][curr_par[last_unit]],(char*) foo);
+    strcpy ((char*)curr_dir[curr_client][curr_par[curr_client]],(char*) foo);
 }
 
 void
@@ -51,19 +51,19 @@ reset_drive (void)
   /* cutesy startup message */
   set_error (73, 0, 0);
   /* clear incoming command channel */
-  if (last_unit > -1)
-    dos_comm_len[last_unit] = 0;
+  if (curr_client > -1)
+    dos_comm_len[curr_client] = 0;
 
   /* reset subdirectories */
   for (i = 1; i < 255; i++)
   {
-    curr_par[last_unit] = i;
-    if (partn_dirs[last_unit][curr_par[last_unit]])
-      set_current_dir (partn_dirs[last_unit][curr_par[last_unit]]);
+    curr_par[curr_client] = i;
+    if (partn_dirs[curr_client][curr_par[curr_client]])
+      set_current_dir (partn_dirs[curr_client][curr_par[curr_client]]);
   }				/* for(i=1;i<255;i++) */
 
   /* set default partition to 1 */
-  curr_par[last_unit] = 1;
+  curr_par[curr_client] = 1;
 
 }
 
@@ -79,16 +79,15 @@ init_dos (void)
   /* BUGS: This module does not have access to the MAX_NET_DRVS #define
      so we employ this mucky work around */
 
-  for (i = 1; i < 32; i++)
+  for (i = 1; i < MAX_CLIENTS; i++)
   {
-    last_drive = i;
-    last_unit = which_unit (last_drive);
+    curr_client = which_unit (i);
     /* reset last_drive */
-    if (last_unit != -1)
+    if (curr_client != -1)
       reset_drive ();
   }
-  memset(drive_memory,0,MAX_NET_DEVS*0x10000);
-  for (i=0;i<MAX_NET_DEVS;i++) {
+  memset(drive_memory,0,MAX_CLIENTS*0x10000);
+  for (i=0;i<MAX_CLIENTS;i++) {
     drive_memory[i][0x69]=0x08; 	/* interleave set */
     drive_memory[i][0xe5c6]='4';	/* end of UJ message DOS VERSION, DRIVE - mimic 1541 */
     }
@@ -99,7 +98,7 @@ do_dos_command (void)
 {
 	//XXX missing the rename command
   /* execute the DOS command in the buffer */
-  int i = last_unit, dt = -1, ds = -1;
+  int i = curr_client, dt = -1, ds = -1;
   /* scratch vars */
   int j, k, par, rv;
   uchar path[1024], partition[8];

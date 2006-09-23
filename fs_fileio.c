@@ -8,7 +8,6 @@
 #include "fs.h"
 #include "fs_func.h"
 #include "client-comm.h"
-#include "comm-lpt.h"
 #include "comm-rrnet.h"
 
 #include "fs_rawdir.h"
@@ -667,7 +666,7 @@ fs64_readblock (fs64_file * f)
   if (f->isdir >= 1)
   {
     /* its a directory read - *easy* :) */
-    if ((f->isdir == 2) && ((talklf & 0x0f)==0))
+    if ((f->isdir == 2) && ((talklf[curr_client] & 0x0f)==0))
     {
       /* EOF */
       f->open = 0;
@@ -678,7 +677,7 @@ fs64_readblock (fs64_file * f)
       /* theres an entry */
       f->bp = 0;
       f->be = 0;
-      if ((talklf & 0x0f)==0) {
+      if ((talklf[curr_client] & 0x0f)==0) {
         fs64_direntry2block (f); }
       else {
         fs64_direntry2rawentry(f);
@@ -693,7 +692,7 @@ fs64_readblock (fs64_file * f)
     }
     else
     {
-	if ((talklf & 0x0f)==0) {
+	if ((talklf[curr_client] & 0x0f)==0) {
           /* blocks free */
 	    f->bp = 0;
 	    f->be = 0;
@@ -780,14 +779,14 @@ fs64_openfile_g (uchar *curdir, uchar *filespec, fs64_file * f)
   if (glob[0] == '#')
   {
     /* Buffer Access */
-    switch (fs64_mediatype (curr_dir[last_unit][curr_par[last_unit]]))
+    switch (fs64_mediatype (curr_dir[curr_client][curr_par[curr_client]]))
     {
     case media_D64:
     case media_D71:
     case media_D81:
     case media_DHD:
-      f->filesys.media = fs64_mediatype (curr_dir[last_unit][curr_par[last_unit]]);
-      strcpy ((char*)f->filesys.fspath, (char*)curr_dir[last_unit][curr_par[last_unit]]);
+      f->filesys.media = fs64_mediatype (curr_dir[curr_client][curr_par[curr_client]]);
+      strcpy ((char*)f->filesys.fspath, (char*)curr_dir[curr_client][curr_par[curr_client]]);
       if ((f->filesys.fsfile = fopen ((char*)path, "r+")) == NULL)
       {
 	/* Open readonly if can't do so read write */
@@ -934,7 +933,7 @@ fs64_openfile_g (uchar *curdir, uchar *filespec, fs64_file * f)
     f->curr_poss = 0x0401;
     f->bp = 256;
     if (par == 0)
-      par = curr_par[last_unit];
+      par = curr_par[curr_client];
     /* setup de for search */
     //debug_msg ("openfile_g: running openfind_g\n");
     //debug_msg("Calling findfirst_g with: path=%s, glob=%s,$\n",path,glob);
@@ -1010,10 +1009,10 @@ fs64_openfile_g (uchar *curdir, uchar *filespec, fs64_file * f)
       fs64_dirheader (f, par, header, id);
       if (0) 
 	{
-	  if (((talklf & 0x0f)==0)||(talklf<0)) {
+	  if (((talklf[curr_client] & 0x0f)==0)||(talklf[curr_client]<0)) {
 	    fs64_dirheader (f, par, header, id); }
 	  else {
-	    printf("Raw dir header: talklf = %d\n",talklf);
+	    printf("Raw dir header: talklf = %d\n",talklf[curr_client]);
 	    fs64_rawdirheader (f, par, header, id); }
 	}
       /* all's well - so off we go */

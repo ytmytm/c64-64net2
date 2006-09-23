@@ -3,7 +3,6 @@
 #include "config.h"
 #include "fs.h"
 #include "comm-rrnet.h"
-#include "comm-lpt.h"
 
 int no_net=NONET;
 
@@ -13,7 +12,7 @@ main (int argc, char **argv)
   uchar c;
   fs64_file f;
 
-  talklf = 0;
+  talklf[curr_client] = 0;
 
   if (argc < 2)
   {
@@ -22,12 +21,12 @@ main (int argc, char **argv)
   }
 
   /* prepare the 64net file system */
-  last_unit = 0;
-  partn_dirs[last_unit][1] = (uchar *) malloc (8);
-  strcpy ((char*)partn_dirs[last_unit][1], "./");
-  curr_dir[last_unit][1] = (uchar *) malloc (8);
-  strcpy ((char*)curr_dir[last_unit][1], "./");
-  curr_par[last_unit] = 1;
+  curr_client = 0;
+  partn_dirs[curr_client][1] = (uchar *) malloc (8);
+  strcpy ((char*)partn_dirs[curr_client][1], "./");
+  curr_dir[curr_client][1] = (uchar *) malloc (8);
+  strcpy ((char*)curr_dir[curr_client][1], "./");
+  curr_par[curr_client] = 1;
 
   /* okay, open file */
   if (!fs64_openfile_g ((uchar*)"./", (uchar*)argv[1], &f))

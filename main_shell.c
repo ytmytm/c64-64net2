@@ -7,9 +7,8 @@
 #include "fs.h"
 #include "dosemu.h"
 #include "misc_func.h"
-#include "comm-lpt.h"
-#include "comm-rrnet.h"
 #include "version.h"
+#include "comm-rrnet.h"
 
 int no_net = NONET;
 #ifdef AMIGA
@@ -24,7 +23,7 @@ main (int argc, char **argv)
 {
 
   debug_mode = 0;
-  talklf = 0;
+  talklf[curr_client] = 0;
 
 #ifdef DEBUG
   initDebug();
@@ -75,14 +74,14 @@ main (int argc, char **argv)
     while(1)
       {
 	uchar comm[1024];
-	last_unit=0;
+	curr_client=0;
 
 	/* Show dos status */
-	/* dos_status[last_unit][dos_stat_len[last_unit]]=0;
-	   if (dos_status[last_unit][2]==',')
-	   printf("%s\n",dos_status[last_unit]);
+	/* dos_status[curr_client][dos_stat_len[curr_client]]=0;
+	   if (dos_status[curr_client][2]==',')
+	   printf("%s\n",dos_status[curr_client]);
 	   else
-	   printf("Status: %s\n",dos_status[last_unit]);
+	   printf("Status: %s\n",dos_status[curr_client]);
 	   set_error(0,0,0); */
 
 	/* Read command */
@@ -116,8 +115,8 @@ main (int argc, char **argv)
 	    break;
 	  default:
 	    /* do dos command */
-	    strcpy((char*)dos_command[last_unit],(char*)comm);
-	    dos_comm_len[last_unit]=strlen(comm);
+	    strcpy((char*)dos_command[curr_client],(char*)comm);
+	    dos_comm_len[curr_client]=strlen(comm);
 	    do_dos_command();
 	    break;
 	  }
@@ -135,10 +134,10 @@ int showlist(uchar *dir)
   fs64_file f;
 
   /* prepare the 64net file system */
-  last_unit = 0;
+  curr_client = 0;
 
   /* okay, open file */
-  if (!fs64_openfile_g (curr_dir[last_unit][curr_par[last_unit]], dir, &f))
+  if (!fs64_openfile_g (curr_dir[curr_client][curr_par[curr_client]], dir, &f))
   {
     /* its open! */
     printf("Listing for %s ...\n",dir);

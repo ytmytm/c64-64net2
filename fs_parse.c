@@ -35,11 +35,11 @@ fs64_resolve_partition (uchar *partition, uchar *path, int *dirtrack, int *dirse
     else
     {
       /* its not partition `0' */
-      if (partn_dirs[last_unit][atol (partition)])
+      if (partn_dirs[curr_client][atol (partition)])
       {
-	strcpy ((char*)temp, (char*)curr_dir[last_unit][atol (partition)]);
-	*dirtrack = curr_dirtracks[last_unit][atol (partition)];
-	*dirsect = curr_dirsectors[last_unit][atol (partition)];
+	strcpy ((char*)temp, (char*)curr_dir[curr_client][atol (partition)]);
+	*dirtrack = curr_dirtracks[curr_client][atol (partition)];
+	*dirsect = curr_dirsectors[curr_client][atol (partition)];
       }
       else
       {
@@ -56,9 +56,9 @@ fs64_resolve_partition (uchar *partition, uchar *path, int *dirtrack, int *dirse
   {
     {
       /* its partition `0' */
-      strcpy ((char*)temp, (char*)curr_dir[last_unit][curr_par[last_unit]]);
-      *dirtrack = curr_dirtracks[last_unit][curr_par[last_unit]];
-      *dirsect = curr_dirsectors[last_unit][curr_par[last_unit]];
+      strcpy ((char*)temp, (char*)curr_dir[curr_client][curr_par[curr_client]]);
+      *dirtrack = curr_dirtracks[curr_client][curr_par[curr_client]];
+      *dirsect = curr_dirsectors[curr_client][curr_par[curr_client]];
     }
   }
 
@@ -68,9 +68,9 @@ fs64_resolve_partition (uchar *partition, uchar *path, int *dirtrack, int *dirse
     /* This is unchanged from the old resolve partition */
     if (!atol (partition))
     {
-      strcpy ((char*)temp, (char*)curr_dir[last_unit][curr_par[last_unit]]);
-      *dirtrack = curr_dirtracks[last_unit][curr_par[last_unit]];
-      *dirsect = curr_dirsectors[last_unit][curr_par[last_unit]];
+      strcpy ((char*)temp, (char*)curr_dir[curr_client][curr_par[curr_client]]);
+      *dirtrack = curr_dirtracks[curr_client][curr_par[curr_client]];
+      *dirsect = curr_dirsectors[curr_client][curr_par[curr_client]];
       switch (fs64_mediatype (temp))
       {
       case media_DHD:
@@ -102,7 +102,7 @@ fs64_resolve_partition (uchar *partition, uchar *path, int *dirtrack, int *dirse
 	  /* fall through */
 	}
       default:
-	if (strcmp ((char*)temp, (char*)partn_dirs[last_unit][curr_par[last_unit]]))
+	if (strcmp ((char*)temp, (char*)partn_dirs[curr_client][curr_par[curr_client]]))
 	{
 	  /* CD != root dir */
 	  /* so trim temp back to next '/' */
@@ -118,10 +118,10 @@ fs64_resolve_partition (uchar *partition, uchar *path, int *dirtrack, int *dirse
     }
     else
     {
-      strcpy ((char*)temp, (char*)curr_dir[last_unit][atol (partition)]);
-      *dirtrack = curr_dirtracks[last_unit][atol (partition)];
-      *dirsect = curr_dirsectors[last_unit][atol (partition)];
-      if (strcmp ((char*)temp, (char*)partn_dirs[last_unit][atol (partition)]))
+      strcpy ((char*)temp, (char*)curr_dir[curr_client][atol (partition)]);
+      *dirtrack = curr_dirtracks[curr_client][atol (partition)];
+      *dirsect = curr_dirsectors[curr_client][atol (partition)];
+      if (strcmp ((char*)temp, (char*)partn_dirs[curr_client][atol (partition)]))
       {
 	/* CD != root dir */
 	/* so trim temp back to next '/' */
@@ -180,15 +180,15 @@ fs64_resolve_partition (uchar *partition, uchar *path, int *dirtrack, int *dirse
       if (partition[0] != 'n') {
 	if (!atol (partition))
 	{
-	  strcpy ((char*)temp, (char*)partn_dirs[last_unit][curr_par[last_unit]]);
-	  *dirtrack = curr_dirtracks[last_unit][curr_par[last_unit]];
-	  *dirsect = curr_dirsectors[last_unit][curr_par[last_unit]];
+	  strcpy ((char*)temp, (char*)partn_dirs[curr_client][curr_par[curr_client]]);
+	  *dirtrack = curr_dirtracks[curr_client][curr_par[curr_client]];
+	  *dirsect = curr_dirsectors[curr_client][curr_par[curr_client]];
 	}
 	else
 	{
-	  strcpy ((char*)temp, (char*)partn_dirs[last_unit][atol (partition)]);
-	  *dirtrack = curr_dirtracks[last_unit][atol (partition)];
-	  *dirsect = curr_dirsectors[last_unit][atol (partition)];
+	  strcpy ((char*)temp, (char*)partn_dirs[curr_client][atol (partition)]);
+	  *dirtrack = curr_dirtracks[curr_client][atol (partition)];
+	  *dirsect = curr_dirsectors[curr_client][atol (partition)];
 	}
       }
       strcpy ((char*)path, (char*)&path[1]);
@@ -199,15 +199,15 @@ fs64_resolve_partition (uchar *partition, uchar *path, int *dirtrack, int *dirse
       if (partition[0] != 'n')
 	if (!atol (partition))
 	{
-	  strcpy ((char*)temp, (char*)curr_dir[last_unit][curr_par[last_unit]]);
-	  *dirtrack = curr_dirtracks[last_unit][curr_par[last_unit]];
-	  *dirsect = curr_dirsectors[last_unit][curr_par[last_unit]];
+	  strcpy ((char*)temp, (char*)curr_dir[curr_client][curr_par[curr_client]]);
+	  *dirtrack = curr_dirtracks[curr_client][curr_par[curr_client]];
+	  *dirsect = curr_dirsectors[curr_client][curr_par[curr_client]];
 	}
 	else
 	{
-	  strcpy ((char*)temp, (char*)curr_dir[last_unit][atol (partition)]);
-	  *dirtrack = curr_dirtracks[last_unit][atol (partition)];
-	  *dirsect = curr_dirsectors[last_unit][atol (partition)];
+	  strcpy ((char*)temp, (char*)curr_dir[curr_client][atol (partition)]);
+	  *dirtrack = curr_dirtracks[curr_client][atol (partition)];
+	  *dirsect = curr_dirsectors[curr_client][atol (partition)];
 	}
       else
 	strcpy ((char*)temp, "");

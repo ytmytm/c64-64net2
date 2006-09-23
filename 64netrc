@@ -1,57 +1,36 @@
+# protocoll
+#protocoll rrnet
 
 # The LPT port address to communicate on (interpreted as hex number)
-port 378
+# port /dev/parport0
+
+# if you are using RRNET
+port		5000
 
 # or if you are using serial cable place correct device below
 # port /dev/ttyS1
 
 # The CBM device number to primarily masquerade as
-devnum 10
+# devnum 9
 
 # Uncomment the next line if you plan to use 64net/2 in combination with
 # the X11 display application
-#ledfile /tmp/.64net2.leds
+# ledfile /home/bitbreaker/.64net2.leds
 
 # Uncomment the next line to display debugging messages
 debug mode
 
-# Create a 256 page GeoRAM emulation bank
-#ram 256
-
-# Uncomment the next line to enable fishload
-# fishload
-
-# Uncomment the next line to enable fishsave
-# DON'T do it, fishsave is broken and will remain as such :(
-#fishsave
-
-# number of port polls before sleeping
-# timeout 5000
-
-# Define a drive number to be served with 
-#  3 partitions.
-#  Partition 1 = TESTDIR/
-#  Partition 2 = NAME.D64
-#  Partition 3 = root directory of internet device.  See manual for more info
-#  Note that partitions must be specified using their C64 paths, which usually
-#   means using /'s and case inversion.
-device
-number 9
-#partition 1,TESTDIR/
-partition 1,/OPT/64NET2/CBIN/
-partition 2,/HOME/GARDNERS/
-#partition 1,/OPT/C64/TEST.D64
-#partition 1,/TMP/LUNIX64.D64
-#partition 2,/HOME/MACIEK/
-partition 3,@/
-end
-
 # Add partition 2 of each device to the auto-search path for LOAD commands.
 path 2
 
-# Uncomment the following to add another device number
-#device
-#number 10
-#partition 1,/pub/pictures/
-#end
+[client bitbreaker]
+partition	1,/home/bitbreaker/files/
+#partition	2,@/
+mac		00:00:00:64:64:64
+ip		192.168.2.64
 
+[client faeker]
+partition	1,/home/bitbreaker/
+#partition	2,@/
+mac		00:00:00:64:64:65
+ip		192.168.2.65

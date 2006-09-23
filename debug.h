@@ -18,7 +18,7 @@ extern int debug_mode;
 /* appropriate define for debug messages */
 /* its hacky, but it works fine :) */
 
-#define debug_msg if (debug_mode) printf
+#define debug_msg if (debug_mode) printf("client#%d: ",curr_client); printf 
 
 /* same for log messages */
 #define log_msg printf

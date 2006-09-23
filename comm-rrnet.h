@@ -8,12 +8,13 @@
 /* port addresses */
 extern int portout,portin;
 extern int max_tries;
-extern uchar port[1024];
+//extern char port[256];
 
 /* function prototypes */
 int commune(void);
 int read_config (char *file);
 int read_device (FILE * cf);
+int read_client (FILE * cf);
 int set_drive_status (uchar *string, int len);
 int which_unit (int);
 
@@ -40,6 +41,10 @@ void process_packet(struct packet*);
 void send_packet(struct packet*);
 int pkt_is_acknowledge(struct packet*);
 void rrnet_quit(void);
+void chomp(char*);
 
-extern int listenlf, talklf, lastlf, devnum;
-extern int client_type;
+extern int listenlf[MAX_CLIENTS];
+extern int talklf[MAX_CLIENTS];
+extern int last_client;
+extern int curr_client;
+//extern int devnum;

@@ -2,7 +2,6 @@
 
 #include "config.h"
 #include "fs.h"
-#include "comm-lpt.h"
 #include "comm-rrnet.h"
 
 int no_net=NONET;
@@ -10,7 +9,7 @@ int no_net=NONET;
 int 
 main (int argc, char **argv)
 {
-  talklf = 0;
+  talklf[curr_client] = 0;
 
   if (argc < 2)
   {

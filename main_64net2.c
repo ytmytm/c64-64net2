@@ -8,7 +8,6 @@
 
 #include "dosemu.h"
 #include "misc_func.h"
-#include "comm-lpt.h"
 #include "comm-rrnet.h"
 #include "version.h"
 
@@ -95,7 +94,6 @@ main (int argc, char **argv)
   init_dos ();
 
   /* all ready, be cute */
-  printf ("Network started.\n");
 
   /* do it man! */
   iec_commune(0);

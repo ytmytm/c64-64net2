@@ -93,19 +93,19 @@ struct fs64_filestructure {
 
 /* shared variables accross modules */
 
-extern uchar	dos_status[MAX_NET_DEVS][256];
-extern uchar	dos_stat_len[MAX_NET_DEVS];
-extern uchar	dos_command[MAX_NET_DEVS][256];
-extern uchar	dos_comm_len[MAX_NET_DEVS];
-extern uchar	*partn_dirs[MAX_NET_DEVS][256];
-extern int partn_dirtracks[MAX_NET_DEVS][256];
-extern int partn_dirsectors[MAX_NET_DEVS][256];
-extern int curr_dirtracks[MAX_NET_DEVS][256];
-extern int curr_dirsectors[MAX_NET_DEVS][256];
-extern int curr_par[MAX_NET_DEVS];
-extern uchar	*curr_dir[MAX_NET_DEVS][256];
+extern uchar	dos_status[MAX_CLIENTS][256];
+extern uchar	dos_stat_len[MAX_CLIENTS];
+extern uchar	dos_command[MAX_CLIENTS][256];
+extern uchar	dos_comm_len[MAX_CLIENTS];
+extern uchar	*partn_dirs[MAX_CLIENTS][256];
+extern int partn_dirtracks[MAX_CLIENTS][256];
+extern int partn_dirsectors[MAX_CLIENTS][256];
+extern int curr_dirtracks[MAX_CLIENTS][256];
+extern int curr_dirsectors[MAX_CLIENTS][256];
+extern int curr_par[MAX_CLIENTS];
+extern uchar	*curr_dir[MAX_CLIENTS][256];
 extern int pathdir;
-extern fs64_file logical_files[MAX_NET_DEVS][16];
+extern fs64_file logical_files[MAX_CLIENTS][16];
 
 /* defines for fs64direntry.media */
 #define media_UFS 1
