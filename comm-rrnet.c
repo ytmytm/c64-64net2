@@ -228,31 +228,53 @@ void start_server() {
 	struct packet* p;
 	unsigned char buffer[1024];
 	int bsize;
+	struct sockaddr from;
+	socklen_t fromlen;
         p=(struct packet*)malloc(sizeof(struct packet));
         p->data=(unsigned char*)malloc(1024);
+	int flags;
+	struct hostent* hp;
 	
 	printf ("Network started.\n");
 	while(1) {					
-		bsize=recv(receivefd, buffer, sizeof(buffer), MSG_DONTWAIT);
+		fromlen=16;
+		flags=MSG_WAITALL;
+		bsize=recvfrom(receivefd, buffer, sizeof(buffer), flags, &from, &fromlen);
 		if(bsize>1) {
-			p->type=buffer[0];
-			if(p->type==PACKET_DATA) {			//assemble a data packet (0x44, len, data)
-				if(bsize>1) {
-					for(i=0;i<bsize-2;i++) {
-						p->data[i]=buffer[i+2];
+			/* my really cheap dispatcher, cough, Toby 
+			 * it would be more wisely to make a extra table that has 
+			 * the last number of the ip as index, as all clients are 
+			 * in the same subnet */
+			//but so far this should be enough :-)
+			
+			for(curr_client=0;curr_client<=last_client;curr_client++) {
+				hp = gethostbyname(client_ip[curr_client]);
+				if(memcmp(hp->h_addr,from.sa_data+2,4)==0) break;
+			}
+			if(curr_client>last_client) curr_client=-1;
+			if(curr_client>=0) {
+#ifdef DEBUG_COMM
+				printf("pakcet is for client #%d\n",curr_client);
+#endif
+				p->type=buffer[0];
+				if(p->type==PACKET_DATA) {			//assemble a data packet (0x44, len, data)
+					if(bsize>1) {
+						for(i=0;i<bsize-2;i++) {
+							p->data[i]=buffer[i+2];
+						}
+						p->size=buffer[i+1];
 					}
-					p->size=buffer[i+1];
 				}
+				else {						//assemble other packet (code, data)
+					p->data[0]=buffer[1];
+					p->size=1;
+				}
+				//dispatch();
+				//set curr_client on base of ip first, then process
+				//all stuff and variables for otehr clients should stay untouched
+				//as each packet = one cycle for one client
+				process_packet(p);				//let the respective server process process the packet
 			}
-			else {						//assemble other packet (code, data)
-				p->data[0]=buffer[1];
-				p->size=1;
-			}
-			//dispatch();
-			//set curr_client on base of ip first, then process
-			//all stuff and variables for otehr clients should stay untouched
-			//as each packet = one cycle for one client
-			process_packet(p);				//let the respective server process process the packet
 		}
 	}
 	free(p->data);

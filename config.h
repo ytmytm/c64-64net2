@@ -44,7 +44,7 @@
 
 #define VER_MAJ 1
 #define VER_MIN 0
-#define VERSIONSTRING "V%02d.%02d ALPHA"
+#define VERSIONSTRING "V%02d.%02d RRNET"
 
 #ifdef LINUX
 #define UNIX
