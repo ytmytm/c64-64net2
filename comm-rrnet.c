@@ -66,9 +66,6 @@ fs64_file logical_files[MAX_CLIENTS][16];
 /* Last accessed drive, for the purposes of error channels etc */
 int last_client=0;
 
-/* structures for redirected devices */
-int devices[MAX_CLIENTS]={0};
-
 /* number of clients */
 char client_ip[MAX_CLIENTS][256];
 char client_mac[MAX_CLIENTS][256];
@@ -76,10 +73,10 @@ char client_name[MAX_CLIENTS][256];
 
 
 /* file that points to our communications device */
-fs64_file file;
+//fs64_file file;
 
 /* partition # that will be searched for programs, whatever this means, not used */
-int pathdir;
+//int pathdir;
 
 //#define DEBUG_COMM
 
@@ -117,17 +114,6 @@ int pathdir;
 #define IDLE			0x00
 #define TIMEOUT			10
 
-
-//current state: 64net: resent of data,command,ack if answer missing. check on correct pktnumber on ack, cmd. check on received data still missing?
-//rrnet: receive command: sends ack with pktnumber it is up to c64 to resend. packet should get one byte bigger to accomodate a real packet#. at the moment the commandvalue is used as packetnumber
-//rrnet: receive data:    sends ack with pktnumber from datapacket it is up to c64 to resend
-//rrnet: send data:	  resend until receiving correct ack.
-//rrnet: receive ack:	  check if it is for recent sent data. if yes, stop resending and start with next packet
-//
-//c64: receive data:	  just send ack when fitting packet received
-//c64: send data/command: resend i until correct ack received
-
-
 int sendfd[MAX_CLIENTS];
 int receivefd;
 unsigned char in_buffer[256];
@@ -147,8 +133,8 @@ int myfilenamesize[MAX_CLIENTS];
 clock_t starttime[MAX_CLIENTS];
 clock_t endtime[MAX_CLIENTS];
 
-struct timeb start[MAX_CLIENTS] = { 0 };		//XXX per client
-struct timeb end[MAX_CLIENTS] = { 0 };		//XXX per client
+struct timeb start[MAX_CLIENTS] = { 0 };
+struct timeb end[MAX_CLIENTS] = { 0 };
 
 long transferred_amount[MAX_CLIENTS]={0};
 
@@ -209,7 +195,7 @@ int iec_commune(int unused) {
 	}
 	
 	for(a=0;a<=last_client;a++) {
-		printf("Adding static arp entry (IP=%s MAC=%s)\n",client_ip[a], client_mac[a]);
+		//printf("Adding static arp entry (IP=%s MAC=%s)\n",client_ip[a], client_mac[a]);
 		if(!arp_set(client_ip[a],client_mac[a])) {
 			fatal_error("Failed to make static arp entry\n"); 
 		}
@@ -221,7 +207,7 @@ int iec_commune(int unused) {
 void rrnet_quit() {
 	int a;
 	for(a=0;a<=last_client;a++) {
-		printf("Deleting arp-entry for %s\n",client_ip[a]);
+		//printf("Deleting arp-entry for %s\n",client_ip[a]);
 		arp_del(client_ip[a]);
 	}
 }
@@ -230,7 +216,7 @@ void initialize() {
         out=(struct packet*)malloc(sizeof(struct packet));
         out->data=(unsigned char*)malloc(DATA_PAYLOAD_SEND);
         out->size=0;
-	curr_client=0;
+	curr_client=1;
         return;
 }
 
@@ -584,9 +570,10 @@ void end_measure() {									//end of measure, calculate time needed
 //	timediff=(end.time-start.time)*1000+(end.millitm-start.millitm);
 	time=((float)timediff/(float)1000);
 	rate=(float)transferred_amount[curr_client]/time;
-	debug_msg("Transferred bytes:%ld\n", transferred_amount[curr_client]);
-	debug_msg("Time needed:%f sec\n", time);
-	debug_msg("Transferrate:%8.2f bps (%8.3fKB/sec)\n", rate,rate/1024);
+	debug_msg("%ld bytes transferred in %.2fs => %.3f kb/s\n", transferred_amount[curr_client],time,rate/1024);
+	
+//	debug_msg("Time needed:%f sec\n", time);
+//	debug_msg("Transferrate:%8.2f bps (%8.3fKB/sec)\n", rate,rate/1024);
 	return;	
 }
 	
@@ -694,14 +681,15 @@ int read_config (char *file) {
 				printf ("INIT: Communication port set to %s\n", port);
 #endif
 			}
+			/* deprecated, will be ignored anyway, hmm */
 			else if (!strncmp ("path ", (char*)temp, 4)) {
 				/* path partition */
-				pathdir = atol (&temp[5]);
-				printf ("64NET/2 will look in partition %d for programmes\n", pathdir);
+				//pathdir = atol (&temp[5]);
+				//printf ("64NET/2 will look in partition %d for programmes\n", pathdir);
 			}
 			//found a client block, read in config
-			//TODO: create a client instance per block and hand over parameters to client
-			//also read out identifier so that we can separate clients
+			//XXX
+			//also read out identifier so that we can separate clients (store in client_name[])
 			else if (!strncmp ("[client", (char*)temp, 7)) {
 				/* its a device line */
 				read_client (cf);
@@ -732,11 +720,11 @@ int read_config (char *file) {
 	/* all done! */
 
 	/* Check for required bits */
-// better check if a client was configured
-//	if (!devices[0]) {
-//		/* no devices defined */
-//		fatal_error ("Configuration file contains no device lines.");
-//	}
+	//better check if a client was configured
+	if (last_client<0) {
+		/* no clients defined */
+		fatal_error ("Configuration file contains no client sections.");
+	}
 	if (port[0] == 0) {
 		/* no port lines */
 		fatal_error ("Configuration file contains no port line.");
@@ -787,8 +775,6 @@ int read_client (FILE * cf) {
 
 	last_client++;
 	curr_client++;
-	printf ("INIT: Adding client# %d\n", last_client);
-	devices[last_client]=1;
 	
 	while (!feof (cf)) {
 		fgets (temp, 256, cf);
@@ -802,13 +788,6 @@ int read_client (FILE * cf) {
 			   MAC <mac_num>                - End definition of device
 			   PARTITION <part_num>,<path>  - Define a partition
 			 */
-			//if (!strncmp ("number", temp, 6)) {
-			//	/* device number */
-			//	devices[dev_num] = (uchar) atol (&temp[6]);
-			//	printf ("Networked device $%02x assigned to IEC device $%02x\n",
-			//	dev_num, devices[dev_num]);
-			//}
-			//else 
 			if (!strncmp ("partition", temp, 9)) {
 				/* partition for drive */
 				/* find first comma */
@@ -823,52 +802,50 @@ int read_client (FILE * cf) {
 				}
 				else {
 					/* okey */
-					partn_dirs[last_client][pn] = (uchar *) malloc (strlen (&temp[i + 1]) + PADDING);
-					if (!partn_dirs[last_client][pn]) /* couldnt malloc */ fatal_error ("Cannot allocate memory.");
+					partn_dirs[curr_client][pn] = (uchar *) malloc (strlen (&temp[i + 1]) + PADDING);
+					if (!partn_dirs[curr_client][pn]) /* couldnt malloc */ fatal_error ("Cannot allocate memory.");
 					else {
 						/* strip newline */
 						uchar partition[8], path[1024];
 						partition[0] = 'n';
 						temp[strlen (temp) - 1] = 0;
-						strcpy ((char*)partn_dirs[last_client][pn], (char*)&temp[i + 1]);
-						printf ("  %s added as partition %d on unit $%02x\n",
-						partn_dirs[last_client][pn], pn, last_client);
+						strcpy ((char*)partn_dirs[curr_client][pn], (char*)&temp[i + 1]);
+						printf ("INIT client #%d:  %s added as partition %d\n", curr_client, partn_dirs[curr_client][pn], pn);
 						/* parse for .DHD sub-directories */
-						partn_dirtracks[last_client][pn] = -1;
-						partn_dirsectors[last_client][pn] = -1;
-						curr_dirtracks[last_client][pn] = -1;
-						curr_dirsectors[last_client][pn] = -1;
-						strcpy ((char*)path, (char*)partn_dirs[last_client][pn]);
+						partn_dirtracks[curr_client][pn] = -1;
+						partn_dirsectors[curr_client][pn] = -1;
+						curr_dirtracks[curr_client][pn] = -1;
+						curr_dirsectors[curr_client][pn] = -1;
+						strcpy ((char*)path, (char*)partn_dirs[curr_client][pn]);
 						ascii2petscii(path,strlen(path));
 						if (path[0] != '@') {
-							if (fs64_resolve_partition (partition, path, &partn_dirtracks[last_client][pn], &partn_dirsectors[last_client][pn])) {
+							if (fs64_resolve_partition (partition, path, &partn_dirtracks[curr_client][pn], &partn_dirsectors[curr_client][pn])) {
 								/* failed */
 								printf ("Invalid partition path for %d\n", pn);
 								fatal_error ("Invalid partition table\n");
 							}
-							curr_dirtracks[last_client][pn] = partn_dirtracks[last_client][pn];
-							curr_dirsectors[last_client][pn] = partn_dirsectors[last_client][pn];
-							debug_msg ("  (%s T%d S%d)\n", path,
-							partn_dirtracks[last_client][pn], partn_dirsectors[last_client][pn]);
-							free (partn_dirs[last_client][pn]);
-							if (!(partn_dirs[last_client][pn] = (uchar *) malloc (strlen (path) + 1 + PADDING))) {
+							curr_dirtracks[curr_client][pn] = partn_dirtracks[curr_client][pn];
+							curr_dirsectors[curr_client][pn] = partn_dirsectors[curr_client][pn];
+							//debug_msg ("  (%s T%d S%d)\n", path,partn_dirtracks[curr_client][pn], partn_dirsectors[curr_client][pn]);
+							free (partn_dirs[curr_client][pn]);
+							if (!(partn_dirs[curr_client][pn] = (uchar *) malloc (strlen (path) + 1 + PADDING))) {
 								/* couldnt malloc */
 								fatal_error ("Cannot allocate memory.");
 							}
-							strcpy ((char*)partn_dirs[last_client][pn], (char*)path);
+							strcpy ((char*)partn_dirs[curr_client][pn], (char*)path);
 						}
 					}
 				}
 			}
 			else if (!strncmp ("ip", (char*)temp,2)) {
-				strcpy ((char*)client_ip[last_client], (char*)&temp[3]);
-				chomp(client_ip[last_client]);
-				printf ("INIT: client IP set to %s\n", client_ip[last_client]);
+				strcpy ((char*)client_ip[curr_client], (char*)&temp[3]);
+				chomp(client_ip[curr_client]);
+				printf ("INIT client #%d: client IP set to %s\n", curr_client, client_ip[curr_client]);
 			}
 			else if (!strncmp ("mac", (char*)temp,3)) {
-				strcpy ((char*)client_mac[last_client], (char*)&temp[4]);
-				chomp(client_mac[last_client]);
-				printf ("INIT: client MAC set to %s\n", client_mac[last_client]);
+				strcpy ((char*)client_mac[curr_client], (char*)&temp[4]);
+				chomp(client_mac[curr_client]);
+				printf ("INIT client #%d: client MAC set to %s\n", curr_client, client_mac[curr_client]);
 			}
 			else if (!strncmp ("[client", (char*)temp, 7)) {
 				/* its a device line */
@@ -885,41 +862,18 @@ int read_client (FILE * cf) {
 	return (0);
 }
 
-int which_unit (int dev)
-{
-  /* return the network unit number for dev */
-  int i;
-
-  for (i = 0; i < MAX_CLIENTS; i++)
-  {
-    if ((dev & 0x1f) == devices[i])
-      return (i);
-  }
-
-  /* no luck */
-  return (-1);
-}
-
- int 
-set_drive_status (uchar *string, int len)
-{
-  /* set the drive message */
-  int d;
-
-  /* Only one drive at present */
-  /*   d=which_unit(last_drive); */
-  d = 0;
-
-  if (d < 0)
-    return (1);			/* no drive polled */
-
-  /* copy string */
-  memcpy (dos_status[d], string, len+1);
-
-  /* and set length */
-  dos_stat_len[d] = len;
-  //Fixed: need to set pos to 0!! TB
-  dos_stat_pos[d] = 0;
-  return (0);
+int set_drive_status (uchar *string, int len) {
+	/* set the drive message */
+	if(curr_client>=0 && curr_client<=last_client) {
+		/* copy string */
+		memcpy (dos_status[curr_client], string, len+1);
+	
+		/* and set length */
+		dos_stat_len[curr_client] = len;
+		//Fixed: need to set pos to 0!! TB
+		dos_stat_pos[curr_client] = 0;
+		return (0);
+	}
+	else return -1;
 }
 

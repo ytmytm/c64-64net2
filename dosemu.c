@@ -79,13 +79,17 @@ init_dos (void)
   /* BUGS: This module does not have access to the MAX_NET_DRVS #define
      so we employ this mucky work around */
 
-  for (i = 1; i < MAX_CLIENTS; i++)
-  {
-    curr_client = which_unit (i);
-    /* reset last_drive */
-    if (curr_client != -1)
-      reset_drive ();
-  }
+	for (i = 0; i <=last_client; i++) {
+		curr_client = i;
+		reset_drive ();
+	}
+//  for (i = 1; i < MAX_CLIENTS; i++)
+//  {
+//    curr_client = which_unit (i);
+//    /* reset last_drive */
+//    if (curr_client != -1)
+//      reset_drive ();
+//  }
   memset(drive_memory,0,MAX_CLIENTS*0x10000);
   for (i=0;i<MAX_CLIENTS;i++) {
     drive_memory[i][0x69]=0x08; 	/* interleave set */
