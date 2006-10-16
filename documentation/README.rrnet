@@ -29,7 +29,7 @@ You also need to iset the the IP and MAC-address (as well form teh client as fro
 
 4. MODIFYING THE C64 KERNAL
 
-Burn the patched kernal on a 27c64 EPROM or some pin-compatible flash or EEPROM like an 28C64. Now place the new kernal in your c64 (you'll need a kernal-adaptor for that, for example have a look at http://www.ihlaid.de/rom_adapter.html to see how to build your own), switch on your c64 and see if your link LED at your rr-net comes on. 
+You can find a kernal-image at wedge/orig/kernal.rrnet. Patch the releavnt adresses for mac and ip (described in wedge/orig/offets.rrnet) with your favourite hexeditor. Then burn the patched kernal on a 27c64 EPROM or some pin-compatible flash or EEPROM like an 28C64. Now place the new kernal in your c64 (you'll need a kernal-adaptor for that, for example have a look at http://www.ihlaid.de/rom_adapter.html to see how to build your own), switch on your c64 and see if your link LED at your rr-net comes on. 
 After installing the new Kernal the C64 should come up as usual. If there is any strange behaviour you might have done a mistake when burning the (E)EPROM or building the adapter. So better recheck your adapter or verify the content of the (E)EPROM.
 Also be aware that the modified kernal code needs some space and thus i have thrown out handling for rs232 interfaces and some tape routines. So loading from tape and rs232 will not work anymore. This is not a bug, but a great feature. Don't stick to outdated technologies while just installing the most forward one ;-)
 
