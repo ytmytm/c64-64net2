@@ -10,35 +10,35 @@ In the bin directory you will then find a bunch of executeables if the compilati
 
 2. CONFIGURATION
 
-Edit the 64netrc file, for example with vim.
-Most of all you need to set at least one valid path for a partition, for e.g. to your home directory. The rest should work fine with the set defaults.
+Edit the 64netrc file and add all clients you want to communicate with your 64net/2.
+An example for a client section is:
 
-for example: partition 1,/HOME/BITBREAKER/ to set the partition 1 (default partition) to /home/bitbreaker
+[client bitbreaker]				#Virtual name of client
+partition       1,/home/bitbreaker/files/	#where does the client start
+#partition      2,@/				#add more partitions if you like
+mac             00:00:00:64:64:64		#client's mac-adress
+ip              192.168.2.64			#client's ip-adress
 
 3. SETTING UP STATIC ARP ROUTE
 
-Get root privileges and add the arp resolve for our c64 manually by typing the command:
-arp -s [c64-ip] [c64-mac-address]
-This is just for the first try, later on oyu can do that automatic by a fitting init-script.
-
-The IP depends on your network setting, just give your c64 a free IP within your subnet. 
+64net2 sets the necessary arp entries on its own now, and removes them again when being shut down.
+The config file 64netrc has appropriate MAC and IP entries for each client for you to fill in.
+The IP depends on your network setting, so just give your c64 a free IP within your subnet. 
 Then choose some MAC-address that is not used in your network, maybe take one of a defective NIC to be on the safe side. The default is 00:00:00:64:64:64 that is rather fine for home use, but not if you happen to use it in a network where more than one rr-net cardridges operate this might bring you (and others) into trouble.
-
-You also need to patch the IP and MAC-address in the kernal image. There will be a programm avaliable soon, which spits out a readymade kernal and add the appropriate IP-addresses and MAC-addresses.
+You also need to iset the the IP and MAC-address (as well form teh client as from the server) in the kernal image. There will be a programm avaliable soon, which spits out a readymade kernal and add the appropriate IP-addresses and MAC-addresses.
 
 4. MODIFYING THE C64 KERNAL
 
 Burn the patched kernal on a 27c64 EPROM or some pin-compatible flash or EEPROM like an 28C64. Now place the new kernal in your c64 (you'll need a kernal-adaptor for that, for example have a look at http://www.ihlaid.de/rom_adapter.html to see how to build your own), switch on your c64 and see if your link LED at your rr-net comes on. 
 After installing the new Kernal the C64 should come up as usual. If there is any strange behaviour you might have done a mistake when burning the (E)EPROM or building the adapter. So better recheck your adapter or verify the content of the (E)EPROM.
-Also be aware that the modified kernal code needs some space and thus i have thrown out handling for rs232 interfaces and some tape routines. So loading form tape and rs232 will not work anymore. This is not a bug, but a great feature. Don't stick to outdated technologies while just installing the most forward one ;-)
+Also be aware that the modified kernal code needs some space and thus i have thrown out handling for rs232 interfaces and some tape routines. So loading from tape and rs232 will not work anymore. This is not a bug, but a great feature. Don't stick to outdated technologies while just installing the most forward one ;-)
 
 5. STARTING 64NET/2
 
-For a first try then start 64net/2 manuall by entering: 
+For a first try then start 64net/2 manuall by entering: ./bin/64net2 
+Be sure you have root-permissions, as 64net needs to set up the static arp route and else fails.
 
-./bin/64net2 
-
-Now there should appear something like and the shell-prompt should not occur (unless you kill the programm with ctrl-c):
+Now there should appear something like the following and the shell-prompt should not occur (unless you kill the programm with ctrl-c):
 
 64net:/home/bitbreaker/server# ./bin/64net2
 64NET/2 server V01.00 ALPHA
@@ -104,7 +104,6 @@ For more convenience add the following script to your startupscripts: (you can a
 PATH=/bin:/usr/bin:/sbin:/usr/sbin:/home/bitbreaker/server/
 DAEMON=/home/bitbreaker/server/bin/64net2
 WORKINGDIR=/home/bitbreaker/server
-DIROWNER=bitbreaker
 C64IP="192.168.2.64"
 C64MAC="00:00:00:64:64:64"
 
@@ -115,20 +114,20 @@ OPTIONS=""
 case "$1" in
   start)
         echo -n "Starting c64-fileserver: 64net "
-        if start-stop-daemon --quiet --stop --signal 0 --chdir $WORKINGDIR --chuid $DIROWNER --exec $DAEMON
+        if start-stop-daemon --quiet --stop --signal 0 --chdir $WORKINGDIR --exec $DAEMON
         then
                 echo "[already running]"
         else
                 arp -s $C64IP $C64MAC
-                /sbin/start-stop-daemon -b --start --quiet --chdir $WORKINGDIR --chuid $DIROWNER --exec $DAEMON -- $OPTIONS
+                /sbin/start-stop-daemon -b --start --quiet --chdir $WORKINGDIR --exec $DAEMON -- $OPTIONS
                 echo "."
         fi
         ;;
   stop)
         echo -n "Stopping c64-fileserver: 64net "
-        if start-stop-daemon --quiet --stop --signal 0 --chdir $WORKINGDIR --chuid $DIROWNER --exec $DAEMON
+        if start-stop-daemon --quiet --stop --signal 0 --chdir $WORKINGDIR --exec $DAEMON
         then
-                start-stop-daemon --quiet --stop --chdir $WORKINGDIR --chuid $DIROWNER --exec $DAEMON
+                start-stop-daemon --quiet --stop --chdir $WORKINGDIR --exec $DAEMON
                 echo "."
         else
                 echo "[not running]";
