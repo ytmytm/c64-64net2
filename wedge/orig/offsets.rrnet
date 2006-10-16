@@ -1,0 +1,4 @@
+$18BD	6 bytes: mac-adress 64net/2-server
+$18C3	6 bytes: mac-adress client
+$18D7	4 bytes: ip-adress client in hex
+$18D3	4 bytes: ip-adress server in hex
