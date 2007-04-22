@@ -541,11 +541,13 @@ void send_packet(struct packet* p) {
 			transferred_amount[curr_client]+=p->size;
 		break;
 		default:								//other packets, just do code, data
+		//	sleep(1);
 			reply[0]=p->type;
 			reply[1]=p->data[0];
-			size=p->size+1;
+			size=p->size+2;
 		break;
 	}
+	if(size<32) size=32;	//gna. Avoid that too small packets are thrown away. Actually this somehow happens with packets that have 15 or 14 bytes payload. So this sucks rather hard :-(
 		
 	sendto(sendfd[curr_client], reply,size, 0, (struct sockaddr *) &sender[curr_client], sizeof(sender[curr_client]));
 #ifdef DEBUG_COMM
