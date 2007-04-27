@@ -10,9 +10,7 @@
 #include "fs.h"
 #include "comm-rrnet.h"
 #include "client-comm.h"
-#include "fs_accel.h"
 #include "misc_func.h"
-#include "comm-work.h"
 #include "datestamp.h"
 #include "dosemu.h"
 #include "arp.h"
@@ -547,7 +545,7 @@ void send_packet(struct packet* p) {
 			size=p->size+2;
 		break;
 	}
-	if(size<32) size=32;	//gna. Avoid that too small packets are thrown away. Actually this somehow happens with packets that have 15 or 14 bytes payload. So this sucks rather hard :-(
+//if(size<32) size=32;	//gna. Avoid that too small packets are thrown away. Actually this somehow happens with packets that have 15 or 14 bytes payload. So this sucks rather hard :-(
 		
 	sendto(sendfd[curr_client], reply,size, 0, (struct sockaddr *) &sender[curr_client], sizeof(sender[curr_client]));
 #ifdef DEBUG_COMM
@@ -695,15 +693,10 @@ int read_config (char *file) {
 		/* its a real line of stuff */
 			if (!strncmp ("port ", (char*)temp, 4)) {
 				/* its a port line */
-#ifdef AMIGA
-				printf ("INIT: Using internal parallel port\n");
-				strcpy ((char*)port, (char*)&temp[5]);
-#else
 				strcpy ((char*)port, (char*)&temp[5]);
 				/* chop CR/LF */
 				chomp(port);
 				printf ("INIT: Communication port set to %s\n", port);
-#endif
 			}
 			/* deprecated, will be ignored anyway, hmm */
 			else if (!strncmp ("path ", (char*)temp, 4)) {

@@ -63,7 +63,7 @@ main (int argc, char **argv)
 
     printf ("64NET/2 server %s\n",server_version());
     /* read config info */
-    read_config ("./64netrc");
+    read_config ("/etc/64net.conf");
     /* initialize dos */
     init_dos ();
     /* all ready, be cute */

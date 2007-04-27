@@ -36,7 +36,7 @@ int
 main (int argc, char **argv)
 {
   int ch;
-  char *config_file="64netrc";
+  char *config_file="/etc/64net.conf";
   
   signal(SIGINT, sigint);
   signal(SIGTERM, sigterm); 

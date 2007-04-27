@@ -29,8 +29,8 @@ COPT=-g -O $(CFLAGS) -Wall
 .PHONY: all clean spotless depend dep
 
 ifeq (.depend,$(wildcard .depend))
-all : 	bin/64net2 bin/64rm bin/64ls bin/64list bin/64cat \
-	bin/64shell bin/build_wedge
+all : 	bin/64net2 bin/64rm bin/64ls bin/64list bin/64cat bin/64shell \
+#	bin/build_wedge
 include .depend
 else
 all:	depend
@@ -89,7 +89,7 @@ bin/build_wedge:	tools/build_wedge.o
 #
 
 clean:
-	-rm *.o *.a tools/*.o .depend bin/*
+	-rm *.o *.a .depend bin/*
 
 spotless: clean
 	-rm bin/*

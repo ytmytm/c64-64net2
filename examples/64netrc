@@ -1,6 +1,5 @@
-
 # The LPT port address to communicate on (interpreted as hex number)
-port /dev/parport0
+# port /dev/parport0
 
 # or if you are using serial cable place correct device below
 # port /dev/ttyS1
@@ -37,14 +36,8 @@ debug mode
 #   means using /'s and case inversion.
 device
 number 9
-#partition 1,TESTDIR/
-#partition 1,/OPT/64NET2/CBIN/
-#partition 1,/HOME/BITBREAKER/DLD/
 partition 1,/HOME/BITBREAKER/FILES/
-#partition 1,/OPT/C64/TEST.D64
-#partition 1,/TMP/LUNIX64.D64
-#partition 2,/HOME/MACIEK/
-partition 3,@/
+partition 1,/HOME/BITBREAKER/FILES/TEST.D64
 end
 
 # Add partition 2 of each device to the auto-search path for LOAD commands.
