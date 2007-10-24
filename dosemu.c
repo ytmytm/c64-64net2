@@ -105,6 +105,7 @@ do_dos_command (void)
   int i = curr_client, dt = -1, ds = -1;
   /* scratch vars */
   int j, k, par, rv;
+  unsigned int a,start;
   uchar path[1024], partition[8];
   uchar temp[1024];
   uchar name[80], id[80];
@@ -787,8 +788,22 @@ do_dos_command (void)
 	  if (dos_comm_len[i] == 2)
 	  {
 	    /* return current dir in status */
-	    sprintf ((char*)temp, "%02d,%s,%02d,%02d\r",
-		     0, (char *) curr_dir[i][curr_par[i]], 0, 0);
+		  //strcpy((char*)fname,(char*)name);
+		  //petscii2ascii(fname,strlen(fname));
+				  
+		strcpy((char*)temp,(char*)curr_dir[i][curr_par[i]]);
+		start=strlen((char*)partn_dirs[i][curr_par[i]]);
+		path[0]='/';
+		for(a=start;a<strlen(temp);a++) {
+			path[a-start+1]=temp[a];
+		}
+		path[a-start+1]='\0';
+		ascii2petscii(path,strlen(path));
+		printf((char*)path);
+		printf("\n");
+	    //sprintf ((char*)temp, "%02d,%s,%02d,%02d\r",0, (char*) ascii2petscii(cd,strlen(cd)), 0, 0);
+	    sprintf ((char*)temp, "%02d,%s,%02d,%02d\r",0, path, 0, 0);
+	//sprintf ((char*)temp, "%02d,%s,%02d,%02d\r",0, ascii2petscii((uchar *) curr_dir[i][curr_par[i]],strlen((uchar *) curr_dir[i][curr_par[i]])), 0, 0);
 	    set_drive_status (temp, strlen (temp));
 	    dos_comm_len[i] = 0;
 	    return (0);
